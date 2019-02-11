@@ -1,0 +1,4 @@
+conda install pandas
+conda install -c conda-forge nilearn  heudienv matplotlib pymvpa2 pysurfer
+conda install -c anaconda scikit-learn pprocess
+
