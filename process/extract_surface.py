@@ -62,6 +62,7 @@ targets = []
 accuracy = []
 events = []
 trials = []
+blocks = []
 time_coords = np.arange(nvols)*TR
 chunks = np.concatenate([x*np.ones(nvols) for x in np.arange(4)])
 trial_time = []
@@ -88,6 +89,7 @@ for run in np.arange(1, 5):
         mytrials.append({'duration': trial_duration, 
                          'onset': row.fixation, 
                          'trial': row.trial,
+                         'block': row.block,
                          'target': str(row.seq_type),
                          'accuracy': row.accuracy})
  
@@ -108,6 +110,9 @@ for run in np.arange(1, 5):
 
     trials.extend(events2sample_attr(mytrials, time_coords, noinfolabel=-1,
                                   onset_shift=0.0, condition_attr='trial'))
+
+    blocks.extend(events2sample_attr(mytrials, time_coords, noinfolabel=-1,
+                                  onset_shift=0.0, condition_attr='block'))
     
     trial_time.extend(time_coords - onsets)
 
@@ -120,17 +125,19 @@ fds = fmri_dataset(samples = epi_fn,
 
 fds.sa.time_coords = trial_time
 fds.sa['trials'] = trials
+fds.sa['blocks'] = blocks
 fds.sa['events'] = events
 fds.sa['accuracy'] = accuracy
+fds.sa['trial_time'] = trial_time
 poly_detrend(fds, polyord=1, chunks_attr='chunks')
-fds = fds[fds.sa.events == 'execution']
+#fds = fds[fds.sa.events == 'execution']
 
 
 fds_effects = fmri_dataset(samples = effects_fn,
                    targets =  sequences.seq_type, 
                    chunks = sequences.run,
                    mask = mask)
-fds_effects.sa.accuracy = sequences.accuracy
+fds_effects.sa['accuracy'] = sequences.accuracy
 
    
 
@@ -145,8 +152,9 @@ if hemi == 'lh':
 else:
     vertices = {'preSMA': 171861, 
                 'STS': 67975,
-                'occipital':17037,
-                'occipital2':10876}
+                'occipital_superior':32430,
+                'occipital_inferior':17850,
+                'SMT': 71574}
 
 def plot_vertex(vertex, label, fds, fds_effects):
 #    label = 'occipital'
@@ -166,53 +174,61 @@ def plot_vertex(vertex, label, fds, fds_effects):
 
     fds_red = fds_effects[fds_effects.chunks == 4 ]
     #use new class
-    fds_pca = pca.fit_transform(fds_red.samples)
+    fds_pca = pca.fit_transform(fds_effects.samples)
+    fds_pca_red = fds_pca[fds_effects.chunks == 4 ]
     pl.plot(pca.explained_variance_ratio_)  
     pl.xlim((0, NCOMPS))
     
     dist_matrix = rsa.pdist(fds_red, metric='correlation')
-    dist_matrix_pca = rsa.pdist(fds_pca, metric='correlation')
+    dist_matrix_pca = rsa.pdist(fds_pca_red, metric='correlation')
     meanRDM, within, between = get_RDM_metric(dist_matrix, 'correlation', fds_red.targets) 
     meanRDM_pca, within_pca, between_pca = get_RDM_metric(dist_matrix_pca, 'correlation', fds_red.targets) 
     
     pl.figure
+    pl.subplot(1, 2, 1)
     pl.imshow(meanRDM)
-
-    pl.figure
+    pl.subplot(1, 2, 2)
     pl.imshow(meanRDM_pca)
+    pl.savefig(os.path.join(datapath, 'results', 'matrix-%s.png'%(label)))       
     
-    colors = {'1': 'b', '2': 'g', '3': 'k', '4':'r'}
+    colors = {1: 'b', 2: 'g', 3: 'r', 4:'k'}
 #    markers = ['o', 'v', '+', 's']
-    fds_red = fds
-    pl.figure(figsize=(7, 5), dpi=100)   
+    pl.figure(figsize=(15, 10), dpi=300)   
     for t, target in enumerate(np.unique(fds_red.targets)):
             sel = np.logical_and(fds_red.targets == target, fds_red.sa.accuracy == 1)   
 #            sel = np.logical_and(fds_red.chunks == 2, sel)   
-            std = np.std(fds_pca[sel , :], axis = 0) 
-            mean = np.mean(fds_pca[sel , :], axis = 0) 
-            pl.plot(mean, color = colors[t])   
-            pl.plot(fds_pca[sel , :].T, color = colors[t], linewidth = 0.2)   
+            std = np.std(fds_pca_red[sel , :], axis = 0) 
+            mean = np.mean(fds_pca_red[sel , :], axis = 0) 
+            pl.plot(mean, color = colors[target])   
+            pl.plot(fds_pca_red[sel , :].T, color = colors[target], linewidth = 0.2)   
             pl.errorbar(x = np.arange(len(mean)), y = mean, yerr = std, fmt = 'o')
+    pl.savefig(os.path.join(datapath, 'results', 'PCA-%s.png'%(label)))       
     
-    mtgs = mean_group_sample(['targets', 'chunks'])
-    fds_mean = mtgs(fds[fds.sa.trials > 0, fd_indices])
+#    mtgs = mean_group_sample(['targets', 'chunks'])
+#    fds_mean = mtgs(fds[fds.sa.trials > 0, fd_indices])
+    fdsz = fds[:, fd_indices]
+    zscore(fdsz, chunks_attr='chunks', param_est=('events', ['rest']),
+            dtype='float32')
+    
+    X = fdsz.samples
 
-    X = fds_mean.samples
-    pl.figure(figsize=(15, 9), dpi=300)
-
-    for chunk in np.unique(fds_mean.chunks):
-        pl.subplot(1, 4, chunk)
-        for trial in range(1, 6):
-            for target in ['1', '2', '3', '4']:
-                sel = np.logical_and(fds_mean.chunks == chunk, fds_mean.targets == target) 
-                if np.sum(sel): 
-                    pl.plot(fds_mean.sa.time_coords[sel], np.mean(X[sel,  :], axis = 1), color = colors[target])
-                    pl.xlim((0, 25))
-                    pl.ylim((-1, 2))
-                    pl.axvline(x=1.0, linestyle = '--', color = 'k') # fixation   
-                    pl.axvline(x=3.8, linestyle = '--', color = 'k') # execution  
-                    pl.axvline(x=7.3, linestyle = '--', color = 'k') # end of execution 
-                    pl.axhline(y=0.0, linestyle = '--', color = 'g')   
+    pl.figure(figsize=(15, 10), dpi=300)
+    colors = {'1': 'b', '2': 'g', '3': 'r', '4':'k'}
+    for chunk in np.unique(fds.chunks):
+        pl.subplot(1, 4, chunk + 1)
+#        for trial in range(1, 6):
+        for target in ['1', '2', '3']:
+            sel = np.logical_and(fds.chunks == chunk, fds.targets == target) 
+            if np.sum(sel): 
+                df = pd.DataFrame({'t': np.round(fds.sa.trial_time[sel], 1), 'x': np.mean(X[sel, :], axis = 1)})
+                df = df.groupby('t').mean()
+                pl.plot(df.index, df.x, color = colors[target])
+                pl.xlim((0, 25))
+                pl.ylim((-1, 1))
+                pl.axvline(x=1.0, linestyle = '--', color = 'k') # fixation   
+                pl.axvline(x=3.8, linestyle = '--', color = 'k') # execution  
+                pl.axvline(x=7.3, linestyle = '--', color = 'k') # end of execution 
+                pl.axhline(y=0.0, linestyle = '--', color = 'g')   
                     
         pl.savefig(os.path.join(datapath, 'results', 'timecourses-%s.png'%(label)))       
 

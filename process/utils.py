@@ -34,18 +34,23 @@ def get_invcompactness_chunk(x, metric, targets):
     between_values = {} 
     
     for i, elementi in enumerate(elements):
-        within_values[elementi] = []
-        between_values[elementi] = [] 
+        seli = targets == elementi 
+        M = np.sum(seli)
+
+        if M > 1:
+            within_values[elementi] = []
+            between_values[elementi] = [] 
         
-        for j, elementj in enumerate(elements):
-                seli = targets == elementi 
+            for j, elementj in enumerate(elements):
                 selj = targets == elementj 
                 if i != j:
-                    between_values[elementi].append(RDM[seli, :][:, selj].ravel())
+                    if np.sum(selj) > 0:
+                        X = RDM[seli, :][:, selj].ravel()
+                        between_values[elementi].append(X)
                 else:
-                    M = np.sum(seli)
-                    within_values[elementi].append(RDM[seli, :][:, seli][np.tril_indices(M, k = -1)])
-                
+                    X = RDM[seli, :][:, seli][np.tril_indices(M, k = -1)]
+                    within_values[elementi].append(X)
+    
     return(within_values, between_values)
     
 def get_RDM_metric(x, metric, targets):
@@ -219,16 +224,68 @@ def get_invcompactness_chunk_map(x, *args):
     return(get_invcompactness_chunk(x, args[0], args[1], args[2]))
 
 
+class PClassifier(PDist):
+
+    def __init__(self, 
+                 classifier,
+                 mapper = None, 
+                 NCOMPS = 10, 
+                 filter_accuracy = False,
+                 accuracy = 0, 
+                 **kwargs):
+        self.classifier = classifier
+        self.mapper = mapper
+        self.filter_accuracy = filter_accuracy     
+        self.correct = accuracy == 1
+        self.pca = PCA(n_components = NCOMPS, whiten = False)
+        super(PDist, self).__init__(**kwargs)
+        
+    def _call(self, ds):
+
+        mapped_ds = self.mapper(ds)
+        data = mapped_ds.samples
+        # remove constant columns
+        constantcols = np.all(data[1:] == data[:-1], axis=0)
+        data = data[:, ~constantcols]
+        if np.sum(constantcols)>0:
+            print(np.sum(constantcols))
+        try:
+            data_pca = self.pca.fit_transform(data)
+            
+            if self.filter_accuracy:
+                data_pca = data_pca[self.correct]
+                chunks = ds.chunks[self.correct]
+                targets = ds.targets[self.correct]
+            else:
+                chunks = ds.chunks
+                targets = ds.targets
+   
+            data_red = Dataset(data_pca, 
+                               sa={'chunks': chunks, 'targets': targets})
+            
+            out = self.classifier(data_red)
+
+        except LinAlgError:
+            print("PCA did not converge!")
+            out = Dataset(np.zeros((len(np.unique(ds.targets[self.correct])), 1)))           
+            
+#        print(out.samples)          
+        return out
+
+
+
 class Pinvcompactness(PDist):
 
     def __init__(self, 
                  mapper = None, 
                  NCOMPS = 10, 
                  filter_accuracy = False,
+                 accuracy = 0,
                  **kwargs):
 
         self.mapper = mapper
-        self.filter_accuracy = filter_accuracy
+        self.filter_accuracy = filter_accuracy     
+        self.correct = accuracy == 1
         self.pca = PCA(n_components = NCOMPS, whiten = False)
         super(Pinvcompactness, self).__init__(**kwargs)
 
@@ -245,44 +302,53 @@ class Pinvcompactness(PDist):
             data_pca = self.pca.fit_transform(data)
             
             if self.filter_accuracy:
-                print(data_pca.shape)
-                data_pca = data_pca[ds.sa.accuracy == 1]
-                print(data_pca.shape)
+                data_pca = data_pca[self.correct]
+                chunks = ds.chunks[self.correct]
+                targets = ds.targets[self.correct]
+            else:
+                chunks = ds.chunks
+                targets = ds.targets
+#                print(data_pca.shape)
     
-            unique_chunks = np.unique(ds.chunks) 
+            unique_chunks = np.unique(chunks) 
             Nchunks = len(unique_chunks)
             within_mean = {}
             between_mean = {}
     
             for k, chunk in enumerate(unique_chunks):
-                ds_chunk = data_pca[ds.chunks == chunk]
+                ds_chunk = data_pca[chunks == chunk]
                 dsm = pdist(ds_chunk, 
                         metric=self.params.pairwise_metric)
                 within, between = get_invcompactness_chunk(dsm, 
                                    self.params.pairwise_metric, 
-                                   ds.targets[ds.chunks == chunk])
-                
+                                   targets[chunks == chunk])
                 
                 if k == 0:
-                    within_values = within
-                    between_values = between
+                    within_values = {}
+                    between_values = {}
                     
-                else:
-                    for key in within_values.keys():
-                        within_values[key] = np.concatenate((within_values[key], 
-                                     within[key])) 
-                        between_values[key] = np.concatenate((between_values[key], 
-                                      between[key])) 
+                for key in within.keys():
+                    if key in within_values.keys():
+                        within_values[key] = within_values[key] + within[key]
+                    else:
+                        within_values[key] = within[key]
+
+                            
+                for key in between.keys():
+                    if key in between_values.keys():
+                        between_values[key] = between_values[key] + between[key]
+                    else:
+                        between_values[key] = between[key]
                     
             for key in within_values.keys():
-                
-                within_mean[key] = np.nanmean(np.concatenate(within_values[key]))
+                within_mean[key] = np.nanmean(np.concatenate(within_values[key]))                        
                 between_mean[key] = np.nanmean(np.concatenate(between_values[key]))
-            invcompactness = np.mean(np.array(within_mean.values())/
-                                     np.array(between_mean.values()))
+                      
+            invcompactness = np.mean(np.array(between_mean.values())-
+                                     np.array(within_mean.values()))
         except LinAlgError:
-            print("Did not converge")
-            print(data)
+            print("PCA did not converge!")
+ #           print(data)
             invcompactness = 0
         out = Dataset(np.array((invcompactness,)))
         return out

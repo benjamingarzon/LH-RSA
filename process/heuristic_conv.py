@@ -19,22 +19,23 @@ def infotodict(seqinfo):
     sequence = create_key('func/sub-{subject}_task-sequence_run-{item:02d}_bold')    
     fmap = create_key('fmap/sub-{subject}_epi')
     
-    #info = {t1:[], sequence:[], fmap:[]}
-    info = {t1:[]}
+    info = {t1:[], sequence:[], fmap:[]}
+    #info = {fmap:[]}
     
     for idx, s in enumerate(seqinfo):
         print(idx, s)
-        if (s.dim3 == 225) and (s.dim4 == 1) and ('T1 Volume' in s.protocol_name):
+#        if (s.dim3 == 225) and (s.dim4 == 1) and ('T1 Volume' in s.protocol_name):
+        if (s.dim4 == 1) and ('901' in s.series_id):
             info[t1] = [s.series_id]
-#        if (s.dim3 == 22440) and ('1101' in s.series_id):
-#            info[sequence].append({'item': s.series_id})
-#        if (s.dim3 == 22440) and ('1201' in s.series_id):
-#            info[sequence].append({'item': s.series_id})
-#        if (s.dim3 == 22440) and ('1301' in s.series_id):
-#            info[sequence].append({'item': s.series_id})
-#        if (s.dim3 == 22440) and ('1401' in s.series_id):
-#            info[sequence].append({'item': s.series_id})
-#        if ('501' in s.series_id):
-#            info[fmap] = [s.series_id]
+        if (s.dim3 == 22440) and ('801' in s.series_id):
+            info[sequence].append({'item': s.series_id})
+        if (s.dim3 == 22440) and ('1001' in s.series_id):
+            info[sequence].append({'item': s.series_id})
+        if (s.dim3 == 22440) and ('1201' in s.series_id):
+            info[sequence].append({'item': s.series_id})
+        if (s.dim3 == 22440) and ('1301' in s.series_id):
+            info[sequence].append({'item': s.series_id})
+        if ('501' in s.series_id) and ('B0map' in s.protocol_name):
+            info[fmap] = [s.series_id]
 
     return info

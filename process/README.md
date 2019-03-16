@@ -1,27 +1,41 @@
-b"""
-Created on Tue Jan  8 10:37:53 2019
 
-@author: benjamin.garzon
-"""
+fix in line 168
+		try:
+                    fp.write('\t'.join([str(val) for val in seq]) + '\n')
+		except UnicodeEncodeError:
+		    print(seq)
+		    print("Recoding")
+                    fp.write('\t'.join([str(val.encode('utf-8')) if not isinstance(val, (int, float,tuple)) else str(val) for val in seq]) + '\n')
 
 look at timecourses, return to baseline
+
+organize responses
+correct LSS
+run with and without PCA, keep it simple, with and without derivatives
+fMRI = shorter runs, more trials, random ITI, no locking
+fix problem with sessions of different subject
+for i in */sub-105*; do mv $i `echo $i | sed 's/sub-105/sub-105.1/g'`; done
 
 
 xx1. test folder
 xx2. use tstat
 xx3. add pca
+
 4. larger radius : 20
-
-
 add midthickness
+
+ridge with multilabel
+amplify correlation
+
+
 
 xxuse cortex labels
 mixture of gaussians and compare IC
-do surface based fMRI analysis
+do surface based fMRI analysis and use activation sites as mask
 xxdo 'prewhitening'
 permutation and rsa
 
-are some maps 0??
+are some maps 0?? no, open again with freesurfer
 
 
 

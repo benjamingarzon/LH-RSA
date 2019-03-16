@@ -1,4 +1,21 @@
-conda install pandas
-conda install -c conda-forge nilearn  heudienv matplotlib pymvpa2 pysurfer
-conda install -c anaconda scikit-learn pprocess
+
+conda create --name lhenv3
+conda activate lhenv3
+conda install -y python=3.6
+conda install -y pandas spyder
+conda install -y -c conda-forge heudiconv
+conda install -y -c conda-forge nilearn  matplotlib pymvpa2 pysurfer glmnet rpy2 
+conda install -y -c anaconda scikit-learn
+conda install -c r r-glmnet
+pip install pprocess
+
+conda create --name lhenv2
+conda activate lhenv2
+conda install -y python=2.7
+conda install -y -c conda-forge heudiconv
+conda install -y -c conda-forge nilearn  matplotlib pymvpa2 pysurfer glmnet rpy2 
+conda install -y -c anaconda scikit-learn
+conda install -c r r-glmnet
+conda install -y pandas spyder
+pip install pprocess
 
