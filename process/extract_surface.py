@@ -37,15 +37,15 @@ if False:
     radius = float(sys.argv[5]) # 'rh'
     
 else:    
-    datapath = '/home/benjamin.garzon/Data/LeftHand/Lundpilot1/fmriprep/analysis/sub-102'
-    sequences_fn = '/home/benjamin.garzon/Data/LeftHand/Lundpilot1/responses/sub-102/sequences.csv'
-    label_fn = '/home/benjamin.garzon/Data/LeftHand/Lundpilot1/fmriprep/freesurfer/sub-102/label/rh.cortex.label'
+    datapath = '/home/benjamin.garzon/Data/LeftHand/Lundpilot1/fmriprep/analysis/sub-105/ses-1/'
+    sequences_fn = '/home/benjamin.garzon/Data/LeftHand/Lundpilot1/responses/sub-105/ses-1/sequences.csv'
+    label_fn = '/home/benjamin.garzon/Data/LeftHand/Lundpilot1/fmriprep/freesurfer/sub-105/label/rh.cortex.label'
     hemi = 'rh'
-    radius = 10.0
+    radius = 15.0
     labels = pd.read_csv(label_fn, sep = '\s+', skiprows = 2, header = None)
     nvols = 510
     TR = 1.2
-    duration_offset = 5.0
+    duration_offset = 4.9#5.0
     
 epi_fn = os.path.join(datapath, 'data.nii.gz')
 effects_fn = os.path.join(datapath, 'effects.nii.gz')
@@ -66,7 +66,7 @@ blocks = []
 time_coords = np.arange(nvols)*TR
 chunks = np.concatenate([x*np.ones(nvols) for x in np.arange(4)])
 trial_time = []
-for run in np.arange(1, 5):
+for run in np.unique(sequences.run):
     sequences_run = sequences.loc[ sequences.run == run, :]
 
     myevents = []
@@ -144,17 +144,13 @@ fds_effects.sa['accuracy'] = sequences.accuracy
 
 if hemi == 'lh':
     vertices = {'premotor': 129336,
-            'visual': 38712,
-            'SMA': 134859,
+            'visual': 405,
             'control': 85199,# temporal
-            'control2': 95936,# subcortical
             'somatosensory': 68135}
 else:
-    vertices = {'preSMA': 171861, 
-                'STS': 67975,
-                'occipital_superior':32430,
-                'occipital_inferior':17850,
-                'SMT': 71574}
+    vertices = {'visual': 405, 
+                'somatosensory': 85615,
+                'control': 109506}
 
 def plot_vertex(vertex, label, fds, fds_effects):
 #    label = 'occipital'
@@ -165,35 +161,42 @@ def plot_vertex(vertex, label, fds, fds_effects):
     roi_indices = qe.voxsel.volgeom.lin2ijk(qe.voxsel[vertex])
     fd_indices = np.concatenate([ np.where([ np.array_equal(x, y) for x in fds.fa.voxel_indices]) for y in roi_indices ]).ravel()
     
+    # clean accuracy
     # extract data and remove outside of valid trials 
     fds_effects = fds_effects[:, fd_indices]
     NCOMPS = 10
     pca = PCA(n_components = NCOMPS, whiten = False)
-
-#    for t, target in enumerate(np.unique(fds_red.chunks)):
-
-    fds_red = fds_effects[fds_effects.chunks == 4 ]
-    #use new class
-    fds_pca = pca.fit_transform(fds_effects.samples)
-    fds_pca_red = fds_pca[fds_effects.chunks == 4 ]
-    pl.plot(pca.explained_variance_ratio_)  
-    pl.xlim((0, NCOMPS))
+    nels = len(np.unique(fds_effects.targets))
+    meanRDMs = np.zeros((nels, nels))
+    meanRDMs_pca = np.zeros((nels, nels))
     
-    dist_matrix = rsa.pdist(fds_red, metric='correlation')
-    dist_matrix_pca = rsa.pdist(fds_pca_red, metric='correlation')
-    meanRDM, within, between = get_RDM_metric(dist_matrix, 'correlation', fds_red.targets) 
-    meanRDM_pca, within_pca, between_pca = get_RDM_metric(dist_matrix_pca, 'correlation', fds_red.targets) 
+    for chunkind, chunk in enumerate(np.unique(fds_effects.chunks)):
+
+        fds_red = fds_effects[fds_effects.chunks == chunk ]
+    #use new class
+        fds_pca = pca.fit_transform(fds_effects.samples)
+        fds_pca_red = fds_pca[fds_effects.chunks == chunk ]
+        pl.plot(pca.explained_variance_ratio_)  
+        pl.xlim((0, NCOMPS))
+    
+        dist_matrix = rsa.pdist(fds_red, metric='correlation')
+        dist_matrix_pca = rsa.pdist(fds_pca_red, metric='correlation')
+        meanRDM, within, between = get_RDM_metric(dist_matrix, 'correlation', fds_red.targets)
+        meanRDM_pca, within_pca, between_pca = get_RDM_metric(dist_matrix_pca, 'correlation', fds_red.targets)
+        meanRDMs = meanRDMs + meanRDM/len(np.unique(fds_effects.chunks))
+        meanRDMs_pca = meanRDMs_pca + meanRDM_pca/len(np.unique(fds_effects.chunks))
     
     pl.figure
     pl.subplot(1, 2, 1)
-    pl.imshow(meanRDM)
+    pl.imshow(meanRDMs)
     pl.subplot(1, 2, 2)
-    pl.imshow(meanRDM_pca)
+    pl.imshow(meanRDMs_pca)
     pl.savefig(os.path.join(datapath, 'results', 'matrix-%s.png'%(label)))       
     
     colors = {1: 'b', 2: 'g', 3: 'r', 4:'k'}
-#    markers = ['o', 'v', '+', 's']
+        #    markers = ['o', 'v', '+', 's']
     pl.figure(figsize=(15, 10), dpi=300)   
+        
     for t, target in enumerate(np.unique(fds_red.targets)):
             sel = np.logical_and(fds_red.targets == target, fds_red.sa.accuracy == 1)   
 #            sel = np.logical_and(fds_red.chunks == 2, sel)   
@@ -204,6 +207,7 @@ def plot_vertex(vertex, label, fds, fds_effects):
             pl.errorbar(x = np.arange(len(mean)), y = mean, yerr = std, fmt = 'o')
     pl.savefig(os.path.join(datapath, 'results', 'PCA-%s.png'%(label)))       
     
+# ADD ALL
 #    mtgs = mean_group_sample(['targets', 'chunks'])
 #    fds_mean = mtgs(fds[fds.sa.trials > 0, fd_indices])
     fdsz = fds[:, fd_indices]
@@ -232,6 +236,8 @@ def plot_vertex(vertex, label, fds, fds_effects):
                     
         pl.savefig(os.path.join(datapath, 'results', 'timecourses-%s.png'%(label)))       
 
+
+#########
     if False:
         svm = LinearCSVMC()    
     #    ridge = RidgeReg()
@@ -260,10 +266,10 @@ def plot_vertex(vertex, label, fds, fds_effects):
                              null_dist=distr_est,
                              enable_ca=['stats'])
     
-        cv_mc = CrossValidation(svm, partitioner,
-                         errorfx=mean_mismatch_error,
-                         null_dist=distr_est,
-                         enable_ca=['stats'])
+#        cv_mc = CrossValidation(svm, partitioner,
+#                         errorfx=mean_mismatch_error,
+#                         null_dist=distr_est,
+#                         enable_ca=['stats'])
         # run
         
         results_clf = cv_mc(fds) 
@@ -276,7 +282,7 @@ def plot_vertex(vertex, label, fds, fds_effects):
     
         pl.hist(fds.samples)
 
-        stophere
+        
     if False:
         #compute matrix and aggregate across trials
         dist_matrix = squareform(rsa.pdist(fds, metric='euclidean'))
@@ -363,7 +369,7 @@ def plot_vertex(vertex, label, fds, fds_effects):
 for region in vertices.keys():
     plot_vertex(vertices[region], region, fds, fds_effects)
 
-
+stophere 
 # Look at this pattern
 #plot_mtx(squareform(sl_rsa_fds1.samples[:, index]),
 #         fds1.sa.targets,
