@@ -25,7 +25,7 @@ def myarctanh(x):
 
 def get_invcompactness_chunk(x, metric, targets):
     RDM = squareform(x)
-    if metric != 'euclidean':
+    if metric == 'correlation':
         RDM = myarctanh(1 - RDM)
 
     elements = np.unique(targets)
@@ -80,14 +80,12 @@ def get_RDM_metric(x, metric, targets):
     within = np.nanmean(np.concatenate(within_values))
     between = np.nanmean(np.concatenate(between_values))
         
-    if metric == 'correlation':
-        meanRDM = 1 - np.tanh(meanRDM)
-        within = 1 - np.tanh(within)
-        between = 1 - np.tanh(between)
+#    if metric == 'correlation':
+#        meanRDM = 1 - np.tanh(meanRDM)
+#        within = 1 - np.tanh(within)
+#        between = 1 - np.tanh(between)
     
     return(meanRDM, within, between)    
-
-
 
 def get_invcompactness(x, *args):
     meanRDM, within, between = get_RDM_metric(x, args[0], args[1])
@@ -343,13 +341,25 @@ class Pinvcompactness(PDist):
             for key in within_values.keys():
                 within_mean[key] = np.nanmean(np.concatenate(within_values[key]))                        
                 between_mean[key] = np.nanmean(np.concatenate(between_values[key]))
-                      
-            invcompactness = np.mean(np.array(between_mean.values())-
-                                     np.array(within_mean.values()))
+                                     
+            if self.params.pairwise_metric == 'correlation':
+                invcompactness = np.mean(
+                        (1 - np.tanh(np.array(between_mean.values())))/
+                        (1 - np.tanh(np.array(within_mean.values())))
+                        )
+                        
+            else:
+                invcompactness = np.mean(np.array(between_mean.values())/
+                                         np.array(within_mean.values()))
         except LinAlgError:
             print("PCA did not converge!")
  #           print(data)
             invcompactness = 0
+        except ValueError:
+            print("Value error")
+ #           print(data)
+            invcompactness = 0
+            
         out = Dataset(np.array((invcompactness,)))
         return out
 

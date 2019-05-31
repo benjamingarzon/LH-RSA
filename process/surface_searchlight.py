@@ -143,16 +143,16 @@ if True:
     map2gifti2(results_cl, 
                acc_path_fn, 
                vertices = qe.voxsel.source.nvertices)
-    
-    np.random.shuffle(fds_acc.targets)
-    results_cl = sl_cl(fds_acc)                        
+# shuffle    
+#    np.random.shuffle(fds_acc.targets)
+#    results_cl = sl_cl(fds_acc)                        
      
-    acc_path_fn = os.path.join(surfpath, 
-                               '%s.sl_acc_%s_shuffle_%.1f.func.gii' % (hemi, mycl, radius))
+#    acc_path_fn = os.path.join(surfpath, 
+#                               '%s.sl_acc_%s_shuffle_%.1f.func.gii' % (hemi, mycl, radius))
     
-    map2gifti2(results_cl, 
-               acc_path_fn, 
-               vertices = qe.voxsel.source.nvertices)
+#    map2gifti2(results_cl, 
+#               acc_path_fn, 
+#               vertices = qe.voxsel.source.nvertices)
 
     
 #    sl_vol = sphere_searchlight(cv, radius=radius, space='voxel_indices',
@@ -169,7 +169,7 @@ if True:
 #    niftiresults.to_filename(acc_path_fn)
 
 
-#else:
+if False:
     for mycl in classifiers.keys():
         clf = classifiers[mycl]
         
@@ -202,7 +202,7 @@ if True:
                    acc_path_fn, 
                    vertices = qe.voxsel.source.nvertices)
     
-    
+if True:    
     for metric in ['correlation']:#['correlation', 'euclidean']:
         dsm_ic = Pinvcompactness(mapper = flatten_mapper(), 
                  NCOMPS = 10, 

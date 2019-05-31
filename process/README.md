@@ -1,4 +1,12 @@
 
+
+Pipeline:
+
+conversions.sh: should read from file which are the correct sequences
+download data from 
+
+
+
 fix in line 168
 		try:
                     fp.write('\t'.join([str(val) for val in seq]) + '\n')
@@ -8,8 +16,12 @@ fix in line 168
                     fp.write('\t'.join([str(val.encode('utf-8')) if not isinstance(val, (int, float,tuple)) else str(val) for val in seq]) + '\n')
 
 look at timecourses, return to baseline
-
+remove derivatives from fixation ???
 organize responses
+change invcompactness by separation
+output within and between values for all subjects and show bars with errors .. extract surface
+collapse for different sequences
+
 correct LSS
 run with and without PCA, keep it simple, with and without derivatives
 fMRI = shorter runs, more trials, random ITI, no locking

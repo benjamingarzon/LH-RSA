@@ -39,7 +39,7 @@ ORGANIZE_FILE=$7
 RESPONSES_OPTIONS=$8
 CONFOUND_INDICES=$9 #28,29,30,31,32,33
 
-HOMEDIR=/home/benjamin.garzon/Data/LeftHand/Lundpilot1
+HOMEDIR=/home/share/MotorSkill
 #RESPONSES_OPTIONS="2.8 0.5 0 25 6" old version
 #RESPONSES_OPTIONS="2.1 0.5 0 6.0"
 PROGDIR=~/Software/LeftHand/process/
@@ -66,7 +66,7 @@ INTENDEDFOR="[\"func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-01_bold.nii
 
 FX_FILE=tstat
 RADIUS=15.0
-NPROC=20
+NPROC=35
 NEVS=4
 FWHM=5
 SIGMA=`echo $FWHM/2.3548 | bc -l`
@@ -115,22 +115,20 @@ echo -e "{\n\"EchoTime1\": $ECHOTIME1, \n\"EchoTime2\": $ECHOTIME2, \n\"PhaseEnc
 cd data_BIDS/sub-${SUBJECT}/ses-${SESSION}/anat/
 #fslroi sub-${SUBJECT}_ses-${SESSION}_T1w1.nii.gz re.nii.gz 0 1 
 #fslroi sub-${SUBJECT}_ses-${SESSION}_T1w1.nii.gz im.nii.gz 1 1 
-mv sub-${SUBJECT}_ses-${SESSION}_T1w2.nii.gz re.nii.gz 
-mv sub-${SUBJECT}_ses-${SESSION}_T1w1.nii.gz im.nii.gz
+ln -s sub-${SUBJECT}_ses-${SESSION}_MP2RAGE_DelRec2.nii.gz re.nii.gz 
+ln -s sub-${SUBJECT}_ses-${SESSION}_MP2RAGE_DelRec1.nii.gz im.nii.gz
 
-if [ ! -e magphase.nii.gz ]; then
-mv sub-${SUBJECT}_ses-${SESSION}_T2w.nii.gz magphase.nii.gz
-fi
+fslroi sub-${SUBJECT}_ses-${SESSION}_MP2RAGE.nii.gz mag 1 1
+#fslroi sub-${SUBJECT}_ses-${SESSION}_MP2RAGE.nii.gz phase 0 1
 
-fslroi magphase mag 1 1
-fslroi magphase phase 0 1
 cd $PROGDIR/mprageconvert/
-matlab -nosplash -nodisplay -r "addpath $PROGDIR/mprageconvert/Nifti_tools; create_mp2rage_command('$HOMEDIR/data_BIDS/sub-${SUBJECT}/ses-${SESSION}/anat/', 're.nii.gz ', 'im.nii.gz', 'sub-${SUBJECT}_ses-${SESSION}_T1w1.json'); exit"
+matlab -nosplash -nodisplay -r "addpath $PROGDIR/mprageconvert/Nifti_tools; create_mp2rage_command('$HOMEDIR/data_BIDS/sub-${SUBJECT}/ses-${SESSION}/anat/', 're.nii.gz ', 'im.nii.gz', 'sub-${SUBJECT}_ses-${SESSION}_MP2RAGE_DelRec1.json'); exit"
 
 cd $HOMEDIR/data_BIDS/sub-${SUBJECT}/ses-${SESSION}/anat/
-fslmaths mag -thrP 10 -bin mask
 #fslmaths MP2RAGE.nii.gz -add 0.5 -mul 1000 -mas mask -uthr 999 sub-${SUBJECT}_ses-${SESSION}_T1w.nii.gz -odt int
-fslmaths MP2RAGE.nii.gz -add 0.5 -mul mag sub-${SUBJECT}_ses-${SESSION}_T1w.nii.gz -odt int
+cp MP2RAGE.nii.gz sub-${SUBJECT}_ses-${SESSION}_T1w.nii.gz
+#fslmaths MP2RAGE.nii.gz -add 0.5 -mul mag sub-${SUBJECT}_ses-${SESSION}_PDT1w.nii.gz -odt int
+
 #mv phase.nii.gz sub-${SUBJECT}_ses-${SESSION}_T2w.nii.gz
 #cp sub-${SUBJECT}_ses-${SESSION}_T1w.json sub-${SUBJECT}_ses-${SESSION}_T2w.json
 #fslmaths MP2RAGE.nii.gz -add 0.5 -mul 1000 -mul mag mp2mod
@@ -377,6 +375,7 @@ done
 #  fslmerge -t other2 `ls -v run$run/model*/analysis.feat/stats/pe5.nii.gz` 
 #  fslmerge -t other3 `ls -v run$run/model*/analysis.feat/stats/pe7.nii.gz` 
 #  fslmerge -t other4 `ls -v run$run/model*/analysis.feat/stats/pe9.nii.gz` 
+
   fslmerge -t fixation `ls -v run$run/model*/analysis.feat/stats/pe11.nii.gz` 
   fslmerge -t stretch `ls -v run$run/model*/analysis.feat/stats/pe13.nii.gz` 
   
@@ -386,7 +385,7 @@ done
   fslmaths stretch -Tmean -s 3 stretch_mean
   
   echo "Total volumes : " `fslnvols effects.nii.gz`
-#  rm -r run*/model*
+  rm -r run*/model*
    # Get sigma of residuals
 #  fslmaths sigmasquared.nii.gz -sqrt sigma.nii.gz
 
@@ -407,6 +406,22 @@ ln -s $SUBJECTS_DIR/fsaverage/surf/rh.inflated $SUBDIR/surf/rh.fsaverage.inflate
 ln -s $SUBJECTS_DIR/fsaverage/surf/lh.curv $SUBDIR/surf/lh.fsaverage.curv
 ln -s $SUBJECTS_DIR/fsaverage/surf/rh.curv $SUBDIR/surf/rh.fsaverage.curv
 
+# downsample surfaces
+rm $SUBDIR/surf/*.ds.*
+
+
+for hemi in rh lh; do
+    for surface in pial white; do
+        mri_surf2surf --hemi $hemi --srcsubject sub-${SUBJECT} --sval-xyz $surface --trgsubject fsaverage6 --trgicoorder 6 --trgsurfval  $SUBDIR/surf/${hemi}.${surface}.ds.mgh --tval-xyz $SUBJECTS_DIR/sub-${SUBJECT}/mri/T1.mgz 
+        mris_convert --to-scanner $SUBDIR/surf/${hemi}.${surface}.ds.mgh $SUBDIR/surf/${hemi}.${surface}.ds.gii
+done
+        surface=inflated
+        mri_surf2surf --hemi $hemi --srcsubject sub-${SUBJECT} --sval-xyz $surface --trgsubject fsaverage6 --trgicoorder 6 --trgsurfval  $SUBDIR/surf/${hemi}.${surface}.ds.mgh --tval-xyz $SUBJECTS_DIR/sub-${SUBJECT}/mri/T1.mgz
+        mris_convert --to-scanner $SUBDIR/surf/${hemi}.${surface}.ds.mgh $SUBDIR/surf/${hemi}.${surface}.ds.gii
+done
+rm $SUBDIR/surf/*.ds.mgh
+
+
 fi # PHASE 7
 
 ###############################################
@@ -420,7 +435,7 @@ for hemi in rh lh; do
     python ~/Software/LeftHand/process/prepare_queryengine.py \
     $SUBDIR \
     $HOMEDIR/responses/sub-${SUBJECT}/ses-${SESSION}/sequences.csv \
-    $hemi $RADIUS $NPROC
+    $hemi $RADIUS "$RUNS"
 done
 
 fi #PHASE 8
@@ -428,7 +443,7 @@ fi #PHASE 8
 
 TESTDIR=metrics
 METRICS="acc_svm acc_svm_PCA invcompactness_correlation"
-METRICS="acc_svm acc_svm_shuffle acc_svm_PCA invcompactness_correlation"
+METRICS="acc_svm invcompactness_correlation"
 
 
 if [ $PHASE == 0 ] || [ $PHASE == 9 ]; then
@@ -441,13 +456,16 @@ for hemi in rh lh; do
     $HOMEDIR/responses/sub-${SUBJECT}/ses-${SESSION}/sequences.csv  \
     $SUBJECTS_DIR/sub-${SUBJECT}/label/${hemi}.cortex.label\
     $hemi $RADIUS $NPROC $TESTDIR "$RUNS"
+
 # Resample to average
 for metric in $METRICS; do
   mri_convert $SUBDIR/surf/$TESTDIR/$hemi.sl_${metric}_${RADIUS}.func.gii $SUBDIR/surf/$TESTDIR/$hemi.sl_${metric}_${RADIUS}.func.mgh
-
+  ln -s $SUBJECTS_DIR/fsaverage6/surf/lh.sphere.reg $SUBJECTS_DIR/sub-${SUBJECT}/surf/lh.sphere6.reg
+  ln -s $SUBJECTS_DIR/fsaverage6/surf/rh.sphere.reg $SUBJECTS_DIR/sub-${SUBJECT}/surf/rh.sphere6.reg 
   mri_surf2surf --srcsubject sub-${SUBJECT} \
     --srcsurfval $SUBDIR/surf/$TESTDIR/$hemi.sl_${metric}_${RADIUS}.func.mgh \
     --trgsubject fsaverage \
+    --srcsurfreg sphere6.reg \
     --trgsurfval $SUBDIR/surf/$TESTDIR/$hemi.sl_${metric}_${RADIUS}.fsaverage.func.mgh \
     --hemi $hemi \
     --fwhm-trg $ACC_FWHM \
@@ -490,29 +508,61 @@ pngappend ${FIG}_L_medial.png + ${FIG}_R_medial.png ${FIG}_medial.png
 pngappend ${FIG}_L_lateral.png + ${FIG}_R_lateral.png ${FIG}_lateral.png
 pngappend ${FIG}_medial.png - ${FIG}_lateral.png ${FIG}.png
 rm ${FIG}*lateral* ${FIG}*medial*
+
 }
-
-if [ $PHASE == 0 ] || [ $PHASE == 10 ]; then
-
-rm -r $SUBDIR/results
-mkdir $SUBDIR/results
 
 export SURF_L=$SUBJECTS_DIR/fsaverage/surf/lh.inflated
 export SURF_R=$SUBJECTS_DIR/fsaverage/surf/rh.inflated
 
+if [ $PHASE == 0 ] || [ $PHASE == 10 ]; then
+
+
 for metric in $METRICS; do
       if [ $metric == 'invcompactness_correlation' ]; then
-        LIM1=0 
-        LIM2=0.03
+        LIM1=1
+        LIM2=1.15
       else
-        LIM1=0.3
-        LIM2=0.35
+        LIM1=0.30
+        LIM2=0.40
       fi
       
-      do_show $SUBDIR/surf/$TESTDIR/lh.sl_${metric}_${RADIUS}.fsaverage.func.gii $SUBDIR/surf/$TESTDIR/rh.sl_${metric}_${RADIUS}.fsaverage.func.gii $LIM1 $LIM2 $SUBDIR/results/sl_${metric}_${RADIUS}
+      do_show $SUBDIR/surf/$TESTDIR/lh.sl_${metric}_${RADIUS}.fsaverage.func.gii $SUBDIR/surf/$TESTDIR/rh.sl_${metric}_${RADIUS}.fsaverage.func.gii $LIM1 $LIM2 $HOMEDIR/results/sl_${metric}_${RADIUS}_sub-${SUBJECT}_ses-${SESSION}
+
 done
 
 fi #PHASE 10
+
+# average what we have
+if [ $PHASE == 0 ] || [ $PHASE == 11 ]; then
+
+ 
+for metric in $METRICS; do
+    for hemi in rh lh; do
+      maps=`echo $HOMEDIR/fmriprep/analysis/sub-*/ses-*/surf/metrics/$hemi.sl_${metric}_${RADIUS}.fsaverage.func.gii`
+      mris_calc -o $HOMEDIR/fmriprep/analysis/surf/$hemi.sl_${metric}_${RADIUS}.mean.func.gii `echo $maps| cut -d" " -f1` mul 0
+      echo $maps
+      for mymap in $maps; do     
+         mris_calc -o $HOMEDIR/fmriprep/analysis/surf/$hemi.sl_${metric}_${RADIUS}.mean.func.gii $HOMEDIR/fmriprep/analysis/surf/$hemi.sl_${metric}_${RADIUS}.mean.func.gii add $mymap
+      done
+      mris_calc -o $HOMEDIR/fmriprep/analysis/surf/$hemi.sl_${metric}_${RADIUS}.mean.func.gii $HOMEDIR/fmriprep/analysis/surf/$hemi.sl_${metric}_${RADIUS}.mean.func.gii div `echo $maps | wc -w`
+    done
+
+      if [ $metric == 'invcompactness_correlation' ]; then
+#        mris_calc -o $HOMEDIR/fmriprep/analysis/surf/lh.sl_${metric}_${RADIUS}.mean.func.gii $HOMEDIR/fmriprep/analysis/surf/lh.sl_${metric}_${RADIUS}.mean.func.gii mul -1
+#        mris_calc -o $HOMEDIR/fmriprep/analysis/surf/rh.sl_${metric}_${RADIUS}.mean.func.gii $HOMEDIR/fmriprep/analysis/surf/rh.sl_${metric}_${RADIUS}.mean.func.gii mul -1
+
+        LIM1=1
+        LIM2=1.15
+      else
+        LIM1=0.30
+        LIM2=0.40
+      fi
+    
+      do_show $HOMEDIR/fmriprep/analysis/surf/lh.sl_${metric}_${RADIUS}.mean.func.gii $HOMEDIR/fmriprep/analysis/surf/rh.sl_${metric}_${RADIUS}.mean.func.gii $LIM1 $LIM2 $HOMEDIR/results/sl_${metric}_${RADIUS}_mean
+
+done
+
+fi #PHASE 11
 
 ###############################################
 # Extract roi data

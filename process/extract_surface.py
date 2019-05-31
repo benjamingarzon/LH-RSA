@@ -37,15 +37,16 @@ if False:
     radius = float(sys.argv[5]) # 'rh'
     
 else:    
-    datapath = '/home/benjamin.garzon/Data/LeftHand/Lundpilot1/fmriprep/analysis/sub-105/ses-1/'
-    sequences_fn = '/home/benjamin.garzon/Data/LeftHand/Lundpilot1/responses/sub-105/ses-1/sequences.csv'
-    label_fn = '/home/benjamin.garzon/Data/LeftHand/Lundpilot1/fmriprep/freesurfer/sub-105/label/rh.cortex.label'
+    datapath = '/home/benjamin.garzon/Data/LeftHand/Lundpilot1/fmriprep/analysis/sub-103/ses-3'
+    sequences_fn = '/home/benjamin.garzon/Data/LeftHand/Lundpilot1/responses/sub-103/ses-3/sequences.csv'
+    label_fn = '/home/benjamin.garzon/Data/LeftHand/Lundpilot1/fmriprep/freesurfer/sub-103/label/rh.cortex.label'
     hemi = 'rh'
     radius = 15.0
     labels = pd.read_csv(label_fn, sep = '\s+', skiprows = 2, header = None)
-    nvols = 510
+    nvols = 385
     TR = 1.2
     duration_offset = 4.9#5.0
+    NRUNS = 5
     
 epi_fn = os.path.join(datapath, 'data.nii.gz')
 effects_fn = os.path.join(datapath, 'effects.nii.gz')
@@ -64,7 +65,7 @@ events = []
 trials = []
 blocks = []
 time_coords = np.arange(nvols)*TR
-chunks = np.concatenate([x*np.ones(nvols) for x in np.arange(4)])
+chunks = np.concatenate([x*np.ones(nvols) for x in np.arange(NRUNS)])
 trial_time = []
 for run in np.unique(sequences.run):
     sequences_run = sequences.loc[ sequences.run == run, :]
@@ -139,8 +140,6 @@ fds_effects = fmri_dataset(samples = effects_fn,
                    mask = mask)
 fds_effects.sa['accuracy'] = sequences.accuracy
 
-   
-
 
 if hemi == 'lh':
     vertices = {'premotor': 129336,
@@ -148,12 +147,15 @@ if hemi == 'lh':
             'control': 85199,# temporal
             'somatosensory': 68135}
 else:
-    vertices = {'visual': 405, 
-                'somatosensory': 85615,
-                'control': 109506}
+    vertices = {'visual': 1522, 
+                'premotor': 3368,
+                'somatosensory': 6298,
+                'premotor_ventral': 29195,
+                'control': 24572}
 
-def plot_vertex(vertex, label, fds, fds_effects):
-#    label = 'occipital'
+
+def get_vertex_data(vertex, label, fds, fds_effects):
+#    label = 'premotor'
 #    vertex = vertices[label]
     print("#######")
     print(label)
@@ -164,11 +166,36 @@ def plot_vertex(vertex, label, fds, fds_effects):
     # clean accuracy
     # extract data and remove outside of valid trials 
     fds_effects = fds_effects[:, fd_indices]
+
+    fdsz = fds[:, fd_indices]
+    zscore(fdsz, chunks_attr='chunks', param_est=('events', ['rest']),
+            dtype='float32')    
+
+    nifti_mask = qe.voxsel.get_nifti_image_mask([vertex])
+    nifti_mask.to_filename(os.path.join(datapath, 'results', '%s-roi.nii.gz'%(label)))
+    
+    return((fdsz, fds_effects))
+
+vertex_data = {}
+for region in vertices.keys():
+    vertex_data[region] = get_vertex_data(vertices[region], region, fds, fds_effects)
+    
+    
+def plot_vertex(label, vertex_data):
+
+    fdsz = vertex_data[label][0]
+    fds_effects = vertex_data[label][1]
+    
+    print("#######")
+    print(label)
+        
+    # clean accuracy
+    # extract data and remove outside of valid trials 
     NCOMPS = 10
     pca = PCA(n_components = NCOMPS, whiten = False)
     nels = len(np.unique(fds_effects.targets))
-    meanRDMs = np.zeros((nels, nels))
-    meanRDMs_pca = np.zeros((nels, nels))
+    meanRDMs = []
+    meanRDMs_pca = []
     
     for chunkind, chunk in enumerate(np.unique(fds_effects.chunks)):
 
@@ -179,24 +206,45 @@ def plot_vertex(vertex, label, fds, fds_effects):
         pl.plot(pca.explained_variance_ratio_)  
         pl.xlim((0, NCOMPS))
     
-        dist_matrix = rsa.pdist(fds_red, metric='correlation')
-        dist_matrix_pca = rsa.pdist(fds_pca_red, metric='correlation')
-        meanRDM, within, between = get_RDM_metric(dist_matrix, 'correlation', fds_red.targets)
-        meanRDM_pca, within_pca, between_pca = get_RDM_metric(dist_matrix_pca, 'correlation', fds_red.targets)
-        meanRDMs = meanRDMs + meanRDM/len(np.unique(fds_effects.chunks))
-        meanRDMs_pca = meanRDMs_pca + meanRDM_pca/len(np.unique(fds_effects.chunks))
-    
+        dist_matrix = rsa.pdist(fds_red[fds_red.sa.accuracy == 1, :], metric='correlation')
+        dist_matrix_pca = rsa.pdist(fds_pca_red[fds_red.sa.accuracy == 1, :], metric='correlation')
+        meanRDM, within, between = get_RDM_metric(dist_matrix, 'correlation', fds_red[fds_red.sa.accuracy == 1, :].targets)
+        meanRDM_pca, within_pca, between_pca = get_RDM_metric(dist_matrix_pca, 'correlation', fds_red[fds_red.sa.accuracy == 1, :].targets)
+        meanRDMs.append(meanRDM)
+        meanRDMs_pca.append(meanRDM_pca)
+           
+    meanRDMs = 1 - np.tanh(np.nanmean(np.dstack(meanRDMs), axis = 2))
+    meanRDMs_pca = 1 - np.tanh(np.nanmean(np.dstack(meanRDMs_pca), axis = 2))
+
     pl.figure
     pl.subplot(1, 2, 1)
     pl.imshow(meanRDMs)
     pl.subplot(1, 2, 2)
     pl.imshow(meanRDMs_pca)
     pl.savefig(os.path.join(datapath, 'results', 'matrix-%s.png'%(label)))       
+
+    RDM = meanRDMs_pca # select one
     
     colors = {1: 'b', 2: 'g', 3: 'r', 4:'k'}
         #    markers = ['o', 'v', '+', 's']
-    pl.figure(figsize=(15, 10), dpi=300)   
-        
+    mymat = RDM.copy()
+    # as barplot
+    within_values = np.diag(RDM)
+    np.fill_diagonal(mymat, 0)
+    between_values = np.sum(mymat, axis = 0)/(nels - 1)
+
+    fig = pl.figure(figsize=(15, 10), dpi=300)
+    ax = fig.gca()
+    ind = np.unique(fds_effects.targets)    
+    p1 = ax.bar(ind - 0.2, within_values, color = 'green', width=0.4)
+    p2 = ax.bar(ind + 0.2, between_values, color = 'red', width=0.4)
+    ax.set_xticks(ind) 
+    ax.set_ylim((0, .7))
+    fig.legend((p1[0], p2[0]), ('Within', 'Between'))            
+    fig.savefig(os.path.join(datapath, 'results', 'barplot%s.png'%(label)))   
+
+    pl.figure(figsize=(15, 10), dpi=300)
+
     for t, target in enumerate(np.unique(fds_red.targets)):
             sel = np.logical_and(fds_red.targets == target, fds_red.sa.accuracy == 1)   
 #            sel = np.logical_and(fds_red.chunks == 2, sel)   
@@ -205,44 +253,44 @@ def plot_vertex(vertex, label, fds, fds_effects):
             pl.plot(mean, color = colors[target])   
             pl.plot(fds_pca_red[sel , :].T, color = colors[target], linewidth = 0.2)   
             pl.errorbar(x = np.arange(len(mean)), y = mean, yerr = std, fmt = 'o')
-    pl.savefig(os.path.join(datapath, 'results', 'PCA-%s.png'%(label)))       
+    pl.savefig(os.path.join(datapath, 'results', 'PCA-%s.png'%(label)))   
     
 # ADD ALL
 #    mtgs = mean_group_sample(['targets', 'chunks'])
 #    fds_mean = mtgs(fds[fds.sa.trials > 0, fd_indices])
-    fdsz = fds[:, fd_indices]
-    zscore(fdsz, chunks_attr='chunks', param_est=('events', ['rest']),
-            dtype='float32')
     
     X = fdsz.samples
 
     pl.figure(figsize=(15, 10), dpi=300)
     colors = {'1': 'b', '2': 'g', '3': 'r', '4':'k'}
-    for chunk in np.unique(fds.chunks):
-        pl.subplot(1, 4, chunk + 1)
+#    for chunk in np.unique(fds.chunks):
+#        pl.subplot(1, NRUNS, chunk + 1)
 #        for trial in range(1, 6):
-        for target in ['1', '2', '3']:
-            sel = np.logical_and(fds.chunks == chunk, fds.targets == target) 
-            if np.sum(sel): 
-                df = pd.DataFrame({'t': np.round(fds.sa.trial_time[sel], 1), 'x': np.mean(X[sel, :], axis = 1)})
-                df = df.groupby('t').mean()
-                pl.plot(df.index, df.x, color = colors[target])
-                pl.xlim((0, 25))
-                pl.ylim((-1, 1))
-                pl.axvline(x=1.0, linestyle = '--', color = 'k') # fixation   
-                pl.axvline(x=3.8, linestyle = '--', color = 'k') # execution  
-                pl.axvline(x=7.3, linestyle = '--', color = 'k') # end of execution 
-                pl.axhline(y=0.0, linestyle = '--', color = 'g')   
+    for target in ['1', '2', '3', '4']:
+        sel = fds.targets == target #np.logical_and(fds.chunks == chunk, fds.targets == target) 
+        if np.sum(sel): 
+            df = pd.DataFrame({'t': np.round(fds.sa.trial_time[sel], 1), 'x': np.mean(X[sel, :], axis = 1)})
+            xx = np.linspace(np.min(df.t), np.max(df.t), 20)
+            yy = np.interp(xx, df.t, df.x)
+#                df = df.groupby('t').mean()
+#                pl.plot(df.index, df.x, color = colors[target])
+            pl.plot(xx, yy, color = colors[target])
+            pl.xlim((0, 25))
+            pl.ylim((-1, 2))
+            pl.axvline(x=1.0, linestyle = '--', color = 'k') # fixation   
+            pl.axvline(x=3.1, linestyle = '--', color = 'k') # execution  
+            pl.axvline(x=6.6, linestyle = '--', color = 'k') # end of execution 
+            pl.axvline(x=6.6 + 0.5 + 6.7, linestyle = '--', color = 'r') # mean for next trial  
+            pl.axhline(y=0.0, linestyle = '--', color = 'g')   
                     
-        pl.savefig(os.path.join(datapath, 'results', 'timecourses-%s.png'%(label)))       
-
+    pl.savefig(os.path.join(datapath, 'results', 'timecourses-%s.png'%(label)))       
 
 #########
-    if False:
+    if True:
         svm = LinearCSVMC()    
     #    ridge = RidgeReg()
         
-        NPERMS = 1000
+        NPERMS = 100
         permutator = AttributePermutator('targets', count=NPERMS)
         partitioner = NFoldPartitioner()
     
@@ -257,7 +305,7 @@ def plot_vertex(vertex, label, fds, fds_effects):
     #                         errorfx=lambda p, t: np.mean(p == t),
     #                         enable_ca=['stats'])
     
-        results_svm = cv_svm(fds) 
+        results_svm = cv_svm(fds_effects[fds_effects.sa.accuracy == 1, :]) 
     #    results_ridge = cv_ridge(fds) 
     
         cv_mc = CrossValidation(svm,
@@ -272,22 +320,20 @@ def plot_vertex(vertex, label, fds, fds_effects):
 #                         enable_ca=['stats'])
         # run
         
-        results_clf = cv_mc(fds) 
+        results_clf = cv_mc(fds_effects[fds_effects.sa.accuracy == 1, :]) 
         p = cv_mc.ca.null_prob
+        print 'Accuracy:', np.mean(results_svm)
         print 'CV-errors:', np.ravel(results_clf)
         print 'Corresponding p-values:',  np.ravel(p)
     
-        nifti_mask = qe.voxsel.get_nifti_image_mask([vertex])
-        nifti_mask.to_filename(os.path.join(datapath, 'results', '%s-roi.nii.gz'%(label)))
-    
-        pl.hist(fds.samples)
+#        pl.hist(fds.samples)
 
         
     if False:
         #compute matrix and aggregate across trials
-        dist_matrix = squareform(rsa.pdist(fds, metric='euclidean'))
+        dist_matrix = squareform(rsa.pdist(fds_effects[fds_effects.sa.accuracy == 1, :], metric='correlation'))
  #       dist_matrix = squareform(rsa.pdist(fds, metric='mahalanobis'))
-        meanRDM, elements, score, within, between = aggregate_matrix(dist_matrix, fds.chunks, fds.targets)    
+        meanRDM, elements, score, within, between = aggregate_matrix(dist_matrix, fds_effects.chunks, fds_effects.targets)    
         
         print(label, score, within, between)
 #        pl.figure(figsize=(15, 9), dpi=300)
@@ -298,15 +344,16 @@ def plot_vertex(vertex, label, fds, fds_effects):
         
         pl.figure(figsize=(15, 9), dpi=300)
         
-        for chunk in np.arange(meanRDM.shape[2]):
-            pl.subplot(1, 3, chunk + 1)
-            mtx = meanRDM[:, :, chunk]
+        for chunkind, chunk in enumerate(np.unique(fds_effects.chunks)):
+            pl.subplot(1, 5, chunkind + 1)
+            mtx = meanRDM[:, :, chunkind]
             pl.imshow(mtx, interpolation='nearest')
             pl.xticks(range(len(mtx)), elements, rotation=-45)
             pl.yticks(range(len(mtx)), elements)
             pl.title('Correlation distances')
             pl.clim((0, np.nanmax(mtx)))
-            pl.colorbar()
+#            if chunkind == 4:
+#                pl.colorbar()
         
         pl.savefig(os.path.join(datapath, 'results', 'target_distances-%s.png'%(label)))            
     
@@ -314,20 +361,29 @@ def plot_vertex(vertex, label, fds, fds_effects):
         embedding = MDS(n_components=2, dissimilarity = 'precomputed')
         X_transformed = embedding.fit_transform(dist_matrix)
         colors = ['k', 'r', 'g', 'b']
-        markers = ['o', 'v', '+', 's']
-        pl.figure(figsize=(15, 9), dpi=300)
-        lim = np.max(np.abs(X_transformed))*TR
+        markers = ['o', 'v', 'P', 's']
+        pl.figure(figsize=(27, 9), dpi=300)
         
-        for c,  chunk in enumerate(np.unique(evds.chunks)):
-            pl.subplot(1, 3, c + 1)
-            for t, target in enumerate(np.unique(evds.targets)):
-                sel = np.logical_and(evds.chunks == chunk, evds.targets == target)
+        for c,  chunk in enumerate(np.unique(fds_effects.chunks)):
+            pl.subplot(1, 5, c + 1)
+            xmin = np.min(X_transformed[fds_effects.chunks == chunk, 0])*1.1
+            xmax = np.max(X_transformed[fds_effects.chunks == chunk, 0])*1.1
+            ymin = np.min(X_transformed[fds_effects.chunks == chunk, 1])*1.1
+            ymax = np.max(X_transformed[fds_effects.chunks == chunk, 1])*1.1
+
+            for t, target in enumerate(np.unique(fds_effects.targets)):
+                sel = np.logical_and(fds_effects.chunks == chunk, fds_effects.targets == target)
                 
-                pl.scatter(X_transformed[sel , 0],  X_transformed[sel, 1], marker = markers[t], color = colors[t])   
-                pl.xlim((-lim, lim))
-                pl.ylim((-lim, lim))
-                 
+                pl.scatter(X_transformed[sel , 0],  X_transformed[sel, 1], 
+                           marker = markers[t], color = colors[t], s = 5, alpha = 0.8)   
+                pl.xlim((xmin, xmax))
+                pl.ylim((ymin, ymax))
+                pl.scatter(np.mean(X_transformed[sel , 0], axis = 0),  
+                           np.mean(X_transformed[sel, 1], axis = 0),  
+                           marker = markers[t], color = colors[t], s = 50)   
         pl.savefig(os.path.join(datapath, 'results', 'MDS-%s.png'%(label)))            
+
+        # show centers and radius
 
 #        from sklearn.covariance import LedoitWolf
 
@@ -366,8 +422,8 @@ def plot_vertex(vertex, label, fds, fds_effects):
 #                     enable_ca=['stats'])
 
 
-for region in vertices.keys():
-    plot_vertex(vertices[region], region, fds, fds_effects)
+for region in vertex_data.keys():
+    plot_vertex(region, vertex_data)
 
 stophere 
 # Look at this pattern
