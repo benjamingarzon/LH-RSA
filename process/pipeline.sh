@@ -1,10 +1,8 @@
 #/bin/bash
 
 # fix fieldmaps
-# align runs well
 # use mrqc instead of mriprep to get good segmentation
 # try without using derivatives in the regressors...
-# how long should the trials be?
 
 #STEPS
 # Create EVs from response file
@@ -20,10 +18,6 @@
 # ADAPT number of frames
 # remove 'incorrect' from fMRI analysis
 # detect runs properly; IMPORTANT TO SYNC THE RUNS WITH THE BEHAVIOUR!
-# use expert option in Freesurfer?
-# check MP2RAGE mask, 10 % needed?
-# clean up == remove run data
-# simplify what we are doing 
 
 # PHASE = 0 do everything
 ###############################################
@@ -31,17 +25,15 @@
 ###############################################
 SUBJECT=$1
 SESSION=$2
-RESPONSES_FILE=$3 #trialsfile-lup2s008_fmri.csv
-export NTRIALS=$4 #28 # $2
+RESPONSES_FILE=$3 
+export NTRIALS=$4 
 PHASE=$5
 RUNS=$6
-ORGANIZE_FILE=$7
-RESPONSES_OPTIONS=$8
-CONFOUND_INDICES=$9 #28,29,30,31,32,33
+RESPONSES_OPTIONS=$7
+CONFOUND_INDICES=$8 
+HOMEDIR=$9
 
-HOMEDIR=/home/share/MotorSkill
-#RESPONSES_OPTIONS="2.8 0.5 0 25 6" old version
-#RESPONSES_OPTIONS="2.1 0.5 0 6.0"
+ORGANIZE_FILE=select_organize_responses.py
 PROGDIR=~/Software/LeftHand/process/
 HCPDIR=/home/share/Software/HCP/workbench/bin_rh_linux64/
 
@@ -53,16 +45,14 @@ MULTI_FSF_FILE=$HOMEDIR/fmri_designs/fMRInoreg_multistretch.fsf
 WD=$HOMEDIR/fmriprep
 SUBJECTS_DIR=$WD/freesurfer
 WORK=$HOMEDIR/work_sub-${SUBJECT}_ses-${SESSION}
-ECHOTIME1=0.001544
+ECHOTIME1=0.001544 #1551
 ECHOTIME2=0.002544 
 TE=25 #ms
 EPIFAC=39
-WFS=22.366
+WFS=23.761 #2.366
 SENSEP=3
 FIELDSTRENGTH=7
 EES=`echo "((1000 * $WFS)/($FIELDSTRENGTH*3.4*42.57 * ($EPIFAC+1))/$SENSEP)" | bc -l | awk '{printf "%f", $0}'`
-
-INTENDEDFOR="[\"func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-01_bold.nii.gz\", \"func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-02_bold.nii.gz\", \"func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-03_bold.nii.gz\", \"func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-04_bold.nii.gz\"]"
 
 FX_FILE=tstat
 RADIUS=15.0
@@ -71,50 +61,56 @@ NEVS=4
 FWHM=5
 SIGMA=`echo $FWHM/2.3548 | bc -l`
 
-#s=101
-#export NTRIALS=24
-#ORIG_FSF_FILE=$HOMEDIR/fMRInoreg_multi.fsf
-
 conda activate lhenv2
 if [ ! -e $WD ]; then 
     mkdir $WD
 fi
 
 
+# Find available fMRI runs
+if [ "$RUNS" -eq "0" ];then
+    cd $HOMEDIR/data_BIDS/sub-${SUBJECT}/ses-${SESSION}/func/
+    RUNS=`ls sub-${SUBJECT}_ses-${SESSION}_*bold.nii.gz  | cut -d'_' -f4 | cut -d'-' -f2 | cut -d'0' -f2`
+    echo Found following runs: $RUNS
+fi
+
 ###############################################
 # Create explanatory variables for fMRI analysis
 ###############################################
 if [ $PHASE == 0 ] || [ $PHASE == 1 ]; then
 
+mkdir -p $HOMEDIR/responses/sub-${SUBJECT}/ses-${SESSION}
 cd $HOMEDIR/responses/sub-${SUBJECT}/ses-${SESSION}
-rm -r run*
-python $PROGDIR/$ORGANIZE_FILE $RESPONSES_FILE $RESPONSES_OPTIONS > CorrectTrials.csv
+rm -r $HOMEDIR/responses/sub-${SUBJECT}/ses-${SESSION}/run*
+python $PROGDIR/$ORGANIZE_FILE $RESPONSES_FILE ${SUBJECT} ${SESSION} $RESPONSES_OPTIONS > CorrectTrials.csv
 
 fi
 
 
 ###############################################
-# Prepare fieldmaps
+# Prepare fieldmaps and structural images
 ###############################################
 if [ $PHASE == 0 ] || [ $PHASE == 2 ]; then
 
 cd $HOMEDIR/
+
 cp data_BIDS/sub-${SUBJECT}/ses-${SESSION}/fmap/sub-${SUBJECT}_ses-${SESSION}_epi1.nii.gz data_BIDS/sub-${SUBJECT}/ses-${SESSION}/fmap/sub-${SUBJECT}_ses-${SESSION}_magnitude.nii.gz 
 
 fslmaths data_BIDS/sub-${SUBJECT}/ses-${SESSION}/fmap/sub-${SUBJECT}_ses-${SESSION}_epi2.nii.gz -mul 6.28 data_BIDS/sub-${SUBJECT}/ses-${SESSION}/fmap/sub-${SUBJECT}_ses-${SESSION}_fieldmap_rads.nii.gz 
 fugue --loadfmap=data_BIDS/sub-${SUBJECT}/ses-${SESSION}/fmap/sub-${SUBJECT}_ses-${SESSION}_fieldmap_rads.nii.gz -m --savefmap=data_BIDS/sub-${SUBJECT}/ses-${SESSION}/fmap/sub-${SUBJECT}_ses-${SESSION}_fieldmap.nii.gz
 
+# fix Philips json files
 for run in $RUNS; do
     sed -i 's/Axis/Direction/g' data_BIDS/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-0${run}_bold.json
     myline=`cat data_BIDS/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-0${run}_bold.json | grep EchoTrainLength`
     sed -i '/'"$myline"'/a \  \"EffectiveEchoSpacing\": '"$EES"',' data_BIDS/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-0${run}_bold.json    
 done 
 
-echo -e "{\n\"EchoTime1\": $ECHOTIME1, \n\"EchoTime2\": $ECHOTIME2, \n\"PhaseEncodingDirection\": \"j\", \n\"Units\": \"rad/s\", \n\"IntendedFor\": $INTENDEDFOR\n}" > data_BIDS/sub-${SUBJECT}/ses-${SESSION}/fmap/sub-${SUBJECT}_ses-${SESSION}_fieldmap.json 
+cd $HOMEDIR/data_BIDS/sub-${SUBJECT}/
+INTENDEDFOR=\"`echo ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-??_bold.nii.gz | sed 's/ /","/g'`\"
+echo -e "{\n\"EchoTime1\": $ECHOTIME1, \n\"EchoTime2\": $ECHOTIME2, \n\"PhaseEncodingDirection\": \"j\", \n\"Units\": \"rad/s\", \n\"IntendedFor\": [ $INTENDEDFOR ] \n}" > $HOMEDIR/data_BIDS/sub-${SUBJECT}/ses-${SESSION}/fmap/sub-${SUBJECT}_ses-${SESSION}_fieldmap.json 
 
-cd data_BIDS/sub-${SUBJECT}/ses-${SESSION}/anat/
-#fslroi sub-${SUBJECT}_ses-${SESSION}_T1w1.nii.gz re.nii.gz 0 1 
-#fslroi sub-${SUBJECT}_ses-${SESSION}_T1w1.nii.gz im.nii.gz 1 1 
+cd $HOMEDIR/data_BIDS/sub-${SUBJECT}/ses-${SESSION}/anat/
 ln -s sub-${SUBJECT}_ses-${SESSION}_MP2RAGE_DelRec2.nii.gz re.nii.gz 
 ln -s sub-${SUBJECT}_ses-${SESSION}_MP2RAGE_DelRec1.nii.gz im.nii.gz
 
@@ -125,16 +121,9 @@ cd $PROGDIR/mprageconvert/
 matlab -nosplash -nodisplay -r "addpath $PROGDIR/mprageconvert/Nifti_tools; create_mp2rage_command('$HOMEDIR/data_BIDS/sub-${SUBJECT}/ses-${SESSION}/anat/', 're.nii.gz ', 'im.nii.gz', 'sub-${SUBJECT}_ses-${SESSION}_MP2RAGE_DelRec1.json'); exit"
 
 cd $HOMEDIR/data_BIDS/sub-${SUBJECT}/ses-${SESSION}/anat/
-#fslmaths MP2RAGE.nii.gz -add 0.5 -mul 1000 -mas mask -uthr 999 sub-${SUBJECT}_ses-${SESSION}_T1w.nii.gz -odt int
-cp MP2RAGE.nii.gz sub-${SUBJECT}_ses-${SESSION}_T1w.nii.gz
-#fslmaths MP2RAGE.nii.gz -add 0.5 -mul mag sub-${SUBJECT}_ses-${SESSION}_PDT1w.nii.gz -odt int
-
-#mv phase.nii.gz sub-${SUBJECT}_ses-${SESSION}_T2w.nii.gz
-#cp sub-${SUBJECT}_ses-${SESSION}_T1w.json sub-${SUBJECT}_ses-${SESSION}_T2w.json
-#fslmaths MP2RAGE.nii.gz -add 0.5 -mul 1000 -mul mag mp2mod
-#recon-all -s recon -i mp2mod.nii.gz -autorecon1
-#recon-all -s recon_m -i MP2RAGE.nii.gz -autorecon1
-# add T2
+fslmaths MP2RAGE.nii.gz -add 0.5 MP2RAGEpos.nii.gz 
+fslmaths mag -mul MP2RAGEpos magRAGE
+ 
 fi
 ###############################################
 # Create singularity file container
@@ -146,9 +135,15 @@ if [ ! -e $HOMEDIR/fmriprep.img ]; then
     cd /tmp
     docker run --privileged -t --rm \
         -v /var/run/docker.sock:/var/run/docker.sock \
-        -v /tmp/fmriprep:/output \
+        -v /tmp/fmriprep1.4:/output \
         singularityware/docker2singularity \
-        poldracklab/fmriprep:latest
+        poldracklab/fmriprep:1.4.0
+        
+#    docker run --privileged -t --rm \
+#        -v /var/run/docker.sock:/var/run/docker.sock \
+#        -v /home/benjamin.garzon/Data/LeftHand/Lund1test/fmriprep1.3:/output \
+#        singularityware/docker2singularity \
+#        poldracklab/fmriprep:1.3.0.post1
     
     cp /tmp/fmriprep/poldracklab_fmriprep_latest-*.img $HOMEDIR/fmriprep.img
 fi
@@ -164,9 +159,6 @@ rm -r $WORK
 mkdir $WORK
 cp /usr/local/freesurfer/license.txt $WD/
 
-#SUBJECTS_DIR=
-#recon-all -s recon -i sub-106_ses-1_T1w.nii.gz -T2 sub-106_ses-1_T1w.nii.gz -T2pial -all
-
 PYTHONPATH="" singularity run \
    $HOMEDIR/fmriprep.img \
    $HOMEDIR/data_BIDS \
@@ -174,6 +166,7 @@ PYTHONPATH="" singularity run \
    participant \
    --ignore slicetiming \
    --ignore fieldmaps \
+   --longitudinal \
    --fs-license-file \
    $WD/license.txt \
    --nthreads 4 \
@@ -189,6 +182,7 @@ PYTHONPATH="" singularity run \
    participant \
    --ignore slicetiming \
    --ignore fieldmaps \
+   --longitudinal \
    --fs-license-file \
    $WD/license.txt \
    --nthreads 4 \

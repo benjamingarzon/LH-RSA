@@ -2,9 +2,12 @@
 
 Pipeline:
 
-conversions.sh: should read from file which are the correct sequences
-download data from 
+think about using fmriprerp 1.4 whe it is ready
+improve run_fs pipeline???
 
+xxconversions.sh: should read from file which are the correct sequences
+download data from 
+should read how many runs to put in fieldmap
 
 
 fix in line 168
