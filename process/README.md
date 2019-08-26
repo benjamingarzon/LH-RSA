@@ -2,6 +2,17 @@
 
 Pipeline:
 
+clean after phase 5 and 6
+
+BAD RECONS lue1101 long 2 
+
+# use residuals from GLM (step 5) for connectivity analysis
+
+check that strutctural images are complete
+NOT USING HIGH PASS, SHOULD IT BE USED foR ERP?? REPASSAR parametres
+
+repassar motion parameters from fmriprep
+
 think about using fmriprerp 1.4 whe it is ready
 improve run_fs pipeline???
 
@@ -21,7 +32,6 @@ fix in line 168
 look at timecourses, return to baseline
 remove derivatives from fixation ???
 organize responses
-change invcompactness by separation
 output within and between values for all subjects and show bars with errors .. extract surface
 collapse for different sequences
 
@@ -60,7 +70,7 @@ Find centers without spatiotemporal and then do spatiotemporal
 Fix volume searchlight nicely
 Run fMRI
 Revisar cada pas en les dades noves
-Using euclidean and spatiotemporal: invcompactness is high in somatosensory and motor cortex!
+Using euclidean and spatiotemporal: spread is high in somatosensory and motor cortex!
 
 
 Do I need to normalize the features (e. g. to 1 )

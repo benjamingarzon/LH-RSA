@@ -204,7 +204,7 @@ if False:
     
 if True:    
     for metric in ['correlation']:#['correlation', 'euclidean']:
-        dsm_ic = Pinvcompactness(mapper = flatten_mapper(), 
+        dsm_ic = Pspread(mapper = flatten_mapper(), 
                  NCOMPS = 10, 
                  filter_accuracy = True,
                  accuracy = fds.sa.accuracy,
@@ -218,8 +218,8 @@ if True:
     
         results_rsa = sl_rsa_ic(fds)                        
         
-        invcompactness_path_fn = os.path.join(surfpath, 
-                                              '%s.sl_invcompactness_%s_%.1f.func.gii' % (hemi, metric, radius))
+        spread_path_fn = os.path.join(surfpath, 
+                                              '%s.sl_spread_%s_%.1f.func.gii' % (hemi, metric, radius))
         map2gifti2(results_rsa, 
-                   invcompactness_path_fn, 
+                   spread_path_fn, 
                    vertices = qe.voxsel.source.nvertices)

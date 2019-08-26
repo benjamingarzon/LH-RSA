@@ -23,7 +23,7 @@ def myarctanh(x):
 #    print("atan", np.arctanh(x))
     return(np.arctanh(x))
 
-def get_invcompactness_chunk(x, metric, targets):
+def get_spread_chunk(x, metric, targets):
     RDM = squareform(x)
     if metric == 'correlation':
         RDM = myarctanh(1 - RDM)
@@ -87,13 +87,13 @@ def get_RDM_metric(x, metric, targets):
     
     return(meanRDM, within, between)    
 
-def get_invcompactness(x, *args):
+def get_spread(x, *args):
     meanRDM, within, between = get_RDM_metric(x, args[0], args[1])
     if args[0] != 'euclidean':
-        invcompactness = between - within
+        spread = between - within
     else:
-        invcompactness = between/within
-    return(invcompactness)
+        spread = between/within
+    return(spread)
 
 def get_within(x, *args):
     meanRDM, within, between = get_RDM_metric(x, args[0], args[1])
@@ -218,8 +218,8 @@ class flatten_mapper(Mapper):
         return(mapped_ds)
 
 
-def get_invcompactness_chunk_map(x, *args):
-    return(get_invcompactness_chunk(x, args[0], args[1], args[2]))
+def get_spread_chunk_map(x, *args):
+    return(get_spread_chunk(x, args[0], args[1], args[2]))
 
 
 class PClassifier(PDist):
@@ -272,7 +272,7 @@ class PClassifier(PDist):
 
 
 
-class Pinvcompactness(PDist):
+class Pspread(PDist):
 
     def __init__(self, 
                  mapper = None, 
@@ -285,7 +285,7 @@ class Pinvcompactness(PDist):
         self.filter_accuracy = filter_accuracy     
         self.correct = accuracy == 1
         self.pca = PCA(n_components = NCOMPS, whiten = False)
-        super(Pinvcompactness, self).__init__(**kwargs)
+        super(Pspread, self).__init__(**kwargs)
 
     def _call(self, ds):
 
@@ -317,7 +317,7 @@ class Pinvcompactness(PDist):
                 ds_chunk = data_pca[chunks == chunk]
                 dsm = pdist(ds_chunk, 
                         metric=self.params.pairwise_metric)
-                within, between = get_invcompactness_chunk(dsm, 
+                within, between = get_spread_chunk(dsm, 
                                    self.params.pairwise_metric, 
                                    targets[chunks == chunk])
                 
@@ -343,24 +343,24 @@ class Pinvcompactness(PDist):
                 between_mean[key] = np.nanmean(np.concatenate(between_values[key]))
                                      
             if self.params.pairwise_metric == 'correlation':
-                invcompactness = np.mean(
+                spread = np.mean(
                         (1 - np.tanh(np.array(between_mean.values())))/
                         (1 - np.tanh(np.array(within_mean.values())))
                         )
                         
             else:
-                invcompactness = np.mean(np.array(between_mean.values())/
+                spread = np.mean(np.array(between_mean.values())/
                                          np.array(within_mean.values()))
         except LinAlgError:
             print("PCA did not converge!")
  #           print(data)
-            invcompactness = 0
+            spread = 0
         except ValueError:
             print("Value error")
  #           print(data)
-            invcompactness = 0
+            spread = 0
             
-        out = Dataset(np.array((invcompactness,)))
+        out = Dataset(np.array((spread,)))
         return out
 
 class PDistMulti(PDist):

@@ -1,11 +1,39 @@
 #!/bin/sh
-# run freesurfers
+# run freesurfers and prepare for VBM
+##
+#generated images
+#sub-*/T1w_template.nii.gz: template of T1w images
+#sub-*/T1w_template_brain.nii.gz
 
-EXPERT_FILE=/home/benjamin.garzon/Software/LeftHand/process/expert.opts
+#sub-*/T2w_template.nii.gz: template of T2w images
+#sub-*/T2w_template_brain.nii.gz
+
+#sub-*/T2wtoT1w_template.nii.gz: T2w template registered to T1w template
+#sub-*/T2wtoT1w_template.lta: trasnformation of T2w template registered to T1w template
+
+#sub-*/brainmask.nii.gz: T1w brain mask
+#sub-*/ses-*/brainmasknative.nii.gz: T1w brain mask in original timepoint space
+
+#sub-*/ses-*/T1wtotemplate.nii.gz: individual T1w in T1w space
+#sub-*/ses-*/T1wtotemplate_brain.nii.gz: individual T1w in T1w space, skull-stripped
+#sub-*/ses-*/T2wtoT1w.nii.gz: individual T2w in original timepoint space
+#sub-*/ses-*/T2wtoT1w_template.nii.gz: individual T2w in T1w template space
+#sub-*/ses-*/T2wtoT1w_template_brain.nii.gz: individual T2w in T1w template space, skull-stripped
 
 export SUBJECTS_DIR=$1
-WD=$2
-SUBJECT=$3
+WD=$2 # BIDS dir
+STRUCT_DIR=$3 # BIDS dir
+SUBJECT=$4
+EXPERT_FILE=$5
+OVERWRITE=$6
+export DOFS=$7
+
+REGCOST="NMI"
+
+if [ "$OVERWRITE" -eq 1 ]; then
+rm $STRUCT_DIR/sub-$SUBJECT/*template* $WD/sub-$SUBJECT/ses-*/anat/*restore*
+rm -r $SUBJECTS_DIR/sub-$SUBJECT*
+fi
 
 do_fs_cross(){
 # check not done yet
@@ -14,47 +42,73 @@ SUB=$1
 SESSION=$2
 T1w=$3
 T2w=$4
-PD=$5
-OUTDIR=$6
-DIR=$7
-#MASK=$DIR/template_brain.nii.gz
-MASK=$SUBJECTS_DIR/${SUB}.template/mri/brainmask.mgz
+PD=$5 # not used
+DIR=$6
 
-if [ ! -f "$SUBJECTS_DIR//${SUB}.$SESSION/stats/lh.aparc.stats" ]; then 
+OUTDIR=$DIR/ses-$SESSION
+
+
+MASK=$DIR/brainmask.nii.gz
+
+if [ ! -f "$SUBJECTS_DIR/${SUB}.$SESSION/stats/lh.aparc.stats" ]; then 
     rm -r $SUBJECTS_DIR/${SUB}.$SESSION/
-    echo "$SUBJECTS_DIR//${SUB}.$SESSION/ not done"
+    echo "$SUBJECTS_DIR/${SUB}.$SESSION/ not done"
  
     # project the masks computed before       
     mri_vol2vol --mov $MASK \
-    --targ $PD --lta-inv $OUTDIR/template.lta --nearest \
-    --o $OUTDIR/brainmasknative.nii.gz
+    --targ $T1w --lta-inv $OUTDIR/T1wtotemplate.lta --nearest \
+    --o $OUTDIR/brainmasknative.nii.gz    
 
     mri_vol2vol --mov $T1w \
-    --targ $MASK --lta $OUTDIR/template.lta --nearest \
-    --o $DIR/ses-${SESSION}/anat/T1w_template.nii.gz
+    --targ $MASK --lta $OUTDIR/T1wtotemplate.lta --interp cubic \
+    --o $OUTDIR/T1wtotemplate.nii.gz  # For vbm
+
+    fslmaths $OUTDIR/T1wtotemplate.nii.gz -mas $MASK \
+    $OUTDIR/T1wtotemplate_brain.nii.gz # for vbm
     
-#    fslmaths $OUTDIR/brainmasknative.nii.gz -ero $OUTDIR/brainmasknative.nii.gz 
-# clean the boundaries
+    mri_concatenate_lta $OUTDIR/T2wtotemplate.lta  $DIR/T2wtoT1w_template.lta $OUTDIR/compos1.lta     
+
+    mri_vol2vol --mov $T2w \
+    --targ $MASK --lta $OUTDIR/compos1.lta \
+    --o $OUTDIR/T2wtoT1w_template.nii.gz --interp cubic  # for vbm
+    
+    fslmaths $OUTDIR/T2wtoT1w_template.nii.gz -mas $MASK \
+    $OUTDIR/T2wtoT1w_template_brain.nii.gz # for vbm    
+    
+    mri_concatenate_lta -invert2 $OUTDIR/compos1.lta $OUTDIR/T1wtotemplate.lta $OUTDIR/compos2.lta
+
+    mri_vol2vol --mov $T2w \
+    --targ $T1w --lta $OUTDIR/compos2.lta \
+    --o $OUTDIR/T2wtoT1w.nii.gz --no-resample    # for freesurfer
+        
+    # compute myelin maps
+    fslmaths $OUTDIR/T1wtotemplate_brain.nii.gz -div $OUTDIR/T2wtoT1w_template_brain.nii.gz -mas $MASK $OUTDIR/myelin.nii.gz
+
+    if [ "$DOFS" == 1 ]; then
+    # clean the boundaries
     fslmaths $OUTDIR/brainmasknative.nii.gz -kernel boxv 7 -ero -bin $OUTDIR/min
     fslmaths $T1w -thr 0.7 -bin $OUTDIR/th
     fslmaths $OUTDIR/brainmasknative.nii.gz -bin -sub $OUTDIR/min -bin $OUTDIR/rim
     fslmaths $OUTDIR/rim -mul $OUTDIR/th -bin -sub 1 -mul -1 -mul $OUTDIR/brainmasknative.nii.gz $OUTDIR/brainmasknative.nii.gz  
     fslmaths $OUTDIR/brainmasknative.nii.gz -bin -kernel boxv 5 -fmean -thr 0.7 -bin $OUTDIR/brainmasknative.nii.gz
     fslmaths $T1w -mas  $OUTDIR/brainmasknative.nii.gz  $OUTDIR/T1wmasked.nii.gz 
-    rm $OUTDIR/rim.nii.gz $OUTDIR/min.nii.gz $OUTDIR/th.nii.gz
-
+    rm $OUTDIR/rim.nii.gz $OUTDIR/min.nii.gz $OUTDIR/th.nii.gz 
+    
     recon-all -autorecon1 -noskullstrip -s ${SUB}.$SESSION -i $OUTDIR/T1wmasked.nii.gz -hires \
     -expert $EXPERT_FILE
 
     cd $SUBJECTS_DIR/${SUB}.$SESSION/mri
     cp T1.mgz brainmask.auto.mgz
     ln -s brainmask.auto.mgz brainmask.mgz
-    recon-all -autorecon2 -autorecon3 -s ${SUB}.$SESSION -T2 $T2w -T2pial -hires #-expert $EXPERT_FILE
+    recon-all -autorecon2 -autorecon3 -s ${SUB}.$SESSION -T2 $OUTDIR/T2wtoT1w.nii.gz -T2pial -hires #-expert $EXPERT_FILE
+
+    else exit 1
+    fi
+    
     
 else
     echo "$SUBJECTS_DIR/${SUB}.$SESSION/ cross already done"
 fi
-
 }
 
 do_fs_long_base(){
@@ -94,41 +148,100 @@ fi
 echo Doing subject $SUBJECT
 ANATLIST=$WD/sub-$SUBJECT/ses-*/anat
 NANAT=`echo $ANATLIST | wc -w`
+SESLIST=`echo $ANATLIST | sed 's/anat//g' | sed "s%$WD%$STRUCT_DIR%g"`
 
-STRUCTLIST=$WD/sub-$SUBJECT/ses-*/anat/magRAGE.nii.gz
+T1wLIST=$WD/sub-$SUBJECT/ses-*/anat/magRAGE.nii.gz
+T2wLIST=$WD/sub-$SUBJECT/ses-*/anat/sub-*_ses-*_T2w.nii.gz 
 
-# create template and do skull_stripping
-NOBIAS=`echo $STRUCTLIST | sed 's/magRAGE.nii.gz/magRAGE_restore.nii.gz/g'`
-TEMPLATES=`echo $STRUCTLIST | sed 's/magRAGE.nii.gz/mag_template.nii.gz/g'`
-WEIGHTS=`echo $STRUCTLIST | sed 's/magRAGE.nii.gz/weights.nii.gz/g'`
-LTAS=`echo $STRUCTLIST | sed 's/magRAGE.nii.gz/template.lta/g'`
-
-if [ ! -f "$WD/sub-$SUBJECT/template_brain.nii.gz" ]; then
-for STRUCT in $STRUCTLIST; do
-    fast -B -v $STRUCT 
-    rm $WD/sub-$SUBJECT/ses-*/anat/*pve*
-    rm $WD/sub-$SUBJECT/ses-*/anat/*mixel*
-    rm $WD/sub-$SUBJECT/ses-*/anat/*_seg.nii.gz
+mkdir -p $STRUCT_DIR
+mkdir -p $STRUCT_DIR/sub-$SUBJECT
+# create structural directories
+for SES in $SESLIST; do
+  mkdir -p $SES
 done
 
-mri_robust_template --mov $NOBIAS --template $WD/sub-$SUBJECT/template.nii.gz --satit --lta $LTAS --mapmov $TEMPLATES --iscale --weights $WEIGHTS --maxit 30
-bet $WD/sub-$SUBJECT/template.nii.gz $WD/sub-$SUBJECT/template_brain.nii.gz
+##################################################################
+# create templates and do skull_stripping
+##################################################################
+T1wtoTEMPLATE=`echo $T1wLIST | sed 's%anat/magRAGE.nii.gz%T1wtotemplate.nii.gz%g'| sed "s%$WD%$STRUCT_DIR%g"`
+T2wtoTEMPLATE=`echo $T1wLIST | sed 's%anat/magRAGE.nii.gz%T2wtotemplate.nii.gz%g'| sed "s%$WD%$STRUCT_DIR%g"`
+
+T1wNOBIAS=`echo $T1wLIST | sed 's/.nii.gz/_restore.nii.gz/g'`
+T2wNOBIAS=`echo $T2wLIST | sed 's/.nii.gz/_restore.nii.gz/g'`
+
+WEIGHTS=`echo $T1wLIST | sed 's%anat/magRAGE.nii.gz%weights.nii.gz%g' | sed "s%$WD%$STRUCT_DIR%g"`
+T1wLTAS=`echo $T1wLIST | sed 's%anat/magRAGE.nii.gz%T1wtotemplate.lta%g' | sed "s%$WD%$STRUCT_DIR%g"`
+T2wLTAS=`echo $T1wLIST | sed 's%anat/magRAGE.nii.gz%T2wtotemplate.lta%g' | sed "s%$WD%$STRUCT_DIR%g"`
+
+
+# build T1w template
+if [ ! -f "$STRUCT_DIR/sub-$SUBJECT/T1w_template.nii.gz" ]; then
+for STRUCT in $T1wLIST; do
+    fast -B -v $STRUCT &    
+done
+
+while [ `ls $WD/sub-$SUBJECT/ses-*/anat/magRAGE_restore.nii.gz | wc -l` -lt $NANAT ]; do
+    echo "Waiting for T1w segmentations to finish"
+    sleep 1800
+done
+
+mri_robust_template --mov $T1wNOBIAS --template $STRUCT_DIR/sub-$SUBJECT/T1w_template.nii.gz --satit --lta $T1wLTAS --mapmov $T1wtoTEMPLATE --iscale --weights $WEIGHTS --maxit 30
 rm -r $SUBJECTS_DIR/sub-${SUBJECT}.template
-recon-all -autorecon1 -s sub-${SUBJECT}.template -i $WD/sub-$SUBJECT/template.nii.gz -hires 
+recon-all -autorecon1 -s sub-${SUBJECT}.template -i $STRUCT_DIR/sub-$SUBJECT/T1w_template.nii.gz -hires 
+rm $WD/sub-$SUBJECT/ses-*/anat/*pve* $WD/sub-$SUBJECT/ses-*/anat/*mixel* $WD/sub-$SUBJECT/ses-*/anat/*_seg.nii.gz
+
+mri_vol2vol --mov $SUBJECTS_DIR/sub-${SUBJECT}.template/mri/brainmask.mgz \
+--targ $STRUCT_DIR/sub-$SUBJECT/T1w_template.nii.gz \
+--out $STRUCT_DIR/sub-$SUBJECT/T1w_template_brain.nii.gz --regheader
 
 fi
 
-for DIR in $ANATLIST; do
-    SESSION=`echo $DIR | cut -d'/' -f9 | cut -d '-' -f2` 
-    
-    T1w=$DIR/MP2RAGEpos.nii.gz 
-    PD=$DIR/mag.nii.gz 
-    T2w=$DIR/sub-${SUBJECT}_ses-${SESSION}_T2w.nii.gz 
+# build T2w template
+if [ ! -e $STRUCT_DIR/sub-$SUBJECT/T2w_template.nii.gz ]; then
+
+for STRUCT in $T2wLIST; do
+    fast -B -v -t 2 $STRUCT &     
+done
+
+while [ `ls $WD/sub-$SUBJECT/ses-*/anat/*T2w_restore.nii.gz | wc -l` -lt $NANAT ]; do
+    echo "Waiting for T2w segmentations to finish"
+    sleep 1800
+done
+
+rm $WD/sub-$SUBJECT/ses-*/anat/*pve* $WD/sub-$SUBJECT/ses-*/anat/*mixel* $WD/sub-$SUBJECT/ses-*/anat/*_seg.nii.gz
+mri_robust_template --mov $T2wNOBIAS --template $STRUCT_DIR/sub-$SUBJECT/T2w_template.nii.gz --satit --lta $T2wLTAS  --mapmov $T2wtoTEMPLATE --iscale --maxit 30
+
+bet $STRUCT_DIR/sub-$SUBJECT/T2w_template.nii.gz $STRUCT_DIR/sub-$SUBJECT/T2w_template_brain.nii.gz -R
+
+# register T2w template to T1w template
+mri_robust_register --mov $STRUCT_DIR/sub-$SUBJECT/T2w_template_brain.nii.gz \
+--dst $STRUCT_DIR/sub-$SUBJECT/T1w_template_brain.nii.gz --satit --iscale --mapmov $STRUCT_DIR/sub-$SUBJECT/T2wtoT1w_template.nii.gz \
+--lta $STRUCT_DIR/sub-$SUBJECT/T2wtoT1w_template.lta --cost $REGCOST
+
+# clean T1w further with skull-stripped T2w
+
+fslmaths $STRUCT_DIR/sub-$SUBJECT/T1w_template_brain.nii.gz -mas $STRUCT_DIR/sub-$SUBJECT/T2wtoT1w_template.nii.gz 
+\$STRUCT_DIR/sub-$SUBJECT/T1w_template_brain.nii.gz
+fi
+
+# create a mask
+fslmaths $STRUCT_DIR/sub-$SUBJECT/T1w_template_brain.nii.gz -bin $STRUCT_DIR/sub-$SUBJECT/brainmask.nii.gz
+
+##################################################################
+# run cross-sectional reconstruction
+##################################################################
+
+for ANATDIR in $ANATLIST; do
+    SESSION=`echo $ANATDIR | cut -d'/' -f9 | cut -d '-' -f2` 
+
+    T1w=$ANATDIR/MP2RAGEpos.nii.gz 
+    PD=$ANATDIR/mag.nii.gz 
+    T2w=$ANATDIR/sub-${SUBJECT}_ses-${SESSION}_T2w.nii.gz 
     
     if [ -e "$T1w" ] && [ -e "$T2w" ] && [ -e "$PD" ] ; then
         # all available
         echo "Running cross-sectional"    
-        do_fs_cross sub-${SUBJECT} $SESSION $T1w $T2w $PD $DIR $WD/sub-$SUBJECT/ &
+        do_fs_cross sub-${SUBJECT} $SESSION $T1w $T2w $PD $STRUCT_DIR/sub-$SUBJECT/ &
     fi
 
 done
@@ -140,19 +253,19 @@ while [ `ls $SUBJECTS_DIR/sub-${SUBJECT}.?/stats/lh.aparc.stats | wc -w` -lt $NA
     sleep 3600
 done
 
-if [ ! -e $WD/sub-$SUBJECT/template_T2w.nii.gz ]; then
-  mri_robust_template --mov $WD/sub-$SUBJECT/ses-*/anat/sub-${SUBJECT}_ses-*_T2w.nii.gz --template $WD/sub-$SUBJECT/template_T2w.nii.gz --satit  --iscale --maxit 30
-fi
-
-# run longit
+echo "Cross-sectionals done!"
+exit 1
+##################################################################
+# run base reconstruction
+##################################################################
 echo "Running base"    
-do_fs_long_base sub-${SUBJECT} "$SUBJECTS_DIR/sub-${SUBJECT}.?" $WD/sub-$SUBJECT/template_T2w.nii.gz
+do_fs_long_base sub-${SUBJECT} "$SUBJECTS_DIR/sub-${SUBJECT}.?" $WD/sub-$SUBJECT/T2w_template.nii.gz
 ln -sf $SUBJECTS_DIR/sub-${SUBJECT}.base $SUBJECTS_DIR/sub-$SUBJECT 
 
 fslmerge -t $WD/sub-${SUBJECT}/sub-${SUBJECT}_T1w_all.nii.gz $WD/sub-$SUBJECT/ses-*/anat/T1w_template.nii.gz
 fslmaths $WD/sub-${SUBJECT}/sub-${SUBJECT}_T1w_all.nii.gz -log -Tmean -exp $WD/sub-${SUBJECT}/sub-${SUBJECT}_T1w_mean.nii.gz
-mri_vol2vol --mov $WD/sub-${SUBJECT}/sub-${SUBJECT}_T1w_mean.nii.gz --targ $WD/sub-${SUBJECT}/template.nii.gz --nearest --regheader --out $WD/sub-${SUBJECT}/sub-${SUBJECT}_T1w_mean.nii.gz  
-fslmaths $WD/sub-${SUBJECT}/sub-${SUBJECT}_T1w_mean.nii.gz -mul $WD/sub-${SUBJECT}/template.nii.gz $WD/sub-${SUBJECT}/sub-${SUBJECT}_T1w.nii.gz
+mri_vol2vol --mov $WD/sub-${SUBJECT}/sub-${SUBJECT}_T1w_mean.nii.gz --targ $WD/sub-${SUBJECT}/T1w_template.nii.gz --nearest --regheader --out $WD/sub-${SUBJECT}/sub-${SUBJECT}_T1w_mean.nii.gz  
+fslmaths $WD/sub-${SUBJECT}/sub-${SUBJECT}_T1w_mean.nii.gz -mul $WD/sub-${SUBJECT}/T1w_template.nii.gz $WD/sub-${SUBJECT}/sub-${SUBJECT}_T1w.nii.gz
 rm $WD/sub-${SUBJECT}/sub-${SUBJECT}_T1w_all.nii.gz $WD/sub-${SUBJECT}/sub-${SUBJECT}_T1w_mean.nii.gz
 
 # copy to anat dir
@@ -161,7 +274,9 @@ for DIR in $ANATLIST; do
     ln -sf $WD/sub-${SUBJECT}/sub-${SUBJECT}_T1w.nii.gz $WD/sub-${SUBJECT}/ses-${SESSION}/anat/sub-${SUBJECT}_ses-${SESSION}_T1w.nii.gz
 done
 
-
+##################################################################
+# run longitudinal reconstruction
+##################################################################
 
 cd $SUBJECTS_DIR
 for SUBDIR in sub-$SUBJECT.?; do

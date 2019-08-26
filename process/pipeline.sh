@@ -20,6 +20,10 @@
 # detect runs properly; IMPORTANT TO SYNC THE RUNS WITH THE BEHAVIOUR!
 
 # PHASE = 0 do everything
+
+
+
+# add $WD/freesurfer/fsaverage6
 ###############################################
 # Variable definitions
 ###############################################
@@ -56,21 +60,21 @@ EES=`echo "((1000 * $WFS)/($FIELDSTRENGTH*3.4*42.57 * ($EPIFAC+1))/$SENSEP)" | b
 
 FX_FILE=tstat
 RADIUS=15.0
-NPROC=35
+NPROC=30
+MAXFEATPROCS=20
 NEVS=4
 FWHM=5
 SIGMA=`echo $FWHM/2.3548 | bc -l`
 
-conda activate lhenv2
+
 if [ ! -e $WD ]; then 
     mkdir $WD
 fi
 
-
 # Find available fMRI runs
-if [ "$RUNS" -eq "0" ];then
+if [ "$RUNS" -eq "0" ]; then
     cd $HOMEDIR/data_BIDS/sub-${SUBJECT}/ses-${SESSION}/func/
-    RUNS=`ls sub-${SUBJECT}_ses-${SESSION}_*bold.nii.gz  | cut -d'_' -f4 | cut -d'-' -f2 | cut -d'0' -f2`
+    RUNS=`ls sub-${SUBJECT}_ses-${SESSION}_*bold.nii.gz  | cut -d'_' -f4 | cut -d'-' -f2 | cut -d'0' -f2 |tr '\r\n' ' '| sed '$s/ $/\n/g'`
     echo Found following runs: $RUNS
 fi
 
@@ -211,14 +215,14 @@ SUBDIR=$HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/
 if [ $PHASE == 0 ] || [ $PHASE == 4 ]; then
 
 if [ ! -e $SUBDIR ]; then
-mkdir $HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/
+mkdir -p $HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/
 mkdir $SUBDIR
 mkdir $SUBDIR/surf
 
 # collect the data
 fslmerge -t $HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/data.nii.gz $HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-*_bold_space-T1w_preproc.nii.gz
 fslmaths $HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/data.nii.gz -Tmean $HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/data_mean.nii.gz
-
+rm $HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/data.nii.gz
 ## correct session
 # To facilitate visualization and projection to cortical surface
 mris_convert --to-scanner $SUBJECTS_DIR/sub-${SUBJECT}/surf/lh.pial $SUBDIR/surf/lh.pial.gii
@@ -269,6 +273,7 @@ do
   cd $RUN_DIR
 
   if [ `cat EV2.csv | wc -l` == 0 ]; then
+   # all correct
    cp $SIMPLE3_FSF_FILE $FSF_FILE
    sed -i "s%@EV1%$RUN_DIR/EV1.csv%" $FSF_FILE        
    sed -i "s%@EV3%$RUN_DIR/EV3.csv%" $FSF_FILE        
@@ -294,10 +299,11 @@ do
 #  film_gls --rn=$RUN_DIR/surfL --sa --in=$RUN_DIR/lh.smoothed.func.gii --pd=fMRI.mat --con=fMRI.con --mode=surface --in2=$SUBDIR/surf/lh.midthickness.gii
 #  film_gls --rn=$RUN_DIR/surfR --sa --in=$RUN_DIR/rh.smoothed.func.gii --pd=fMRI.mat --con=fMRI.con --mode=surface --in2=$SUBDIR/surf/rh.midthickness.gii 
   film_gls --rn=$RUN_DIR/volume --sa --ms=$FWHM --in=$RUN_DIR/smoothed_data.nii.gz --thr=1000 --pd=fMRI.mat --con=fMRI.con --mode=volume &
-  
+
 done
 
 done
+rm $SUBDIR/run*/smoothed_data.nii.gz
 fi # PHASE 5
 
   ##### do second level analysis
@@ -347,13 +353,28 @@ do
   sed -i "s%@CONFOUNDS%$RUN_DIR/mc_run-0${run}.csv%" $FSF_FILE        
 
   # Now run it
-  feat $FSF_FILE 
-  done &
+  feat $FSF_FILE &
+  sleep 10
+    while [ `ps -a | grep fsl_sub | wc -l` -gt $MAXFEATPROCS ]; do
+      sleep 1800
+    done 
+  done 
+
+
+# wait for all to finish
+while [ `ls -v $RUN_DIR/model*/analysis.feat/stats/${FX_FILE}2.nii.gz | wc -l` -lt $NTRIALS ]; do
+    echo "Waiting for all models to finish"
+    echo "sub-${SUBJECT}: Only `ls -v $RUN_DIR/model*/analysis.feat/stats/${FX_FILE}2.nii.gz | wc -w` out of $NTRIALS have finished"
+    sleep 1800
 done
 
-fi # PHASE 6
+done
 
-if [ $PHASE == 0 ] || [ $PHASE == 7 ]; then
+#echo done
+#fi # PHASE 6
+#if [ $PHASE == 0 ] || [ $PHASE == 7 ]; then
+
+
 
 # Merge parameters
 cd $HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/
@@ -366,7 +387,7 @@ done
   fslmerge -t derivatives `ls -v run*/derivatives*` 
 
 #  fslmerge -t other1 `ls -v run$run/model*/analysis.feat/stats/pe3.nii.gz` 
-#  fslmerge -t other2 `ls -v run$run/model*/analysis.feat/stats/pe5.nii.gz` 
+#  fslmerge -t other2fsaverage `ls -v run$run/model*/analysis.feat/stats/pe5.nii.gz` 
 #  fslmerge -t other3 `ls -v run$run/model*/analysis.feat/stats/pe7.nii.gz` 
 #  fslmerge -t other4 `ls -v run$run/model*/analysis.feat/stats/pe9.nii.gz` 
 
@@ -380,6 +401,7 @@ done
   
   echo "Total volumes : " `fslnvols effects.nii.gz`
   rm -r run*/model*
+  rm fixation.nii.gz stretch.nii.gz run*/effects* run*/derivatives*
    # Get sigma of residuals
 #  fslmaths sigmasquared.nii.gz -sqrt sigma.nii.gz
 
@@ -436,8 +458,8 @@ fi #PHASE 8
 
 
 TESTDIR=metrics
-METRICS="acc_svm acc_svm_PCA invcompactness_correlation"
-METRICS="acc_svm invcompactness_correlation"
+METRICS="acc_svm acc_svm_PCA spread_correlation"
+METRICS="acc_svm spread_correlation"
 
 
 if [ $PHASE == 0 ] || [ $PHASE == 9 ]; then
@@ -469,7 +491,7 @@ for metric in $METRICS; do
   done
 done
 
-rm $SUBDIR/surf/$TESTDIR/*.mgh
+rm $SUBDIR/surf/$TESTDIR/*.mgh $SUBDIR/surf/*gzipped.hdf5
 
 fi #PHASE 9
 
@@ -510,9 +532,12 @@ export SURF_R=$SUBJECTS_DIR/fsaverage/surf/rh.inflated
 
 if [ $PHASE == 0 ] || [ $PHASE == 10 ]; then
 
+if [ ! -e $HOMEDIR/fmriprep/results ]; then 
+    mkdir $HOMEDIR/fmriprep/results
+fi
 
 for metric in $METRICS; do
-      if [ $metric == 'invcompactness_correlation' ]; then
+      if [ $metric == 'spread_correlation' ]; then
         LIM1=1
         LIM2=1.15
       else
@@ -520,7 +545,7 @@ for metric in $METRICS; do
         LIM2=0.40
       fi
       
-      do_show $SUBDIR/surf/$TESTDIR/lh.sl_${metric}_${RADIUS}.fsaverage.func.gii $SUBDIR/surf/$TESTDIR/rh.sl_${metric}_${RADIUS}.fsaverage.func.gii $LIM1 $LIM2 $HOMEDIR/results/sl_${metric}_${RADIUS}_sub-${SUBJECT}_ses-${SESSION}
+      do_show $SUBDIR/surf/$TESTDIR/lh.sl_${metric}_${RADIUS}.fsaverage.func.gii $SUBDIR/surf/$TESTDIR/rh.sl_${metric}_${RADIUS}.fsaverage.func.gii $LIM1 $LIM2 $HOMEDIR/fmriprep/results/sl_${metric}_${RADIUS}_sub-${SUBJECT}_ses-${SESSION}
 
 done
 
@@ -541,7 +566,7 @@ for metric in $METRICS; do
       mris_calc -o $HOMEDIR/fmriprep/analysis/surf/$hemi.sl_${metric}_${RADIUS}.mean.func.gii $HOMEDIR/fmriprep/analysis/surf/$hemi.sl_${metric}_${RADIUS}.mean.func.gii div `echo $maps | wc -w`
     done
 
-      if [ $metric == 'invcompactness_correlation' ]; then
+      if [ $metric == 'spread_correlation' ]; then
 #        mris_calc -o $HOMEDIR/fmriprep/analysis/surf/lh.sl_${metric}_${RADIUS}.mean.func.gii $HOMEDIR/fmriprep/analysis/surf/lh.sl_${metric}_${RADIUS}.mean.func.gii mul -1
 #        mris_calc -o $HOMEDIR/fmriprep/analysis/surf/rh.sl_${metric}_${RADIUS}.mean.func.gii $HOMEDIR/fmriprep/analysis/surf/rh.sl_${metric}_${RADIUS}.mean.func.gii mul -1
 
@@ -552,7 +577,7 @@ for metric in $METRICS; do
         LIM2=0.40
       fi
     
-      do_show $HOMEDIR/fmriprep/analysis/surf/lh.sl_${metric}_${RADIUS}.mean.func.gii $HOMEDIR/fmriprep/analysis/surf/rh.sl_${metric}_${RADIUS}.mean.func.gii $LIM1 $LIM2 $HOMEDIR/results/sl_${metric}_${RADIUS}_mean
+      do_show $HOMEDIR/fmriprep/analysis/surf/lh.sl_${metric}_${RADIUS}.mean.func.gii $HOMEDIR/fmriprep/analysis/surf/rh.sl_${metric}_${RADIUS}.mean.func.gii $LIM1 $LIM2 $HOMEDIR/fmriprep/results/sl_${metric}_${RADIUS}_mean
 
 done
 

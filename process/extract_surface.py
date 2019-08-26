@@ -437,7 +437,7 @@ stophere
 
 dist_path_fn = os.path.join(surfpath, '%s.sl_distinct%.1f.func.gii' % (hemi, radius))
 cons_path_fn = os.path.join(surfpath, '%s.sl_consist%.1f.func.gii' % (hemi, radius))
-invcompactness_path_fn = os.path.join(surfpath, '%s.sl_invcompactness_correlation_%.1f.func.gii' % (hemi, radius))
+spread_path_fn = os.path.join(surfpath, '%s.sl_spread_correlation_%.1f.func.gii' % (hemi, radius))
 
 
 # plot the surface data
@@ -467,12 +467,12 @@ for view in ['medial', 'lateral']:
                                 colorbar = True,
                                 cmap = 'cold_hot')
     plotting.plot_surf_stat_map(surf_mesh = os.path.join(surfpath, '%s.inflated' % (hemi)), 
-                                stat_map = load_surf_data(invcompactness_path_fn)[:, 1], 
+                                stat_map = load_surf_data(spread_path_fn)[:, 1], 
                                 bg_map = os.path.join(surfpath, '%s.sulc' % (hemi)), 
                                 hemi = hemi_text,
                                 title = 'Inverse compactness %s hemisphere'%(hemi_text),
                                 view = view,
-                                output_file = os.path.join(datapath, 'results', '%s.invcompactness_correlation.%s.png' % (hemi, view)),
+                                output_file = os.path.join(datapath, 'results', '%s.spread_correlation.%s.png' % (hemi, view)),
                                 alpha = 0.7, 
                                 vmax = 1.3,
                                 bg_on_data = True, 
