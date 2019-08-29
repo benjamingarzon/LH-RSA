@@ -9,6 +9,7 @@
 #sub-*/T2w_template_brain.nii.gz
 
 #sub-*/T2wtoT1w_template.nii.gz: T2w template registered to T1w template
+#sub-*/T2wtoT1w_template_brain.nii.gz: Skull-stripped T2w template registered to T1w template
 #sub-*/T2wtoT1w_template.lta: trasnformation of T2w template registered to T1w template
 
 #sub-*/brainmask.nii.gz: T1w brain mask
@@ -29,6 +30,8 @@ OVERWRITE=$6
 export DOFS=$7
 
 REGCOST="NMI"
+
+RECONALL=~/Software/LeftHand/process/recon-allT2
 
 if [ "$OVERWRITE" -eq 1 ]; then
 rm $STRUCT_DIR/sub-$SUBJECT/*template* $WD/sub-$SUBJECT/ses-*/anat/*restore*
@@ -84,25 +87,26 @@ if [ ! -f "$SUBJECTS_DIR/${SUB}.$SESSION/stats/lh.aparc.stats" ]; then
     # compute myelin maps
     fslmaths $OUTDIR/T1wtotemplate_brain.nii.gz -div $OUTDIR/T2wtoT1w_template_brain.nii.gz -mas $MASK $OUTDIR/myelin.nii.gz
 
-    if [ "$DOFS" == 1 ]; then
+    if [ "$DOFS" -eq 1 ]; then
     # clean the boundaries
-    fslmaths $OUTDIR/brainmasknative.nii.gz -kernel boxv 7 -ero -bin $OUTDIR/min
-    fslmaths $T1w -thr 0.7 -bin $OUTDIR/th
-    fslmaths $OUTDIR/brainmasknative.nii.gz -bin -sub $OUTDIR/min -bin $OUTDIR/rim
-    fslmaths $OUTDIR/rim -mul $OUTDIR/th -bin -sub 1 -mul -1 -mul $OUTDIR/brainmasknative.nii.gz $OUTDIR/brainmasknative.nii.gz  
-    fslmaths $OUTDIR/brainmasknative.nii.gz -bin -kernel boxv 5 -fmean -thr 0.7 -bin $OUTDIR/brainmasknative.nii.gz
+#    fslmaths $OUTDIR/brainmasknative.nii.gz -kernel boxv 7 -ero -bin $OUTDIR/min
+#    fslmaths $T1w -thr 0.7 -bin $OUTDIR/th
+#    fslmaths $OUTDIR/brainmasknative.nii.gz -bin -sub $OUTDIR/min -bin $OUTDIR/rim
+#    fslmaths $OUTDIR/rim -mul $OUTDIR/th -bin -sub 1 -mul -1 -mul $OUTDIR/brainmasknative.nii.gz $OUTDIR/brainmasknative.nii.gz  
+#    fslmaths $OUTDIR/brainmasknative.nii.gz -bin -kernel boxv 5 -fmean -thr 0.7 -bin $OUTDIR/brainmasknative.nii.gz
+#    rm $OUTDIR/rim.nii.gz $OUTDIR/min.nii.gz $OUTDIR/th.nii.gz 
     fslmaths $T1w -mas  $OUTDIR/brainmasknative.nii.gz  $OUTDIR/T1wmasked.nii.gz 
-    rm $OUTDIR/rim.nii.gz $OUTDIR/min.nii.gz $OUTDIR/th.nii.gz 
     
-    recon-all -autorecon1 -noskullstrip -s ${SUB}.$SESSION -i $OUTDIR/T1wmasked.nii.gz -hires \
+    $RECONALL -autorecon1 -noskullstrip -s ${SUB}.$SESSION -i $OUTDIR/T1wmasked.nii.gz -hires \
     -expert $EXPERT_FILE
 
     cd $SUBJECTS_DIR/${SUB}.$SESSION/mri
     cp T1.mgz brainmask.auto.mgz
     ln -s brainmask.auto.mgz brainmask.mgz
-    recon-all -autorecon2 -autorecon3 -s ${SUB}.$SESSION -T2 $OUTDIR/T2wtoT1w.nii.gz -T2pial -hires #-expert $EXPERT_FILE
+    $RECONALL -autorecon2 -autorecon3 -s ${SUB}.$SESSION -T2 $OUTDIR/T2wtoT1w.nii.gz -T2pial -hires #-expert $EXPERT_FILE
 
-    else exit 1
+    else 
+       exit 1
     fi
     
     
@@ -121,7 +125,7 @@ if [ ! -f "$SUBJECTS_DIR/${SUB}.base/surf/lh.pial" ]; then
 
     rm -r $SUBJECTS_DIR/${SUB}.base 
     
-    recon-all -base ${SUB}.base -tp `echo $SESSIONS | sed 's/ / -tp /g'` -all -hires \
+    $RECONALL -base ${SUB}.base -tp `echo $SESSIONS | sed 's/ / -tp /g'` -all -hires \
     -expert $EXPERT_FILE -T2 $T2w -T2pial 
 else
    echo "$SUBJECTS_DIR/$SUB/ base already done"
@@ -136,7 +140,7 @@ BASE=$2
 # create longs
 if [ ! -f "$SUBJECTS_DIR/${SUBDIR}.long.${BASE}/stats/lh.aparc.stats" ]; then 
   rm -r $SUBJECTS_DIR/${SUBDIR}.long.${BASE}
-  recon-all -long ${SUBDIR} $BASE -all -T2pial -hires -expert $EXPERT_FILE
+  $RECONALL -long ${SUBDIR} $BASE -all -T2pial -hires -expert $EXPERT_FILE
 else
    echo "$SUBDIR long already done"
 fi
@@ -175,19 +179,19 @@ T2wLTAS=`echo $T1wLIST | sed 's%anat/magRAGE.nii.gz%T2wtotemplate.lta%g' | sed "
 
 
 # build T1w template
-if [ ! -f "$STRUCT_DIR/sub-$SUBJECT/T1w_template.nii.gz" ]; then
+if [ ! -f "$STRUCT_DIR/sub-$SUBJECT/T1w_template_brain.nii.gz" ]; then
 for STRUCT in $T1wLIST; do
     fast -B -v $STRUCT &    
 done
 
 while [ `ls $WD/sub-$SUBJECT/ses-*/anat/magRAGE_restore.nii.gz | wc -l` -lt $NANAT ]; do
     echo "Waiting for T1w segmentations to finish"
-    sleep 1800
+    sleep 500
 done
 
 mri_robust_template --mov $T1wNOBIAS --template $STRUCT_DIR/sub-$SUBJECT/T1w_template.nii.gz --satit --lta $T1wLTAS --mapmov $T1wtoTEMPLATE --iscale --weights $WEIGHTS --maxit 30
 rm -r $SUBJECTS_DIR/sub-${SUBJECT}.template
-recon-all -autorecon1 -s sub-${SUBJECT}.template -i $STRUCT_DIR/sub-$SUBJECT/T1w_template.nii.gz -hires 
+$RECONALL -autorecon1 -s sub-${SUBJECT}.template -i $STRUCT_DIR/sub-$SUBJECT/T1w_template.nii.gz -hires 
 rm $WD/sub-$SUBJECT/ses-*/anat/*pve* $WD/sub-$SUBJECT/ses-*/anat/*mixel* $WD/sub-$SUBJECT/ses-*/anat/*_seg.nii.gz
 
 mri_vol2vol --mov $SUBJECTS_DIR/sub-${SUBJECT}.template/mri/brainmask.mgz \
@@ -205,7 +209,7 @@ done
 
 while [ `ls $WD/sub-$SUBJECT/ses-*/anat/*T2w_restore.nii.gz | wc -l` -lt $NANAT ]; do
     echo "Waiting for T2w segmentations to finish"
-    sleep 1800
+    sleep 500
 done
 
 rm $WD/sub-$SUBJECT/ses-*/anat/*pve* $WD/sub-$SUBJECT/ses-*/anat/*mixel* $WD/sub-$SUBJECT/ses-*/anat/*_seg.nii.gz
@@ -215,13 +219,22 @@ bet $STRUCT_DIR/sub-$SUBJECT/T2w_template.nii.gz $STRUCT_DIR/sub-$SUBJECT/T2w_te
 
 # register T2w template to T1w template
 mri_robust_register --mov $STRUCT_DIR/sub-$SUBJECT/T2w_template_brain.nii.gz \
---dst $STRUCT_DIR/sub-$SUBJECT/T1w_template_brain.nii.gz --satit --iscale --mapmov $STRUCT_DIR/sub-$SUBJECT/T2wtoT1w_template.nii.gz \
+--dst $STRUCT_DIR/sub-$SUBJECT/T1w_template_brain.nii.gz --satit --iscale \
 --lta $STRUCT_DIR/sub-$SUBJECT/T2wtoT1w_template.lta --cost $REGCOST
 
-# clean T1w further with skull-stripped T2w
+mri_vol2vol --mov $STRUCT_DIR/sub-$SUBJECT/T2w_template_brain.nii.gz \
+--targ $STRUCT_DIR/sub-$SUBJECT/T1w_template_brain.nii.gz \
+--reg $STRUCT_DIR/sub-$SUBJECT/T2wtoT1w_template.lta \
+--nearest --o $STRUCT_DIR/sub-$SUBJECT/T2wtoT1w_template_brain.nii.gz 
 
-fslmaths $STRUCT_DIR/sub-$SUBJECT/T1w_template_brain.nii.gz -mas $STRUCT_DIR/sub-$SUBJECT/T2wtoT1w_template.nii.gz 
-\$STRUCT_DIR/sub-$SUBJECT/T1w_template_brain.nii.gz
+mri_vol2vol --mov $STRUCT_DIR/sub-$SUBJECT/T2w_template.nii.gz \
+--targ $STRUCT_DIR/sub-$SUBJECT/T1w_template_brain.nii.gz \
+--reg $STRUCT_DIR/sub-$SUBJECT/T2wtoT1w_template.lta \
+--cubic --o $STRUCT_DIR/sub-$SUBJECT/T2wtoT1w_template.nii.gz 
+
+# clean T1w further with skull-stripped T2w
+fslmaths $STRUCT_DIR/sub-$SUBJECT/T1w_template_brain.nii.gz -mas $STRUCT_DIR/sub-$SUBJECT/T2wtoT1w_template_brain.nii.gz \
+$STRUCT_DIR/sub-$SUBJECT/T1w_template_brain.nii.gz
 fi
 
 # create a mask
@@ -250,7 +263,7 @@ done
 while [ `ls $SUBJECTS_DIR/sub-${SUBJECT}.?/stats/lh.aparc.stats | wc -w` -lt $NANAT ]; do
     echo "Waiting for all cross to finish"
     echo "sub-${SUBJECT}: Only `ls $SUBJECTS_DIR/sub-${SUBJECT}.?/stats/lh.aparc.stats | wc -w` out of $NANAT have finished"
-    sleep 3600
+    sleep 500
 done
 
 echo "Cross-sectionals done!"
@@ -259,7 +272,7 @@ exit 1
 # run base reconstruction
 ##################################################################
 echo "Running base"    
-do_fs_long_base sub-${SUBJECT} "$SUBJECTS_DIR/sub-${SUBJECT}.?" $WD/sub-$SUBJECT/T2w_template.nii.gz
+do_fs_long_base sub-${SUBJECT} "$SUBJECTS_DIR/sub-${SUBJECT}.?" $WD/sub-$SUBJECT/T2wtoT1w_template.nii.gz
 ln -sf $SUBJECTS_DIR/sub-${SUBJECT}.base $SUBJECTS_DIR/sub-$SUBJECT 
 
 fslmerge -t $WD/sub-${SUBJECT}/sub-${SUBJECT}_T1w_all.nii.gz $WD/sub-$SUBJECT/ses-*/anat/T1w_template.nii.gz

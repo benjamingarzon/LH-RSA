@@ -14,12 +14,12 @@ SUBJECTS="lue1101 lue1103 lue1104"
 WD=/home/benjamin.garzon/Data/LeftHand/Lund1/data_BIDS
 VBM_DIR=/home/benjamin.garzon/Data/LeftHand/Lund1/vbm
 
-OVERWRITE=1
+OVERWRITE=0
 DOFS=1
 for SUBJECT in $SUBJECTS; do
     if [ `ls $HOMEDIR/data_BIDS/sub-$SUBJECT/*/anat/sub-${SUBJECT}_ses-*_MP2RAGE.nii.gz | wc -l` -eq $NSESSIONS ]; then    
-       echo ./run_fs.sh $SUBJECTS_DIR $WD $SUBJECT $EXPERT_FILE
-       nice ./run_fs.sh $SUBJECTS_DIR $WD $VBM_DIR $SUBJECT $EXPERT_FILE $OVERWRITE > $HOMEDIR/logs/${SUBJECT}.fs.log &
+
+       nice ./run_fs.sh $SUBJECTS_DIR $WD $VBM_DIR $SUBJECT $EXPERT_FILE $OVERWRITE $DOFS > $HOMEDIR/logs/${SUBJECT}.fs.log &
     fi
 done
 

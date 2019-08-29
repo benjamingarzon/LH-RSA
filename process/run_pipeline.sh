@@ -7,18 +7,16 @@
 HOMEDIR=/home/benjamin.garzon/Data/LeftHand/Lund1
 SUBJECTS_DIR=/home/benjamin.garzon/Data/LeftHand/Lund1/freesurfer
 
-PHASES="2"
+PHASES="4 5 6 7 8 9 10 11"
 PHASE=2
 
 NSESSIONS=7
 SESSIONS=`seq $NSESSIONS`
-SESSIONS="1"
 
 #SUBJECTS="lue1107"
 #SUBJECTS="lue1101"
 #SUBJECTS="lue1104 lue1105 lue1106 lue1107 lue1201 lue1202 lue1203 lue1204 lue1205 lue1206 lue1207"
-SUBJECTS="lue1103 lue1104 lue1105 lue1106 lue1107 lue1201 lue1202 lue1203 lue1204 lue1205 lue1206 lue1207"
-SUBJECTS="lue1202"
+SUBJECTS="lue1107 lue1201 lue1202 lue1203 lue1204 lue1205 lue1206 lue1207"
 
 WD=/home/benjamin.garzon/Data/LeftHand/Lund1/data_BIDS
 RESPONSES_FILE=$HOMEDIR/responses/trials_table_Lund1fmri_clean.csv
