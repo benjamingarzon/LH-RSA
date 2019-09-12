@@ -1,12 +1,29 @@
+ANALYSES TO DO:
 
+VBM: changes
+VBM: baseline behaviour, or changes in behaviour
+Myelin
+Thickness: changes, baseline, final
+FMRI maps
+RSA
+resting state: modulation nuclei
+resting state: large scale networks
 
 Pipeline:
 
 clean after phase 5 and 6
 
-BAD RECONS lue1101 long 2 
 
+analysis: 
+
+
+Use Glasser parcellation instead of Destrieux?
 # use residuals from GLM (step 5) for connectivity analysis
+
+
+
+make sure that it does not stuck when either fmri or responses are missing
+
 
 check that strutctural images are complete
 NOT USING HIGH PASS, SHOULD IT BE USED foR ERP?? REPASSAR parametres
@@ -14,13 +31,12 @@ NOT USING HIGH PASS, SHOULD IT BE USED foR ERP?? REPASSAR parametres
 repassar motion parameters from fmriprep
 
 think about using fmriprerp 1.4 whe it is ready
-improve run_fs pipeline???
 
 xxconversions.sh: should read from file which are the correct sequences
 download data from 
 should read how many runs to put in fieldmap
 
-
+in heudiconv
 fix in line 168
 		try:
                     fp.write('\t'.join([str(val) for val in seq]) + '\n')
@@ -42,9 +58,6 @@ fix problem with sessions of different subject
 for i in */sub-105*; do mv $i `echo $i | sed 's/sub-105/sub-105.1/g'`; done
 
 
-xx1. test folder
-xx2. use tstat
-xx3. add pca
 
 4. larger radius : 20
 add midthickness
@@ -59,10 +72,6 @@ mixture of gaussians and compare IC
 do surface based fMRI analysis and use activation sites as mask
 xxdo 'prewhitening'
 permutation and rsa
-
-are some maps 0?? no, open again with freesurfer
-
-
 
 
 Find centers without spatiotemporal and then do spatiotemporal 
@@ -110,8 +119,6 @@ xxRedo surface_searchlight with new thinking about zsxores
 xxDo a loop with different vertices and their plots
 xxTry multiclass and ridge
 xxhow to use multivariate searchlight?
-
-Do I improve sensitivity if I include more data?
 
 xxCompute within vs between measure
 

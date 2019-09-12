@@ -52,6 +52,26 @@ def get_spread_chunk(x, metric, targets):
                     within_values[elementi].append(X)
     
     return(within_values, between_values)
+
+# faster, only looks at within values
+def get_within_spread_chunk(x, metric, targets):
+    RDM = squareform(x)
+    if metric == 'correlation':
+        RDM = myarctanh(1 - RDM)
+
+    elements = np.sort(np.unique(targets))
+    N = len(elements)
+    within_values = {}
+    for i, elementi in enumerate(elements):
+        seli = targets == elementi 
+        M = np.sum(seli)
+
+        if M > 1:
+            within_values[elementi] = []        
+            X = RDM[seli, :][:, seli][np.tril_indices(M, k = -1)]
+            within_values[elementi].append(X)
+            
+    return(within_values)
     
 def get_RDM_metric(x, metric, targets):
     RDM = squareform(x)
@@ -363,6 +383,86 @@ class Pspread(PDist):
         out = Dataset(np.array((spread,)))
         return out
 
+
+class Pwithin_spread(PDist):
+
+    def __init__(self, 
+                 mapper = None, 
+                 NCOMPS = 10, 
+                 filter_accuracy = False,
+                 accuracy = 0,
+                 **kwargs):
+
+        self.mapper = mapper
+        self.filter_accuracy = filter_accuracy     
+        self.correct = accuracy == 1
+        self.pca = PCA(n_components = NCOMPS, whiten = False)
+        super(Pwithin_spread, self).__init__(**kwargs)
+
+    def _call(self, ds):
+
+        mapped_ds = self.mapper(ds)
+        data = mapped_ds.samples
+        
+        # remove constant columns
+        constantcols = np.all(data[1:] == data[:-1], axis=0)
+        data = data[:, ~constantcols]
+        if np.sum(constantcols)>0:
+            print(np.sum(constantcols))
+        try:
+            data_pca = self.pca.fit_transform(data)
+            
+            if self.filter_accuracy:
+                data_pca = data_pca[self.correct]
+                chunks = ds.chunks[self.correct]
+                targets = ds.targets[self.correct]
+            else:
+                chunks = ds.chunks
+                targets = ds.targets
+#                print(data_pca.shape)
+    
+            unique_chunks = np.unique(chunks) 
+            Nchunks = len(unique_chunks)
+            within_mean = {}
+    
+            for k, chunk in enumerate(unique_chunks):
+                ds_chunk = data_pca[chunks == chunk]
+                dsm = pdist(ds_chunk, 
+                        metric=self.params.pairwise_metric)
+                within = get_within_spread_chunk(dsm, 
+                                   self.params.pairwise_metric, 
+                                   targets[chunks == chunk])
+                if k == 0:
+                    within_values = {}
+                    
+                for key in within.keys():
+                    if key in within_values.keys():
+                        within_values[key] = within_values[key] + within[key]
+                    else:
+                        within_values[key] = within[key]
+
+            for key in within_values.keys():
+                within_mean[key] = np.nanmean(np.concatenate(within_values[key]))                        
+                                     
+            if self.params.pairwise_metric == 'correlation':
+                within_spread = 1 - np.tanh(np.array(within_mean.values()))
+                        
+            else: # not ready
+                within_spread = np.array(within_mean.values())
+
+        except LinAlgError:
+            print("PCA did not converge!")
+ #           print(data)
+            within_spread = np.zeros((len(within_values.keys()), ))
+        except ValueError:
+            print("Value error")
+ #           print(data)
+            within_spread = np.zeros((len(within_values.keys()), ))
+        out = Dataset(np.array((within_spread, )).T)
+        return out
+
+
+
 class PDistMulti(PDist):
 
     def __init__(self, mapper = None, **kwargs):
@@ -480,10 +580,11 @@ def map2gifti2(ds, filename=None, encoding='GIFTI_ENCODING_B64GZ',
 
     node_indices_labels = ('node_indices', 'center_ids', 'ids', 'roi_ids')
     node_indices = _get_attribute_value(ds, 'fa', node_indices_labels)
-
+    
     if vertices is not None:
-        values = np.zeros((1, vertices))
-        values[0, node_indices] = samples
+        values = np.zeros((samples.shape[0], vertices))
+        for i, sample in enumerate(samples):
+            values[i, node_indices] = sample
         darray = _build_array(np.arange(vertices), 'NIFTI_INTENT_NODE_INDEX')
         darrays.append(darray)
         samples = values

@@ -20,10 +20,14 @@ import numpy as np
 #DUMMY_TIME = 6 sec
 
 FILENAME = sys.argv[1]
-INIT_TIME = float(sys.argv[2])
-BUFFER_TIME = float(sys.argv[3])
-DUMMY_TIME = float(sys.argv[4])
-STRETCH_DURATION = float(sys.argv[5])
+SUBJECT = sys.argv[2]
+SESSION = int(sys.argv[3])
+INIT_TIME = float(sys.argv[4])
+BUFFER_TIME = float(sys.argv[5])
+DUMMY_TIME = float(sys.argv[6])
+STRETCH_DURATION = float(sys.argv[7])
+SESSION_FACTOR = int(sys.argv[8])
+
 OUTPUTNAME = 'EV'
 OUTPUTNAME_SINGLE = 'TRIAL'
 OUTPUTNAME_OTHER = 'OTHER'
@@ -40,7 +44,10 @@ def output_ev(EV, i, suffix, noext = False):
 
 
 
-data = pd.read_csv(FILENAME, sep = ';')
+data = pd.read_csv(FILENAME, sep = ' ')
+
+data = data.loc[data.username == SUBJECT, :]
+data = data.loc[data.sess_num == (SESSION-1)*SESSION_FACTOR, :]
 
 run = data['run'].values
 runs = np.unique(run).astype(int)
@@ -50,6 +57,8 @@ data['label'] = labels
 
 # For representational analysis / decoding
 sequences = pd.DataFrame({
+    'subject': data['username'],
+    'sess_num': data['sess_num'],
     'trial': data['trial'],
     'run' : data['run'],
     'seq_type' : labels,
@@ -60,10 +69,10 @@ sequences = pd.DataFrame({
     'accuracy': data['accuracy'],
     'fixation': data['clock_fixation'] - DUMMY_TIME,
     'fixation_duration': data['clock_execution'] - data['clock_fixation'] + INIT_TIME,
-    'block': data['block']
+    'block': data['block'],    
+    'true_sequence': data['true_sequence'].str.replace(" ", "")
 
     }) 
-
 sequences.to_csv("sequences.csv", header=True, index=False, sep = ' ', float_format='%.2f')
 print("#Total correct: %d of %d"%(np.sum(sequences.accuracy == 1.0), len(sequences.accuracy)))
 print("Type  Correct  Run")

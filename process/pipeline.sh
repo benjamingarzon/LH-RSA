@@ -21,7 +21,7 @@
 
 # PHASE = 0 do everything
 
-
+# put labels in $HOMEDIR/labels
 
 # add $WD/freesurfer/fsaverage6
 ###############################################
@@ -40,6 +40,7 @@ HOMEDIR=$9
 ORGANIZE_FILE=select_organize_responses.py
 PROGDIR=~/Software/LeftHand/process/
 HCPDIR=/home/share/Software/HCP/workbench/bin_rh_linux64/
+LABELSDIR=$HOMEDIR/labels
 
 # Same always
 SIMPLE3_FSF_FILE=$HOMEDIR/fmri_designs/fMRInoreg_3stretch.fsf
@@ -63,8 +64,14 @@ RADIUS=15.0
 NPROC=30
 MAXFEATPROCS=20
 NEVS=4
+ACC_FWHM=5
 FWHM=5
 SIGMA=`echo $FWHM/2.3548 | bc -l`
+
+TESTDIR=metrics
+METRICS="acc_svm acc_svm_PCA spread_correlation"
+METRICS="spread_correlation acc_svm"
+#METRICS="acc_svm spread_correlation within_spread_correlation"
 
 
 if [ ! -e $WD ]; then 
@@ -74,7 +81,13 @@ fi
 # Find available fMRI runs
 if [ "$RUNS" -eq "0" ]; then
     cd $HOMEDIR/data_BIDS/sub-${SUBJECT}/ses-${SESSION}/func/
-    RUNS=`ls sub-${SUBJECT}_ses-${SESSION}_*bold.nii.gz  | cut -d'_' -f4 | cut -d'-' -f2 | cut -d'0' -f2 |tr '\r\n' ' '| sed '$s/ $/\n/g'`
+    RUNS0=`ls sub-${SUBJECT}_ses-${SESSION}_*bold.nii.gz  | cut -d'_' -f4 | cut -d'-' -f2 | cut -d'0' -f2 |tr '\r\n' ' '| sed '$s/ $/\n/g'`
+    RUNS=""
+      for run in $RUNS0; do
+         if [ -e $HOMEDIR/responses/sub-${SUBJECT}/ses-${SESSION}/run$run ]; then
+           RUNS="$RUNS $run"
+         fi
+      done  
     echo Found following runs: $RUNS
 fi
 
@@ -247,58 +260,57 @@ cd $SUBDIR
 for xxx in 1; do # just to make it wait
 for run in $RUNS; 
 do
-
-  FUNCVOL=$HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-0${run}_bold_space-T1w_preproc.nii.gz
-  FUNCSURFL=$HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-0${run}_bold_space-fsnative.L.func.gii
-  FUNCSURFR=$HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-0${run}_bold_space-fsnative.R.func.gii
-
-  RUN_DIR=$SUBDIR/run$run
-
-  rm -r $RUN_DIR
-  mkdir $RUN_DIR
-
-  #Smoothing 
-  fslmaths $FUNCVOL -s $FWHM $RUN_DIR/smoothed_data.nii.gz
-  #mri_surf2surf --s sub-${SUBJECT} --sval $FUNCSURFL --hemi lh --fwhm-trg $FWHM --tval $RUN_DIR/lh.smoothed.func.gii
-  #mri_surf2surf --s sub-${SUBJECT} --sval $FUNCSURFR --hemi rh --fwhm-trg $FWHM --tval $RUN_DIR/rh.smoothed.func.gii
-#  $HCPDIR/wb_command -metric-dilate $RUN_DIR/lh.smoothed.func.gii $SUBDIR/surf/lh.midthickness.gii 100 $RUN_DIR/lh.smoothed.func.gii -nearest 
-#  $HCPDIR/wb_command -metric-dilate $RUN_DIR/rh.smoothed.func.gii $SUBDIR/surf/rh.midthickness.gii 100 $RUN_DIR/rh.smoothed.func.gii -nearest 
-
-  cut -d$'\t' -f $CONFOUND_INDICES $HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-0${run}_bold_confounds.tsv | tail -n +2 > $RUN_DIR/mc_run-0${run}.csv
-
-  FSF_FILE=$RUN_DIR/fMRI.fsf
-  
-  cp $HOMEDIR/responses/sub-${SUBJECT}/ses-${SESSION}/run$run/*.csv $MODEL_DIR/$RUN_DIR/
-  
-  cd $RUN_DIR
-
-  if [ `cat EV2.csv | wc -l` == 0 ]; then
-   # all correct
-   cp $SIMPLE3_FSF_FILE $FSF_FILE
-   sed -i "s%@EV1%$RUN_DIR/EV1.csv%" $FSF_FILE        
-   sed -i "s%@EV3%$RUN_DIR/EV3.csv%" $FSF_FILE        
-   sed -i "s%@EV4%$RUN_DIR/EV4.csv%" $FSF_FILE        
-  else
-   cp $SIMPLE4_FSF_FILE $FSF_FILE
-   sed -i "s%@EV1%$RUN_DIR/EV1.csv%" $FSF_FILE        
-   sed -i "s%@EV2%$RUN_DIR/EV2.csv%" $FSF_FILE        
-   sed -i "s%@EV3%$RUN_DIR/EV3.csv%" $FSF_FILE        
-   sed -i "s%@EV4%$RUN_DIR/EV4.csv%" $FSF_FILE          
-  fi
-  
-  NVOLS=`fslnvols $RUN_DIR/smoothed_data.nii.gz`
-  sed -i "s%@NVOLS%$NVOLS%" $FSF_FILE
-  sed -i "s%@fMRI%$FUNC%" $FSF_FILE
-  sed -i "s%@STRUCTURAL_BRAIN%$STRUCT%" $FSF_FILE
-  sed -i "s%@ANALYSIS%$RUN_DIR/analysis%" $FSF_FILE  
-  sed -i "s%@CONFOUNDS%$RUN_DIR/mc_run-0${run}.csv%" $FSF_FILE        
-  
-  # now run it
-  feat_model fMRI
-  rm -r $RUN_DIR/surfL $RUN_DIR/surfR $RUN_DIR/volume 
-#  film_gls --rn=$RUN_DIR/surfL --sa --in=$RUN_DIR/lh.smoothed.func.gii --pd=fMRI.mat --con=fMRI.con --mode=surface --in2=$SUBDIR/surf/lh.midthickness.gii
-#  film_gls --rn=$RUN_DIR/surfR --sa --in=$RUN_DIR/rh.smoothed.func.gii --pd=fMRI.mat --con=fMRI.con --mode=surface --in2=$SUBDIR/surf/rh.midthickness.gii 
-  film_gls --rn=$RUN_DIR/volume --sa --ms=$FWHM --in=$RUN_DIR/smoothed_data.nii.gz --thr=1000 --pd=fMRI.mat --con=fMRI.con --mode=volume &
+      FUNCVOL=$HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-0${run}_bold_space-T1w_preproc.nii.gz
+      FUNCSURFL=$HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-0${run}_bold_space-fsnative.L.func.gii
+      FUNCSURFR=$HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-0${run}_bold_space-fsnative.R.func.gii
+    
+      RUN_DIR=$SUBDIR/run$run
+    
+      rm -r $RUN_DIR
+      mkdir $RUN_DIR
+    
+      #Smoothing 
+      fslmaths $FUNCVOL -s $FWHM $RUN_DIR/smoothed_data.nii.gz
+      #mri_surf2surf --s sub-${SUBJECT} --sval $FUNCSURFL --hemi lh --fwhm-trg $FWHM --tval $RUN_DIR/lh.smoothed.func.gii
+      #mri_surf2surf --s sub-${SUBJECT} --sval $FUNCSURFR --hemi rh --fwhm-trg $FWHM --tval $RUN_DIR/rh.smoothed.func.gii
+    #  $HCPDIR/wb_command -metric-dilate $RUN_DIR/lh.smoothed.func.gii $SUBDIR/surf/lh.midthickness.gii 100 $RUN_DIR/lh.smoothed.func.gii -nearest 
+    #  $HCPDIR/wb_command -metric-dilate $RUN_DIR/rh.smoothed.func.gii $SUBDIR/surf/rh.midthickness.gii 100 $RUN_DIR/rh.smoothed.func.gii -nearest 
+    
+      cut -d$'\t' -f $CONFOUND_INDICES $HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-0${run}_bold_confounds.tsv | tail -n +2 > $RUN_DIR/mc_run-0${run}.csv
+    
+      FSF_FILE=$RUN_DIR/fMRI.fsf
+      
+      cp $HOMEDIR/responses/sub-${SUBJECT}/ses-${SESSION}/run$run/*.csv $MODEL_DIR/$RUN_DIR/
+      
+      cd $RUN_DIR
+    
+      if [ `cat EV2.csv | wc -l` == 0 ]; then
+       # all correct
+       cp $SIMPLE3_FSF_FILE $FSF_FILE
+       sed -i "s%@EV1%$RUN_DIR/EV1.csv%" $FSF_FILE        
+       sed -i "s%@EV3%$RUN_DIR/EV3.csv%" $FSF_FILE        
+       sed -i "s%@EV4%$RUN_DIR/EV4.csv%" $FSF_FILE        
+      else
+       cp $SIMPLE4_FSF_FILE $FSF_FILE
+       sed -i "s%@EV1%$RUN_DIR/EV1.csv%" $FSF_FILE        
+       sed -i "s%@EV2%$RUN_DIR/EV2.csv%" $FSF_FILE        
+       sed -i "s%@EV3%$RUN_DIR/EV3.csv%" $FSF_FILE        
+       sed -i "s%@EV4%$RUN_DIR/EV4.csv%" $FSF_FILE          
+      fi
+      
+      NVOLS=`fslnvols $RUN_DIR/smoothed_data.nii.gz`
+      sed -i "s%@NVOLS%$NVOLS%" $FSF_FILE
+      sed -i "s%@fMRI%$FUNC%" $FSF_FILE
+      sed -i "s%@STRUCTURAL_BRAIN%$STRUCT%" $FSF_FILE
+      sed -i "s%@ANALYSIS%$RUN_DIR/analysis%" $FSF_FILE  
+      sed -i "s%@CONFOUNDS%$RUN_DIR/mc_run-0${run}.csv%" $FSF_FILE        
+      
+      # now run it
+      feat_model fMRI
+      rm -r $RUN_DIR/surfL $RUN_DIR/surfR $RUN_DIR/volume 
+    #  film_gls --rn=$RUN_DIR/surfL --sa --in=$RUN_DIR/lh.smoothed.func.gii --pd=fMRI.mat --con=fMRI.con --mode=surface --in2=$SUBDIR/surf/lh.midthickness.gii
+    #  film_gls --rn=$RUN_DIR/surfR --sa --in=$RUN_DIR/rh.smoothed.func.gii --pd=fMRI.mat --con=fMRI.con --mode=surface --in2=$SUBDIR/surf/rh.midthickness.gii 
+      film_gls --rn=$RUN_DIR/volume --sa --ms=$FWHM --in=$RUN_DIR/smoothed_data.nii.gz --thr=1000 --pd=fMRI.mat --con=fMRI.con --mode=volume &
 
 done
 
@@ -371,8 +383,8 @@ done
 done
 
 #echo done
-#fi # PHASE 6
-#if [ $PHASE == 0 ] || [ $PHASE == 7 ]; then
+fi # PHASE 6
+if [ $PHASE == 0 ] || [ $PHASE == 7 ]; then
 
 
 
@@ -457,13 +469,7 @@ done
 fi #PHASE 8
 
 
-TESTDIR=metrics
-METRICS="acc_svm acc_svm_PCA spread_correlation"
-METRICS="acc_svm spread_correlation"
-
-
 if [ $PHASE == 0 ] || [ $PHASE == 9 ]; then
-ACC_FWHM=5
 
 # Run searchlight
 for hemi in rh lh; do
@@ -491,7 +497,7 @@ for metric in $METRICS; do
   done
 done
 
-rm $SUBDIR/surf/$TESTDIR/*.mgh $SUBDIR/surf/*gzipped.hdf5
+rm $SUBDIR/surf/$TESTDIR/*.mgh $SUBDIR/surf/*gzipped.hdf5 $SUBDIR/surf/$TESTDIR/qe.mask.nii.gz
 
 fi #PHASE 9
 
@@ -554,21 +560,29 @@ fi #PHASE 10
 # average what we have
 if [ $PHASE == 0 ] || [ $PHASE == 11 ]; then
 
- 
+if [ ! -e $HOMEDIR/fmriprep/analysis/surf ]; then 
+    mkdir $HOMEDIR/fmriprep/analysis/surf
+fi
+if [ ! -e $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf ]; then 
+    mkdir $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf
+fi
+# done every session, although it would be enough to do it for the last one
 for metric in $METRICS; do
     for hemi in rh lh; do
-      maps=`echo $HOMEDIR/fmriprep/analysis/sub-*/ses-*/surf/metrics/$hemi.sl_${metric}_${RADIUS}.fsaverage.func.gii`
-      mris_calc -o $HOMEDIR/fmriprep/analysis/surf/$hemi.sl_${metric}_${RADIUS}.mean.func.gii `echo $maps| cut -d" " -f1` mul 0
+      maps=`echo $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/ses-*/surf/metrics/$hemi.sl_${metric}_${RADIUS}.fsaverage.func.gii`
+      mris_calc -o $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/$hemi.sl_${metric}_${RADIUS}.mean.func.gii `echo $maps| cut -d" " -f1` mul 0
       echo $maps
       for mymap in $maps; do     
-         mris_calc -o $HOMEDIR/fmriprep/analysis/surf/$hemi.sl_${metric}_${RADIUS}.mean.func.gii $HOMEDIR/fmriprep/analysis/surf/$hemi.sl_${metric}_${RADIUS}.mean.func.gii add $mymap
-      done
-      mris_calc -o $HOMEDIR/fmriprep/analysis/surf/$hemi.sl_${metric}_${RADIUS}.mean.func.gii $HOMEDIR/fmriprep/analysis/surf/$hemi.sl_${metric}_${RADIUS}.mean.func.gii div `echo $maps | wc -w`
-    done
+         mris_calc -o $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/$hemi.sl_${metric}_${RADIUS}.mean.func.gii $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/$hemi.sl_${metric}_${RADIUS}.mean.func.gii add $mymap
+      done #maps
+      mris_calc -o $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/$hemi.sl_${metric}_${RADIUS}.mean.func.gii $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/$hemi.sl_${metric}_${RADIUS}.mean.func.gii div `echo $maps | wc -w`
 
+    # gather all data
+#   cat $HOMEDIR/fmriprep/analysis/sub-*/ses-*/surf/metrics/sequence_types.csv > $HOMEDIR/fmriprep/analysis/surf/sequence_types.csv
+
+    done #hemi
+    
       if [ $metric == 'spread_correlation' ]; then
-#        mris_calc -o $HOMEDIR/fmriprep/analysis/surf/lh.sl_${metric}_${RADIUS}.mean.func.gii $HOMEDIR/fmriprep/analysis/surf/lh.sl_${metric}_${RADIUS}.mean.func.gii mul -1
-#        mris_calc -o $HOMEDIR/fmriprep/analysis/surf/rh.sl_${metric}_${RADIUS}.mean.func.gii $HOMEDIR/fmriprep/analysis/surf/rh.sl_${metric}_${RADIUS}.mean.func.gii mul -1
 
         LIM1=1
         LIM2=1.15
@@ -577,7 +591,27 @@ for metric in $METRICS; do
         LIM2=0.40
       fi
     
-      do_show $HOMEDIR/fmriprep/analysis/surf/lh.sl_${metric}_${RADIUS}.mean.func.gii $HOMEDIR/fmriprep/analysis/surf/rh.sl_${metric}_${RADIUS}.mean.func.gii $LIM1 $LIM2 $HOMEDIR/fmriprep/results/sl_${metric}_${RADIUS}_mean
+
+      echo NAME INDEXMAX > $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/${metric}_maxima.csv
+      LABELS="S_postcentral G_precentral S_front_sup Pole_occipital S_intrapariet_and_P_trans G_temporal_middle G_and_S_cingul-Mid-Ant S_front_inf"
+      for label in $LABELS; do
+      
+      $HCPDIR/wb_command -metric-math "(x*y)" $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/aux.func.gii \
+      -var x $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/lh.sl_${metric}_${RADIUS}.mean.func.gii \
+      -var y $LABELSDIR/lh.${label}.func.gii      
+      echo lh.$label `$HCPDIR/wb_command -metric-stats $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/aux.func.gii -reduce INDEXMAX ` >> $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/${metric}_maxima.csv
+
+      $HCPDIR/wb_command -metric-math "(x*y)" $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/aux.func.gii \
+      -var x $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/rh.sl_${metric}_${RADIUS}.mean.func.gii \
+      -var y $LABELSDIR/rh.${label}.func.gii
+
+      echo rh.$label `$HCPDIR/wb_command -metric-stats $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/aux.func.gii -reduce INDEXMAX` >> $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/${metric}_maxima.csv
+      done
+      rm $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/aux.func.gii
+      
+      do_show $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/lh.sl_${metric}_${RADIUS}.mean.func.gii \
+      $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/rh.sl_${metric}_${RADIUS}.mean.func.gii \
+      $LIM1 $LIM2 $HOMEDIR/fmriprep/results/sl_${metric}_${RADIUS}_sub-${SUBJECT}_mean
 
 done
 

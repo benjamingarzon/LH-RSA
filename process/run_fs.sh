@@ -21,6 +21,8 @@
 #sub-*/ses-*/T2wtoT1w_template.nii.gz: individual T2w in T1w template space
 #sub-*/ses-*/T2wtoT1w_template_brain.nii.gz: individual T2w in T1w template space, skull-stripped
 
+# magRAGE mix of PD and MP2RAGE weight
+
 export SUBJECTS_DIR=$1
 WD=$2 # BIDS dir
 STRUCT_DIR=$3 # BIDS dir
@@ -89,13 +91,14 @@ if [ ! -f "$SUBJECTS_DIR/${SUB}.$SESSION/stats/lh.aparc.stats" ]; then
 
     if [ "$DOFS" -eq 1 ]; then
     # clean the boundaries
-#    fslmaths $OUTDIR/brainmasknative.nii.gz -kernel boxv 7 -ero -bin $OUTDIR/min
-#    fslmaths $T1w -thr 0.7 -bin $OUTDIR/th
-#    fslmaths $OUTDIR/brainmasknative.nii.gz -bin -sub $OUTDIR/min -bin $OUTDIR/rim
-#    fslmaths $OUTDIR/rim -mul $OUTDIR/th -bin -sub 1 -mul -1 -mul $OUTDIR/brainmasknative.nii.gz $OUTDIR/brainmasknative.nii.gz  
-#    fslmaths $OUTDIR/brainmasknative.nii.gz -bin -kernel boxv 5 -fmean -thr 0.7 -bin $OUTDIR/brainmasknative.nii.gz
-#    rm $OUTDIR/rim.nii.gz $OUTDIR/min.nii.gz $OUTDIR/th.nii.gz 
-    fslmaths $T1w -mas  $OUTDIR/brainmasknative.nii.gz  $OUTDIR/T1wmasked.nii.gz 
+    fslmaths $OUTDIR/brainmasknative.nii.gz -kernel boxv 7 -ero -bin $OUTDIR/min
+    fslmaths $T1w -thr 0.7 -bin $OUTDIR/th
+    fslmaths $OUTDIR/brainmasknative.nii.gz -bin -sub $OUTDIR/min -bin $OUTDIR/rim
+    fslmaths $OUTDIR/rim -mul $OUTDIR/th -bin -sub 1 -mul -1 -mul $OUTDIR/brainmasknative.nii.gz $OUTDIR/brainmasknative.nii.gz  
+    fslmaths $OUTDIR/brainmasknative.nii.gz -bin -kernel boxv 5 -fmean -thr 0.7 -bin $OUTDIR/brainmasknative.nii.gz
+    rm $OUTDIR/rim.nii.gz $OUTDIR/min.nii.gz $OUTDIR/th.nii.gz 
+    
+    fslmaths $T1w -mas $OUTDIR/brainmasknative.nii.gz  $OUTDIR/T1wmasked.nii.gz 
     
     $RECONALL -autorecon1 -noskullstrip -s ${SUB}.$SESSION -i $OUTDIR/T1wmasked.nii.gz -hires \
     -expert $EXPERT_FILE
@@ -141,6 +144,7 @@ BASE=$2
 if [ ! -f "$SUBJECTS_DIR/${SUBDIR}.long.${BASE}/stats/lh.aparc.stats" ]; then 
   rm -r $SUBJECTS_DIR/${SUBDIR}.long.${BASE}
   $RECONALL -long ${SUBDIR} $BASE -all -T2pial -hires -expert $EXPERT_FILE
+  echo "$SUBDIR is finished!"
 else
    echo "$SUBDIR long already done"
 fi
@@ -235,10 +239,27 @@ mri_vol2vol --mov $STRUCT_DIR/sub-$SUBJECT/T2w_template.nii.gz \
 # clean T1w further with skull-stripped T2w
 fslmaths $STRUCT_DIR/sub-$SUBJECT/T1w_template_brain.nii.gz -mas $STRUCT_DIR/sub-$SUBJECT/T2wtoT1w_template_brain.nii.gz \
 $STRUCT_DIR/sub-$SUBJECT/T1w_template_brain.nii.gz
+
 fi
 
-# create a mask
+if [ ! -e $STRUCT_DIR/sub-$SUBJECT/brainmask.nii.gz ]; then
+
+# create a mask and mean volume
 fslmaths $STRUCT_DIR/sub-$SUBJECT/T1w_template_brain.nii.gz -bin $STRUCT_DIR/sub-$SUBJECT/brainmask.nii.gz
+fslmerge -t $STRUCT_DIR/sub-$SUBJECT/T1wall.nii.gz $STRUCT_DIR/sub-$SUBJECT/ses-*/T1wtotemplate.nii.gz
+fslmaths $STRUCT_DIR/sub-$SUBJECT/T1wall.nii.gz -Tmean $STRUCT_DIR/sub-$SUBJECT/T1wmean.nii.gz
+rm $STRUCT_DIR/sub-$SUBJECT/T1wall.nii.gz
+
+# clean the boundaries
+fslmaths $STRUCT_DIR/sub-$SUBJECT/brainmask.nii.gz -kernel boxv 7 -ero -bin $STRUCT_DIR/sub-$SUBJECT/min
+fslmaths $STRUCT_DIR/sub-$SUBJECT/T1wmean.nii.gz -thr 0.7 -bin $STRUCT_DIR/sub-$SUBJECT/th
+fslmaths $STRUCT_DIR/sub-$SUBJECT/brainmask.nii.gz -bin -sub $STRUCT_DIR/sub-$SUBJECT/min -bin $STRUCT_DIR/sub-$SUBJECT/rim
+fslmaths $STRUCT_DIR/sub-$SUBJECT/rim -mul $STRUCT_DIR/sub-$SUBJECT/th -bin \ 
+-sub 1 -mul -1 -mul $STRUCT_DIR/sub-$SUBJECT/brainmask.nii.gz $STRUCT_DIR/sub-$SUBJECT/brainmask.nii.gz  
+fslmaths $STRUCT_DIR/sub-$SUBJECT/brainmask.nii.gz -bin -kernel \
+boxv 5 -fmean -thr 0.7 -bin $STRUCT_DIR/sub-$SUBJECT/brainmask.nii.gz
+rm $STRUCT_DIR/sub-$SUBJECT/rim.nii.gz $STRUCT_DIR/sub-$SUBJECT/min.nii.gz $STRUCT_DIR/sub-$SUBJECT/th.nii.gz 
+fi
 
 ##################################################################
 # run cross-sectional reconstruction
@@ -267,12 +288,11 @@ while [ `ls $SUBJECTS_DIR/sub-${SUBJECT}.?/stats/lh.aparc.stats | wc -w` -lt $NA
 done
 
 echo "Cross-sectionals done!"
-exit 1
 ##################################################################
 # run base reconstruction
 ##################################################################
 echo "Running base"    
-do_fs_long_base sub-${SUBJECT} "$SUBJECTS_DIR/sub-${SUBJECT}.?" $WD/sub-$SUBJECT/T2wtoT1w_template.nii.gz
+do_fs_long_base sub-${SUBJECT} "$SUBJECTS_DIR/sub-${SUBJECT}.?" $STRUCT_DIR/sub-$SUBJECT/T2wtoT1w_template_brain.nii.gz
 ln -sf $SUBJECTS_DIR/sub-${SUBJECT}.base $SUBJECTS_DIR/sub-$SUBJECT 
 
 fslmerge -t $WD/sub-${SUBJECT}/sub-${SUBJECT}_T1w_all.nii.gz $WD/sub-$SUBJECT/ses-*/anat/T1w_template.nii.gz
