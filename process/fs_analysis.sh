@@ -105,7 +105,7 @@ for GROUP in 1 2; do
     $SUBJECTS_DIR/rh.thickness.${GROUP}.std.func.gii
 
 done 
-rm $SUBJECTS_DIR/?h.thickness.*std.nii.gz $SUBJECTS_DIR/?h.thickness_mean.nii.gz $SUBJECTS_DIR/sub-*.?.long.sub-*.base/surf/?h.thickness.nii.gz
+rm $SUBJECTS_DIR/?h.thickness.*std.nii.gz $SUBJECTS_DIR/?h.thickness_mean.nii.gz #$SUBJECTS_DIR/sub-*.?.long.sub-*.base/surf/?h.thickness.nii.gz
 rm $SUBJECTS_DIR/sub-*.base/surf/?h.thickness.?.std.nii.gz $SUBJECTS_DIR/?h.white.gii
 
 cd $SUBJECTS_DIR/
@@ -114,7 +114,17 @@ mris_calc -o rh.thickness.std.diff.func.gii rh.thickness.1.std.func.gii sub rh.t
 mris_calc -o lh.thickness.std.diff.func.gii lh.thickness.1.std.func.gii sub lh.thickness.2.std.func.gii
 
 freeview -f fsaverage/surf/lh.inflated:overlay=lh.thickness.std.diff.func.gii fsaverage/surf/rh.inflated:overlay=rh.thickness.std.diff.func.gii
-freeview -f fsaverage/surf/lh.inflated:overlay=lh.thickness_mean.func.gii fsaverage/surf/rh.inflated:overlay=rh.thickness_mean.func.gii
+#freeview -f fsaverage/surf/lh.inflated:overlay=lh.thickness_mean.func.gii fsaverage/surf/rh.inflated:overlay=rh.thickness_mean.func.gii
 
-freeview -f fsaverage/surf/lh.inflated:overlay=lh.thickness.1.std.func.gii fsaverage/surf/rh.inflated:overlay=rh.thickness.1.std.func.gii
-freeview -f fsaverage/surf/lh.inflated:overlay=lh.thickness.2.std.func.gii fsaverage/surf/rh.inflated:overlay=rh.thickness.2.std.func.gii
+#freeview -f fsaverage/surf/lh.inflated:overlay=lh.thickness.1.std.func.gii fsaverage/surf/rh.inflated:overlay=rh.thickness.1.std.func.gii
+#freeview -f fsaverage/surf/lh.inflated:overlay=lh.thickness.2.std.func.gii fsaverage/surf/rh.inflated:overlay=rh.thickness.2.std.func.gii
+
+fslmaths $SUBJECTS_DIR/lh.thickness.nii.gz -Tmean -bin $SUBJECTS_DIR/lh.thickness.mask.nii.gz
+fslmaths $SUBJECTS_DIR/rh.thickness.nii.gz -Tmean -bin $SUBJECTS_DIR/rh.thickness.mask.nii.gz
+
+fslmaths $SUBJECTS_DIR/lh.thickness.nii.gz -Tmean -thr 3 -bin $SUBJECTS_DIR/lh.thickness.small.mask.nii.gz
+fslmaths $SUBJECTS_DIR/rh.thickness.nii.gz -Tmean -thr 3 -bin $SUBJECTS_DIR/rh.thickness.smallmask.nii.gz
+
+mris_convert --to-scanner $SUBJECTS_DIR/fsaverage/surf/lh.pial $SUBJECTS_DIR/lh.fsaverage.white.gii
+mris_convert --to-scanner $SUBJECTS_DIR/fsaverage/surf/rh.pial $SUBJECTS_DIR/rh.fsaverage.white.gii
+

@@ -1,11 +1,23 @@
 ANALYSES TO DO:
 
+
+
+fmri trained >/< untrained
+only correct >/< 0 
+
+no incorrect trained, no incorrect untrained 
+add regressors: trained incorrect, trained correct?
+
+
 VBM: changes
 VBM: baseline behaviour, or changes in behaviour
 Myelin
 Thickness: changes, baseline, final
 FMRI maps
 RSA
+
+Add check all surfaces with freeview....
+
 resting state: modulation nuclei
 resting state: large scale networks
 
@@ -18,6 +30,8 @@ analysis:
 
 
 Use Glasser parcellation instead of Destrieux?
+put the NICE freesurfers in the fmriprep directory?
+
 # use residuals from GLM (step 5) for connectivity analysis
 
 

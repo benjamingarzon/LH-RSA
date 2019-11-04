@@ -143,13 +143,15 @@ BASE=$2
 # create longs
 if [ ! -f "$SUBJECTS_DIR/${SUBDIR}.long.${BASE}/stats/lh.aparc.stats" ]; then 
   rm -r $SUBJECTS_DIR/${SUBDIR}.long.${BASE}
-  $RECONALL -long ${SUBDIR} $BASE -all -T2pial -hires -expert $EXPERT_FILE
+  $RECONALL -long ${SUBDIR} $BASE -all -hires -expert $EXPERT_FILE #-T2pial
   echo "$SUBDIR is finished!"
+  rm -r $SUBJECTS_DIR/${SUBDIR}
 else
    echo "$SUBDIR long already done"
 fi
 
 }
+
 
 ##############################################################################
 
@@ -280,12 +282,14 @@ for ANATDIR in $ANATLIST; do
 
 done
 
+if [ ]; then
 # wait for all to finish
 while [ `ls $SUBJECTS_DIR/sub-${SUBJECT}.?/stats/lh.aparc.stats | wc -w` -lt $NANAT ]; do
     echo "Waiting for all cross to finish"
     echo "sub-${SUBJECT}: Only `ls $SUBJECTS_DIR/sub-${SUBJECT}.?/stats/lh.aparc.stats | wc -w` out of $NANAT have finished"
     sleep 500
 done
+fi
 
 echo "Cross-sectionals done!"
 ##################################################################

@@ -26,7 +26,7 @@ def myarctanh(x):
 def get_spread_chunk(x, metric, targets):
     RDM = squareform(x)
     if metric == 'correlation':
-        RDM = myarctanh(1 - RDM)
+        RDM = myarctanh(1 - RDM) # transform to normalized correlation
 
     elements = np.unique(targets)
     N = len(elements)
@@ -387,15 +387,17 @@ class Pspread(PDist):
 class Pwithin_spread(PDist):
 
     def __init__(self, 
+                 seq_train,
                  mapper = None, 
                  NCOMPS = 10, 
                  filter_accuracy = False,
-                 accuracy = 0,
+                 accuracy = 0,                 
                  **kwargs):
 
         self.mapper = mapper
         self.filter_accuracy = filter_accuracy     
         self.correct = accuracy == 1
+        self.seq_train = seq_train
         self.pca = PCA(n_components = NCOMPS, whiten = False)
         super(Pwithin_spread, self).__init__(**kwargs)
 
@@ -440,26 +442,45 @@ class Pwithin_spread(PDist):
                         within_values[key] = within_values[key] + within[key]
                     else:
                         within_values[key] = within[key]
-
+                        
+            within_trained = []
+            within_untrained = []            
+            
             for key in within_values.keys():
                 within_mean[key] = np.nanmean(np.concatenate(within_values[key]))                        
+                if self.seq_train[key] == 'untrained':
+                    within_untrained.append(within_mean[key])
+                else:
+                    within_trained.append(within_mean[key])
                                      
             if self.params.pairwise_metric == 'correlation':
-                within_spread = 1 - np.tanh(np.array(within_mean.values()))
+                within_spread = (1 - np.tanh(np.nanmean(within_untrained)))/ \
+                (1 - np.tanh(np.nanmean(within_trained)))
                         
             else: # not ready
-                within_spread = np.array(within_mean.values())
+                within_spread = 0
 
         except LinAlgError:
             print("PCA did not converge!")
  #           print(data)
-            within_spread = np.zeros((len(within_values.keys()), ))
+            spread = 0
         except ValueError:
             print("Value error")
  #           print(data)
-            within_spread = np.zeros((len(within_values.keys()), ))
-        out = Dataset(np.array((within_spread, )).T)
+            spread = 0
+            
+        out = Dataset(np.array((within_spread,)))
         return out
+#        except LinAlgError:
+#            print("PCA did not converge!")
+# #           print(data)
+#            within_spread = np.zeros((len(within_values.keys()), ))
+#        except ValueError:
+#            print("Value error")
+# #           print(data)
+#            within_spread = np.zeros((len(within_values.keys()), ))
+#        out = Dataset(np.array((within_spread, )).T)
+#        return out
 
 
 

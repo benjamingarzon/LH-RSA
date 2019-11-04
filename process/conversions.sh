@@ -3,7 +3,7 @@
 # Convert to BIDS
 ###############################################
 
-HOMEDIR=/home/benjamin.garzon/Data/LeftHand/Lund1
+export HOMEDIR=/home/benjamin.garzon/Data/LeftHand/Lund1
 PROGDIR=/home/benjamin.garzon/Software/LeftHand/process/
 SCANLIST=$HOMEDIR/dicoms/Scan_list_wave1_complete.csv
 SCANLIST=$HOMEDIR/dicoms/Scan_list_wave1_missing.csv
@@ -23,28 +23,27 @@ SUBJECT=$1
 SESSION=$2
 SUFFIX=$3
 
-if  [ ! -e "dicoms/$SUBJECT/${SUFFIX}" ] && [ -e "dicoms/$SUBJECT/${SUFFIX}.tar.gz" ]; then
-    echo "Uncompressing  $SUBJECT $SESSION"
-    tar -xzf dicoms/$SUBJECT/${SUFFIX}.tar.gz
+if  [ ! -e "$HOMEDIR/dicoms/$SUBJECT/${SUFFIX}" ] && [ -e "$HOMEDIR/dicoms/$SUBJECT/${SUFFIX}.tar.gz" ]; then
+    echo "Uncompressing  $SUBJECT $SESSION $SUFFIX"
+    tar -xzf $HOMEDIR/dicoms/$SUBJECT/${SUFFIX}.tar.gz
 fi
 # take the chance to clean up
-rm -r 7T033{subject}_${SUFFIX}/*/Dicom/*dummy*
-rm -r 7T033{subject}_${SUFFIX}/*/Dicom/*SmartBrain*
-rm -r 7T033{subject}_${SUFFIX}/*/Dicom/*Aligned*
-rm -r 7T033{subject}_${SUFFIX}/*/Dicom/*Survey*
+rm -r $HOMEDIR/7T033{subject}_${SUFFIX}/*/Dicom/*dummy*
+rm -r $HOMEDIR/7T033{subject}_${SUFFIX}/*/Dicom/*SmartBrain*
+rm -r $HOMEDIR/7T033{subject}_${SUFFIX}/*/Dicom/*Aligned*
+rm -r $HOMEDIR/7T033{subject}_${SUFFIX}/*/Dicom/*Survey*
 
-echo heudiconv -d "dicoms/{subject}/${SUFFIX}/Dicom/*/*.dcm" -s ${SUBJECT} -ss ${SESSION} -f $HEUDICONV_FILE -o data_BIDS/ -b --overwrite
-heudiconv -d "dicoms/{subject}/${SUFFIX}/Dicom/*/*.dcm" -s ${SUBJECT} -ss ${SESSION} -f $HEUDICONV_FILE -o data_BIDS/ -b --overwrite
+echo heudiconv -d "$HOMEDIR/dicoms/{subject}/${SUFFIX}/Dicom/*/*.dcm" -s ${SUBJECT} -ss ${SESSION} -f $HEUDICONV_FILE -o $HOMEDIR/data_BIDS/ -b --overwrite
+heudiconv -d "$HOMEDIR/dicoms/{subject}/${SUFFIX}/Dicom/*/*.dcm" -s ${SUBJECT} -ss ${SESSION} -f $HEUDICONV_FILE -o $HOMEDIR/data_BIDS/ -b --overwrite
 
 # compress and clean when finished
 echo "Compressing $SUBJECT $SESSION"
-tar -czf dicoms/$SUBJECT/${SUFFIX}.tar.gz dicoms/$SUBJECT/${SUFFIX} 
-rm -r dicoms/$SUBJECT/${SUFFIX}
-rm -r data_BIDS/sourcedata/sub-${SUBJECT}/ses-${SESSION}
+tar -czf $HOMEDIR/dicoms/$SUBJECT/${SUFFIX}.tar.gz $HOMEDIR/dicoms/$SUBJECT/${SUFFIX} 
+rm -r $HOMEDIR/dicoms/$SUBJECT/${SUFFIX}
+rm -r $HOMEDIR/data_BIDS/sourcedata/sub-${SUBJECT}/ses-${SESSION}
 }
 
 rm $HOMEDIR/dicoms/missing.csv
-
 tail -n +2 $SCANLIST | while read line
 do
 SUBJECT=`echo $line | cut -f1 -d','`
@@ -83,7 +82,6 @@ echo $line | sed "s/,/${TAB}/g"  >> $HOMEDIR/dicoms/curr_subject.csv
         echo Func runs missing: "sub-$SUBJECT ses-$SESSION. Only found `ls $HOMEDIR/data_BIDS/sub-$SUBJECT/ses-$SESSION/func/*.nii.gz | wc -l`" >> $HOMEDIR/dicoms/missing.csv
      fi
    fi
-
 
 rm $HOMEDIR/dicoms/curr_subject.csv
 done

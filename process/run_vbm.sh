@@ -1,24 +1,44 @@
 #!/bin/sh
 
 NPROCS=10
+USENEWTEMPLATE=0
 
 VBM_DIR="/home/benjamin.garzon/Data/LeftHand/Lund1/vbm"
+BIDS_DIR="/home/benjamin.garzon/Data/LeftHand/Lund1/data_BIDS"
+CAT_DIR="/home/benjamin.garzon/Data/LeftHand/Lund1/cat12/data"
 STRUC_DIR="$VBM_DIR/struc"
-
+BOUNDINGBOX="0 257 0 320 40 280"
 mkdir $STRUC_DIR
 scan_list_file="$VBM_DIR/scans.txt"
 subject_list_file="$VBM_DIR/subjects.txt"
 
+cd $VBM_DIR
 printf '%s\n' sub-*/ses* > $scan_list_file
 printf '%s\n' sub-* > $subject_list_file
-
-cd $VBM_DIR
 
 myimage=T1wtotemplate
 
 scanlist=""
 scans=`cat $scan_list_file`
 #create links
+
+# for CAT12
+for scan in $scans; do
+    NAME=`echo $scan | sed 's@/ses-@.@g'`
+    echo $NAME
+    rm $CAT_DIR/${NAME}_MP2RAGE.nii
+    fslmaths $VBM_DIR/${scan}/brainmasknative.nii.gz -dilF -kernel boxv 5 $CAT_DIR/mask.nii.gz 
+    BOUNDINGBOX=`fslstats  $CAT_DIR/mask.nii.gz -w`
+    rm $CAT_DIR/mask.nii.gz
+    fslroi $BIDS_DIR/${scan}/anat/MP2RAGEpos.nii.gz $CAT_DIR/${NAME}_MP2RAGE.nii.gz $BOUNDINGBOX
+    fslreorient2std $CAT_DIR/${NAME}_MP2RAGE.nii.gz $CAT_DIR/${NAME}_MP2RAGE.nii.gz
+    gunzip $CAT_DIR/${NAME}_MP2RAGE.nii.gz
+done
+
+# ls data/mri/s* | cut -d'/' -f3 | cut -d'-' -f2 | cut -d'_' -f1 | cut -d'.' -f1,2 --output-delimiter=' '
+exit 1 
+
+# for fsvbm
 for scan in $scans; do
     cd $VBM_DIR/${scan}
     NAME=`echo $scan | sed 's@/ses-@.@g'`
@@ -26,7 +46,6 @@ for scan in $scans; do
     if [ -e "${myimage}.nii.gz" ]; then
         imcp $VBM_DIR/${scan}/${myimage}.nii.gz $STRUC_DIR/${NAME}_T1w_struc.nii.gz  
         imcp $VBM_DIR/${scan}/${myimage}_brain.nii.gz $STRUC_DIR/${NAME}_T1w_struc_brain.nii.gz
-
         scanlist="$scanlist $STRUC_DIR/${NAME}_T1w_struc $STRUC_DIR/${NAME}_T1w_struc_brain"
      fi   
     
@@ -35,8 +54,11 @@ done
 echo $scanlist
 echo $scanlist | wc -w
 
-rm -r slicesdir
-slicesdir -o $scanlist &
+if [ ]; then
+
+cd $VBM_DIR
+#rm -r slicesdir
+#slicesdir -o $scanlist &
 
 # create template with average images
 subjects=`cat $subject_list_file`
@@ -51,7 +73,7 @@ for g in `imglob *_struc_brain.*` ; do
         echo ${g}
         echo "fslreorient2std ${g} ${g}; \
         $FSLDIR/bin/fast -R 0.3 -H 0.1 ${g}; \
-        $FSLDIR/bin/immv ${g}_pve_1 ${g}_GM >> fslvbm2a
+        $FSLDIR/bin/immv ${g}_pve_1 ${g}_GM" >> fslvbm2a
      fi
 done
 chmod a+x fslvbm2a
@@ -82,7 +104,6 @@ cat fslvbm2b | xargs -n 1 -P $NPROCS -i -t sh -c "{}"
 
 echo Running initial registration 
 
-
 ### Creation of the GM template by averaging all (or following the template_list for) 
 cat <<stage_tpl3 > fslvbm2c
 #!/bin/sh
@@ -98,7 +119,6 @@ echo Creating first-pass template
 
 ### Estimation of the registration parameters of GM to grey matter standard template
 /bin/rm -f fslvbm2d
-T=template_GM_init
 for g in $subjects; do
   if [ ! -e "${g}_GM_to_T_init.nii.gz" ]; then
   echo ${g}
@@ -125,9 +145,15 @@ echo Creating second-pass template
 echo "Study-specific template will be created"
 echo "fsleyes " ${FSLDIR}/data/standard/tissuepriors/avg152T1_gray " template_GM"
 
-ln -s $VBM_DIR/templates/template_GM.nii.gz $STRUC_DIR/template_GM.nii.gz
+fi
 
 cd $STRUC_DIR
+rm $STRUC_DIR/template_GM.nii.gz
+if [ "$USENEWTEMPLATE" -eq 1 ]; then
+    ln -s $VBM_DIR/templates/template_GM.nii.gz $STRUC_DIR/template_GM.nii.gz
+else
+    mri_convert ${FSLDIR}/data/standard/tissuepriors/avg152T1_gray.img $STRUC_DIR/template_GM.nii.gz
+fi
 
 echo "Now running the preprocessing steps and the pre-analyses"
 rm -f fslvbm3a
@@ -148,6 +174,8 @@ cat fslvbm3a | xargs -l -P $NPROCS -0 -i -t sh -c '{}'
 mkdir $VBM_DIR/stats
 cd $VBM_DIR/stats
 
+cat $VBM_DIR/scans.txt | cut -d'-' -f2,3 | sed 's@/ses-@ @g'
+
 cat <<stage_preproc2 > fslvbm3b
 #!/bin/sh
 
@@ -157,8 +185,6 @@ cat <<stage_preproc2 > fslvbm3b
 \$FSLDIR/bin/fslmerge -t GM_mod_merg \`\${FSLDIR}/bin/imglob ../struc/*_GM_to_template_GM_mod.*\`
 
 \$FSLDIR/bin/fslmaths GM_merg -Tmean -thr 0.01 -bin GM_mask -odt char
-
-
 
 for i in GM_mod_merg ; do
   for j in 2 3 4 ; do

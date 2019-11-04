@@ -37,14 +37,16 @@ RESPONSES_OPTIONS=$7
 CONFOUND_INDICES=$8 
 HOMEDIR=$9
 
+OVERWRITE=0
 ORGANIZE_FILE=select_organize_responses.py
 PROGDIR=~/Software/LeftHand/process/
 HCPDIR=/home/share/Software/HCP/workbench/bin_rh_linux64/
-LABELSDIR=$HOMEDIR/labels
+#LABELSDIR=$HOMEDIR/labels
 
 # Same always
 SIMPLE3_FSF_FILE=$HOMEDIR/fmri_designs/fMRInoreg_3stretch.fsf
 SIMPLE4_FSF_FILE=$HOMEDIR/fmri_designs/fMRInoreg_4stretch.fsf
+SIMPLE6_FSF_FILE=$HOMEDIR/fmri_designs/fMRInoreg_6stretch_training.fsf
 MULTI_FSF_FILE=$HOMEDIR/fmri_designs/fMRInoreg_multistretch.fsf
 
 WD=$HOMEDIR/fmriprep
@@ -62,7 +64,7 @@ EES=`echo "((1000 * $WFS)/($FIELDSTRENGTH*3.4*42.57 * ($EPIFAC+1))/$SENSEP)" | b
 FX_FILE=tstat
 RADIUS=15.0
 NPROC=30
-MAXFEATPROCS=20
+MAXFEATPROCS=25
 NEVS=4
 ACC_FWHM=5
 FWHM=5
@@ -70,7 +72,7 @@ SIGMA=`echo $FWHM/2.3548 | bc -l`
 
 TESTDIR=metrics
 METRICS="acc_svm acc_svm_PCA spread_correlation"
-METRICS="spread_correlation acc_svm"
+METRICS="within_spread_correlation spread_correlation acc_svm"
 #METRICS="acc_svm spread_correlation within_spread_correlation"
 
 
@@ -88,7 +90,8 @@ if [ "$RUNS" -eq "0" ]; then
            RUNS="$RUNS $run"
          fi
       done  
-    echo Found following runs: $RUNS
+    RUNS=`echo $RUNS | sed 's/^[\t ]*//g'`
+    echo "Found following runs: $RUNS"
 fi
 
 ###############################################
@@ -176,6 +179,26 @@ rm -r $WORK
 mkdir $WORK
 cp /usr/local/freesurfer/license.txt $WD/
 
+if [ ]; then
+
+PYTHONPATH="" singularity run \
+   $HOMEDIR/fmriprep.img \
+   $HOMEDIR/data_BIDS \
+   $WD \
+   participant \
+   --ignore slicetiming \
+   --ignore fieldmaps \
+   --longitudinal \
+   --fs-license-file \
+   $WD/license.txt \
+   --nthreads 4 \
+   -w $WORK \
+   --write-graph \
+   --output-space 'fsnative' \
+   --participant-label ${SUBJECT}   
+
+fi
+
 PYTHONPATH="" singularity run \
    $HOMEDIR/fmriprep.img \
    $HOMEDIR/data_BIDS \
@@ -205,7 +228,7 @@ PYTHONPATH="" singularity run \
    --nthreads 4 \
    -w $WORK \
    --write-graph \
-   --output-space 'fsnative' \
+   --template 'MNI152NLin2009cAsym' \
    --participant-label ${SUBJECT}   
 
 rm -r $WORK
@@ -251,6 +274,13 @@ fi
 
 fi #PHASE 4
 
+if [ "$OVERWRITE" -eq 1 ]; then
+    for run in $RUNS; 
+    do    
+          RUN_DIR=$SUBDIR/run$run
+          rm -r $RUN_DIR
+    done
+fi
 
 # Compute activation maps
 if [ $PHASE == 0 ] || [ $PHASE == 5 ]; then
@@ -260,13 +290,13 @@ cd $SUBDIR
 for xxx in 1; do # just to make it wait
 for run in $RUNS; 
 do
+  if [ ! -e "$HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/run$run/volume" ]; then
       FUNCVOL=$HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-0${run}_bold_space-T1w_preproc.nii.gz
       FUNCSURFL=$HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-0${run}_bold_space-fsnative.L.func.gii
       FUNCSURFR=$HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-0${run}_bold_space-fsnative.R.func.gii
     
       RUN_DIR=$SUBDIR/run$run
     
-      rm -r $RUN_DIR
       mkdir $RUN_DIR
     
       #Smoothing 
@@ -284,19 +314,21 @@ do
       
       cd $RUN_DIR
     
-      if [ `cat EV2.csv | wc -l` == 0 ]; then
-       # all correct
-       cp $SIMPLE3_FSF_FILE $FSF_FILE
-       sed -i "s%@EV1%$RUN_DIR/EV1.csv%" $FSF_FILE        
-       sed -i "s%@EV3%$RUN_DIR/EV3.csv%" $FSF_FILE        
-       sed -i "s%@EV4%$RUN_DIR/EV4.csv%" $FSF_FILE        
-      else
-       cp $SIMPLE4_FSF_FILE $FSF_FILE
-       sed -i "s%@EV1%$RUN_DIR/EV1.csv%" $FSF_FILE        
-       sed -i "s%@EV2%$RUN_DIR/EV2.csv%" $FSF_FILE        
-       sed -i "s%@EV3%$RUN_DIR/EV3.csv%" $FSF_FILE        
-       sed -i "s%@EV4%$RUN_DIR/EV4.csv%" $FSF_FILE          
-      fi
+      cp $SIMPLE6_FSF_FILE $FSF_FILE
+      sed -i "s%@EV1%$RUN_DIR/EV1.csv%" $FSF_FILE        
+      sed -i "s%@EV2%$RUN_DIR/EV2.csv%" $FSF_FILE        
+      sed -i "s%@EV3%$RUN_DIR/EV3.csv%" $FSF_FILE        
+      sed -i "s%@EV4%$RUN_DIR/EV4.csv%" $FSF_FILE   
+      sed -i "s%@EV5%$RUN_DIR/EV5.csv%" $FSF_FILE        
+      sed -i "s%@EV6%$RUN_DIR/EV6.csv%" $FSF_FILE        
+
+      # if there are empty regressors, set them to 0
+      for k in 3 4 5 6; do          
+          if [ `cat EV${k}.csv | wc -l` == 0 ]; then
+           sed -i "s%set fmri(convolve${k}) 3%set fmri(convolve${k}) 0%" $FSF_FILE 
+           sed -i "s%set fmri(shape${k}) 3%set fmri(shape${k}) 10%" $FSF_FILE 
+          fi
+      done
       
       NVOLS=`fslnvols $RUN_DIR/smoothed_data.nii.gz`
       sed -i "s%@NVOLS%$NVOLS%" $FSF_FILE
@@ -311,7 +343,7 @@ do
     #  film_gls --rn=$RUN_DIR/surfL --sa --in=$RUN_DIR/lh.smoothed.func.gii --pd=fMRI.mat --con=fMRI.con --mode=surface --in2=$SUBDIR/surf/lh.midthickness.gii
     #  film_gls --rn=$RUN_DIR/surfR --sa --in=$RUN_DIR/rh.smoothed.func.gii --pd=fMRI.mat --con=fMRI.con --mode=surface --in2=$SUBDIR/surf/rh.midthickness.gii 
       film_gls --rn=$RUN_DIR/volume --sa --ms=$FWHM --in=$RUN_DIR/smoothed_data.nii.gz --thr=1000 --pd=fMRI.mat --con=fMRI.con --mode=volume &
-
+  fi # volume exists
 done
 
 done
@@ -325,6 +357,7 @@ fi # PHASE 5
 # assume PHASE5 already run
 if [ $PHASE == 0 ] || [ $PHASE == 6 ]; then
 
+if [ ! -e "$HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/effects.nii.gz" ]; then
 for run in $RUNS; 
 do
 
@@ -380,21 +413,26 @@ while [ `ls -v $RUN_DIR/model*/analysis.feat/stats/${FX_FILE}2.nii.gz | wc -l` -
     sleep 1800
 done
 
+  fslmerge -t $RUN_DIR/effects_$run `ls -v $RUN_DIR/model*/analysis.feat/stats/${FX_FILE}1.nii.gz` 
+  fslmerge -t $RUN_DIR/derivatives_$run `ls -v $RUN_DIR/model*/analysis.feat/stats/${FX_FILE}2.nii.gz` 
+  rm -r $RUN_DIR/model*
+
 done
 
+
 #echo done
-fi # PHASE 6
-if [ $PHASE == 0 ] || [ $PHASE == 7 ]; then
+#fi # PHASE 6
+#if [ $PHASE == 0 ] || [ $PHASE == 7 ]; then
 
 
 
 # Merge parameters
 cd $HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/
 
-for run in $RUNS; do
-  fslmerge -t run$run/effects_$run `ls -v run$run/model*/analysis.feat/stats/${FX_FILE}1.nii.gz` 
-  fslmerge -t run$run/derivatives_$run `ls -v run$run/model*/analysis.feat/stats/${FX_FILE}2.nii.gz` 
-done
+#for run in $RUNS; do
+#  fslmerge -t run$run/effects_$run `ls -v run$run/model*/analysis.feat/stats/${FX_FILE}1.nii.gz` 
+#  fslmerge -t run$run/derivatives_$run `ls -v run$run/model*/analysis.feat/stats/${FX_FILE}2.nii.gz` 
+#done
   fslmerge -t effects `ls -v run*/effects*` 
   fslmerge -t derivatives `ls -v run*/derivatives*` 
 
@@ -403,13 +441,13 @@ done
 #  fslmerge -t other3 `ls -v run$run/model*/analysis.feat/stats/pe7.nii.gz` 
 #  fslmerge -t other4 `ls -v run$run/model*/analysis.feat/stats/pe9.nii.gz` 
 
-  fslmerge -t fixation `ls -v run$run/model*/analysis.feat/stats/pe11.nii.gz` 
-  fslmerge -t stretch `ls -v run$run/model*/analysis.feat/stats/pe13.nii.gz` 
+#  fslmerge -t fixation `ls -v run$run/model*/analysis.feat/stats/pe11.nii.gz` 
+#  fslmerge -t stretch `ls -v run$run/model*/analysis.feat/stats/pe13.nii.gz` 
   
-  fslmaths fixation -Tmean -s 3 fixation_mean
+#  fslmaths fixation -Tmean -s 3 fixation_mean
   fslmaths effects -Tmean -s 3 effects_mean
   fslmaths derivatives -Tmean -s 3 derivatives_mean
-  fslmaths stretch -Tmean -s 3 stretch_mean
+#  fslmaths stretch -Tmean -s 3 stretch_mean
   
   echo "Total volumes : " `fslnvols effects.nii.gz`
   rm -r run*/model*
@@ -449,7 +487,7 @@ done
 done
 rm $SUBDIR/surf/*.ds.mgh
 
-
+fi # check if effects already exists
 fi # PHASE 7
 
 ###############################################
@@ -460,7 +498,7 @@ if [ $PHASE == 0 ] || [ $PHASE == 8 ]; then
 
 # Prepare engine
 for hemi in rh lh; do
-    python ~/Software/LeftHand/process/prepare_queryengine.py \
+    python $PROGDIR/prepare_queryengine.py \
     $SUBDIR \
     $HOMEDIR/responses/sub-${SUBJECT}/ses-${SESSION}/sequences.csv \
     $hemi $RADIUS "$RUNS"
@@ -473,7 +511,7 @@ if [ $PHASE == 0 ] || [ $PHASE == 9 ]; then
 
 # Run searchlight
 for hemi in rh lh; do
-    python ~/Software/LeftHand/process/surface_searchlight.py \
+    python $PROGDIR/surface_searchlight.py \
     $SUBDIR \
     $HOMEDIR/responses/sub-${SUBJECT}/ses-${SESSION}/sequences.csv  \
     $SUBJECTS_DIR/sub-${SUBJECT}/label/${hemi}.cortex.label\
@@ -497,7 +535,7 @@ for metric in $METRICS; do
   done
 done
 
-rm $SUBDIR/surf/$TESTDIR/*.mgh $SUBDIR/surf/*gzipped.hdf5 $SUBDIR/surf/$TESTDIR/qe.mask.nii.gz
+rm $SUBDIR/surf/$TESTDIR/*.mgh $SUBDIR/surf/$TESTDIR/qe.mask.nii.gz #$SUBDIR/surf/*gzipped.hdf5 
 
 fi #PHASE 9
 
@@ -543,9 +581,9 @@ if [ ! -e $HOMEDIR/fmriprep/results ]; then
 fi
 
 for metric in $METRICS; do
-      if [ $metric == 'spread_correlation' ]; then
+      if [ $metric == 'spread_correlation' ]  || [ $metric == 'within_spread_correlation' ]; then
         LIM1=1
-        LIM2=1.15
+        LIM2=1.20
       else
         LIM1=0.30
         LIM2=0.40
@@ -557,17 +595,91 @@ done
 
 fi #PHASE 10
 
-# average what we have
+# average what we have and find rois
 if [ $PHASE == 0 ] || [ $PHASE == 11 ]; then
+
+LABELSDIR=$HOMEDIR/fmriprep/analysis/sub-$SUBJECT/labels
 
 if [ ! -e $HOMEDIR/fmriprep/analysis/surf ]; then 
     mkdir $HOMEDIR/fmriprep/analysis/surf
 fi
 if [ ! -e $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf ]; then 
     mkdir $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf
+    mkdir $LABELSDIR
 fi
+
+
+# get labels
+#labels of interest
+LABELS="S_front_inf S_postcentral G_precentral S_front_sup Pole_occipital S_intrapariet_and_P_trans G_temporal_middle G_and_S_cingul-Mid-Ant"
+
+cd $LABELSDIR
+
+mri_annotation2label --sd $SUBJECTS_DIR --outdir $LABELSDIR --hemi rh --annotation aparc.a2009s --subject fsaverage6
+mri_annotation2label --sd $SUBJECTS_DIR --outdir $LABELSDIR --hemi lh --annotation aparc.a2009s --subject fsaverage6
+
+for label in $LABELS; do
+    echo $label
+    mris_convert --label lh.${label}.label ${label}\
+        $SUBJECTS_DIR/fsaverage6/surf/lh.white \
+        lh.${label}.label.gii
+    $HCPDIR/wb_command -gifti-label-to-roi lh.${label}.label.gii -name ${label} lh.${label}.func.gii
+        
+    mris_convert --label rh.${label}.label ${label}\
+        $SUBJECTS_DIR/fsaverage6/surf/rh.white \
+        rh.${label}.label.gii
+    $HCPDIR/wb_command -gifti-label-to-roi rh.${label}.label.gii -name ${label} rh.${label}.func.gii
+
+done
+
 # done every session, although it would be enough to do it for the last one
 for metric in $METRICS; do
+# average across subjects
+    for hemi in rh lh; do
+      maps=`echo $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/ses-*/surf/metrics/$hemi.sl_${metric}_${RADIUS}.func.gii`
+      echo $maps
+      rm $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/$hemi.sl_${metric}_${RADIUS}.mean.func.gii
+
+      $HCPDIR/wb_command -metric-math "(x*0)" $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/$hemi.sl_${metric}_${RADIUS}.mean.func.gii -var x `echo $maps| cut -d" " -f1` -column 2
+      for mymap in $maps; do  
+      $HCPDIR/wb_command -metric-math "(x+y)" $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/$hemi.sl_${metric}_${RADIUS}.mean.func.gii -var x $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/$hemi.sl_${metric}_${RADIUS}.mean.func.gii -var y $mymap -column 2
+
+      done
+      mris_calc -o $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/$hemi.sl_${metric}_${RADIUS}.mean.func.gii $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/$hemi.sl_${metric}_${RADIUS}.mean.func.gii div `echo $maps | wc -w`
+    done #hemi
+
+    
+      if [ $metric == 'spread_correlation' ] || [ $metric == 'within_spread_correlation' ]; then
+
+        LIM1=1
+        LIM2=1.20
+      else
+        LIM1=0.30
+        LIM2=0.40
+      fi
+
+      cd $HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/
+      echo HEMI NAME INDEXMAX > $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/lh.${metric}_maxima.csv
+      echo HEMI NAME INDEXMAX > $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/rh.${metric}_maxima.csv
+      
+      for label in $LABELS; do
+      
+      $HCPDIR/wb_command -metric-math "(x*y)" $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/aux.func.gii \
+      -var x $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/lh.sl_${metric}_${RADIUS}.mean.func.gii \
+      -var y $LABELSDIR/lh.${label}.func.gii      
+      echo lh $label `$HCPDIR/wb_command -metric-stats $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/aux.func.gii -reduce INDEXMAX` >> $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/lh.${metric}_maxima.csv
+
+      $HCPDIR/wb_command -metric-math "(x*y)" $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/aux.func.gii \
+      -var x $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/rh.sl_${metric}_${RADIUS}.mean.func.gii \
+      -var y $LABELSDIR/rh.${label}.func.gii
+
+      echo rh $label `$HCPDIR/wb_command -metric-stats $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/aux.func.gii -reduce INDEXMAX` >> $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/rh.${metric}_maxima.csv
+      done
+
+      rm $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/aux.func.gii
+
+# generate results in fsaverage space
+#average across sessions
     for hemi in rh lh; do
       maps=`echo $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/ses-*/surf/metrics/$hemi.sl_${metric}_${RADIUS}.fsaverage.func.gii`
       mris_calc -o $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/$hemi.sl_${metric}_${RADIUS}.mean.func.gii `echo $maps| cut -d" " -f1` mul 0
@@ -576,50 +688,53 @@ for metric in $METRICS; do
          mris_calc -o $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/$hemi.sl_${metric}_${RADIUS}.mean.func.gii $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/$hemi.sl_${metric}_${RADIUS}.mean.func.gii add $mymap
       done #maps
       mris_calc -o $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/$hemi.sl_${metric}_${RADIUS}.mean.func.gii $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/$hemi.sl_${metric}_${RADIUS}.mean.func.gii div `echo $maps | wc -w`
-
-    # gather all data
-#   cat $HOMEDIR/fmriprep/analysis/sub-*/ses-*/surf/metrics/sequence_types.csv > $HOMEDIR/fmriprep/analysis/surf/sequence_types.csv
-
     done #hemi
-    
-      if [ $metric == 'spread_correlation' ]; then
-
-        LIM1=1
-        LIM2=1.15
-      else
-        LIM1=0.30
-        LIM2=0.40
-      fi
-    
-
-      echo NAME INDEXMAX > $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/${metric}_maxima.csv
-      LABELS="S_postcentral G_precentral S_front_sup Pole_occipital S_intrapariet_and_P_trans G_temporal_middle G_and_S_cingul-Mid-Ant S_front_inf"
-      for label in $LABELS; do
-      
-      $HCPDIR/wb_command -metric-math "(x*y)" $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/aux.func.gii \
-      -var x $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/lh.sl_${metric}_${RADIUS}.mean.func.gii \
-      -var y $LABELSDIR/lh.${label}.func.gii      
-      echo lh.$label `$HCPDIR/wb_command -metric-stats $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/aux.func.gii -reduce INDEXMAX ` >> $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/${metric}_maxima.csv
-
-      $HCPDIR/wb_command -metric-math "(x*y)" $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/aux.func.gii \
-      -var x $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/rh.sl_${metric}_${RADIUS}.mean.func.gii \
-      -var y $LABELSDIR/rh.${label}.func.gii
-
-      echo rh.$label `$HCPDIR/wb_command -metric-stats $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/aux.func.gii -reduce INDEXMAX` >> $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/${metric}_maxima.csv
-      done
-      rm $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/aux.func.gii
       
       do_show $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/lh.sl_${metric}_${RADIUS}.mean.func.gii \
       $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/rh.sl_${metric}_${RADIUS}.mean.func.gii \
       $LIM1 $LIM2 $HOMEDIR/fmriprep/results/sl_${metric}_${RADIUS}_sub-${SUBJECT}_mean
+      
+#average across subjects      
+    for hemi in rh lh; do
+      maps=`echo $HOMEDIR/fmriprep/analysis/sub-*/ses-${SESSION}/surf/metrics/$hemi.sl_${metric}_${RADIUS}.fsaverage.func.gii`
+      mris_calc -o $HOMEDIR/fmriprep/analysis/surf/$hemi.sl_${metric}_${RADIUS}.ses-${SESSION}.mean.func.gii `echo $maps| cut -d" " -f1` mul 0
+      echo $maps
+      for mymap in $maps; do     
+         mris_calc -o $HOMEDIR/fmriprep/analysis/surf/$hemi.sl_${metric}_${RADIUS}.ses-${SESSION}.mean.func.gii $HOMEDIR/fmriprep/analysis/surf/$hemi.sl_${metric}_${RADIUS}.ses-${SESSION}.mean.func.gii add $mymap
+      done #maps
+      mris_calc -o $HOMEDIR/fmriprep/analysis/surf/$hemi.sl_${metric}_${RADIUS}.ses-${SESSION}.mean.func.gii $HOMEDIR/fmriprep/analysis/surf/$hemi.sl_${metric}_${RADIUS}.ses-${SESSION}.mean.func.gii div `echo $maps | wc -w`
+    done #hemi
+      
+      do_show $HOMEDIR/fmriprep/analysis/surf/lh.sl_${metric}_${RADIUS}.ses-${SESSION}.mean.func.gii \
+      $HOMEDIR/fmriprep/analysis/surf/rh.sl_${metric}_${RADIUS}.ses-${SESSION}.mean.func.gii \
+      $LIM1 $LIM2 $HOMEDIR/fmriprep/results/sl_${metric}_${RADIUS}_ses-${SESSION}_mean
 
 done
 
+rm $LABELSDIR/*label*
 fi #PHASE 11
 
 ###############################################
 # Extract roi data
 ###############################################
+# average what we have
+if [ $PHASE == 0 ] || [ $PHASE == 12 ]; then
+metric=spread_correlation
+mkdir $SUBDIR/surf/rois
+for hemi in rh lh; do
+    python $PROGDIR/spread_from_rois.py \
+    $SUBDIR \
+    $HOMEDIR/responses/sub-${SUBJECT}/ses-${SESSION}/sequences.csv \
+    $SUBJECT \
+    $SESSION \
+    $hemi \
+    $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/${hemi}.${metric}_maxima.csv \
+    $RADIUS $NPROC $TESTDIR "$RUNS" correlation   
+done
 
+    
+# gather all the data together
+cat $HOMEDIR/fmriprep/analysis/sub-*/ses-*/surf/metrics/*roi_correlation_distances.csv > $HOMEDIR/fmriprep/analysis/surf/roi_correlation_distances.csv
+fi 
 
 

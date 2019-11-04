@@ -89,39 +89,14 @@ fds.sa.accuracy = sequences.accuracy
 
 roi_ids = np.intersect1d(labels[0].ravel(), qe.ids)
 
-# compute classification accuracy 
+seq_train = sequences.loc[:, ["seq_type", "seq_train"]].drop_duplicates()
+seq_train = dict(zip(seq_train["seq_type"], seq_train["seq_train"]))
 
-classifiers = {
-        'svm': LinearCSVMC()
-            }
-mycl = 'svm'
-
-cv = CrossValidation(classifiers[mycl], 
-                     NFoldPartitioner(),
-                     errorfx=lambda p, 
-                     t: np.mean(p == t),
-                     enable_ca=['stats'])
-
-sl_cl = Searchlight(cv, 
-    queryengine = qe,
-    nproc = NPROC, 
-    postproc = mean_sample(), 
-    roi_ids = roi_ids)
-
-fds_acc = fds1[sequences.accuracy >= minacc, :]
-
-results_cl = sl_cl(fds_acc)                        
- 
-acc_path_fn = os.path.join(surfpath, 
-                           '%s.sl_acc_%s_%.1f.func.gii' % (hemi, mycl, radius))
-
-map2gifti2(results_cl, 
-           acc_path_fn, 
-           vertices = qe.voxsel.source.nvertices)
-
-# compute spread
+# compute within spread
 for metric in ['correlation']:#['correlation', 'euclidean']:
-    dsm_ic = Pspread(mapper = flatten_mapper(), 
+    dsm_ic = Pwithin_spread(
+             seq_train = seq_train, 
+             mapper = flatten_mapper(), 
              NCOMPS = 10, 
              filter_accuracy = True,
              accuracy = fds.sa.accuracy,
@@ -132,14 +107,65 @@ for metric in ['correlation']:#['correlation', 'euclidean']:
         queryengine = qe,
         nproc = NPROC, 
         roi_ids = roi_ids)
-
     results_rsa = sl_rsa_ic(fds)                        
     
-    spread_path_fn = os.path.join(surfpath, 
-                                          '%s.sl_spread_%s_%.1f.func.gii' % (hemi, metric, radius))
+    spread_path_fn = os.path.join(surfpath, '%s.sl_within_spread_%s_%.1f.func.gii' % (hemi, metric, radius))
     map2gifti2(results_rsa, 
                spread_path_fn, 
                vertices = qe.voxsel.source.nvertices)
+
+if True:
+    # compute classification accuracy 
+    
+    classifiers = {
+            'svm': LinearCSVMC()
+                }
+    mycl = 'svm'
+    
+    cv = CrossValidation(classifiers[mycl], 
+                         NFoldPartitioner(),
+                         errorfx=lambda p, 
+                         t: np.mean(p == t),
+                         enable_ca=['stats'])
+    
+    sl_cl = Searchlight(cv, 
+        queryengine = qe,
+        nproc = NPROC, 
+        postproc = mean_sample(), 
+        roi_ids = roi_ids)
+    
+    fds_acc = fds1[sequences.accuracy >= minacc, :]
+    
+    results_cl = sl_cl(fds_acc)                        
+     
+    acc_path_fn = os.path.join(surfpath, 
+                               '%s.sl_acc_%s_%.1f.func.gii' % (hemi, mycl, radius))
+    
+    map2gifti2(results_cl, 
+               acc_path_fn, 
+               vertices = qe.voxsel.source.nvertices)
+    
+    # compute spread
+    for metric in ['correlation']:#['correlation', 'euclidean']:
+        dsm_ic = Pspread(mapper = flatten_mapper(), 
+                 NCOMPS = 10, 
+                 filter_accuracy = True,
+                 accuracy = fds.sa.accuracy,
+                 pairwise_metric = 'correlation',
+                 square=False)
+    
+        sl_rsa_ic = Searchlight(dsm_ic, 
+            queryengine = qe,
+            nproc = NPROC, 
+            roi_ids = roi_ids)
+    
+        results_rsa = sl_rsa_ic(fds)                        
+        
+        spread_path_fn = os.path.join(surfpath, 
+                                              '%s.sl_spread_%s_%.1f.func.gii' % (hemi, metric, radius))
+        map2gifti2(results_rsa, 
+                   spread_path_fn, 
+                   vertices = qe.voxsel.source.nvertices)
 
 if False:
     # make sure we have at least two elements and we can calculate distances
@@ -161,20 +187,20 @@ if False:
     
     # compute within spread
     for metric in ['correlation']:#['correlation', 'euclidean']:
-    dsm_ic = Pwithin_spread(mapper = flatten_mapper(), 
-             NCOMPS = 10, 
-             filter_accuracy = True,
-             accuracy = fds.sa.accuracy,
-             pairwise_metric = 'correlation',
-             square=False)
-    
-    sl_rsa_ic = Searchlight(dsm_ic, 
-        queryengine = qe,
-        nproc = NPROC, 
-        roi_ids = roi_ids)
-    results_rsa = sl_rsa_ic(fds)                        
-    
-    spread_path_fn = os.path.join(surfpath, '%s.sl_within_spread_%s_%.1f.func.gii' % (hemi, metric, radius))
-    map2gifti2(results_rsa, 
-               spread_path_fn, 
-               vertices = qe.voxsel.source.nvertices)
+        dsm_ic = Pwithin_spread(mapper = flatten_mapper(), 
+                 NCOMPS = 10, 
+                 filter_accuracy = True,
+                 accuracy = fds.sa.accuracy,
+                 pairwise_metric = 'correlation',
+                 square=False)
+        
+        sl_rsa_ic = Searchlight(dsm_ic, 
+            queryengine = qe,
+            nproc = NPROC, 
+            roi_ids = roi_ids)
+        results_rsa = sl_rsa_ic(fds)                        
+        
+        spread_path_fn = os.path.join(surfpath, '%s.sl_within_spread_%s_%.1f.func.gii' % (hemi, metric, radius))
+        map2gifti2(results_rsa, 
+                   spread_path_fn, 
+                   vertices = qe.voxsel.source.nvertices)

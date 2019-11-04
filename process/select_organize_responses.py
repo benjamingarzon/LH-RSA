@@ -42,8 +42,6 @@ def output_ev(EV, i, suffix, noext = False):
               sep = ' ', 
               float_format='%.2f')
 
-
-
 data = pd.read_csv(FILENAME, sep = ' ')
 
 data = data.loc[data.username == SUBJECT, :]
@@ -73,6 +71,7 @@ sequences = pd.DataFrame({
     'true_sequence': data['true_sequence'].str.replace(" ", "")
 
     }) 
+
 sequences.to_csv("sequences.csv", header=True, index=False, sep = ' ', float_format='%.2f')
 print("#Total correct: %d of %d"%(np.sum(sequences.accuracy == 1.0), len(sequences.accuracy)))
 print("Type  Correct  Run")
@@ -92,6 +91,7 @@ for i in runs:
     duration = data_run['clock_finished'] - data_run['clock_execution'] - INIT_TIME - BUFFER_TIME
     accuracy = data_run['accuracy']
     labels = data_run['label']
+    seq_train = data_run['seq_train']
     stretch_trial = data_run['stretch']
     stretch_trial.values[-1] = 0 # last trial is irrelevant
     directory = 'run' + str(i)
@@ -101,7 +101,21 @@ for i in runs:
     # for fMRI
     execute = pd.DataFrame({'onset': onset, 'duration': duration, 'value': 1}) 
     correct = pd.DataFrame({'onset': onset[accuracy==1.0], 'duration': duration[accuracy==1.0], 'value': 1}) 
-    incorrect = pd.DataFrame({'onset': onset[accuracy<1.0], 'duration': duration[accuracy<1.0], 'value': 1}) 
+    incorrect = pd.DataFrame({'onset': onset[accuracy<1.0], 'duration': duration[accuracy<1.0], 'value': 1})
+    
+    trainedcorrect = pd.DataFrame({'onset': onset[(seq_train=='trained') & (accuracy==1.0)], 
+                                   'duration': duration[(seq_train=='trained') & (accuracy==1.0) ], 
+                                   'value': 1}) 
+    untrainedcorrect = pd.DataFrame({'onset': onset[(seq_train=='untrained') & (accuracy==1.0)], 
+                                     'duration': duration[(seq_train=='untrained') & (accuracy==1.0) ], 
+                                     'value': 1}) 
+    trainedincorrect = pd.DataFrame({'onset': onset[(seq_train=='trained') & (accuracy < 1.0) ], 
+                                     'duration': duration[(seq_train=='trained') & (accuracy < 1.0)], 
+                                     'value': 1}) 
+    untrainedincorrect = pd.DataFrame({'onset': onset[(seq_train=='untrained') & (accuracy < 1.0)], 
+                                       'duration': duration[(seq_train=='untrained') & (accuracy < 1.0)], 
+                                       'value': 1}) 
+    
     fixate = pd.DataFrame({'onset': fixation, 'duration': fixation_duration + INIT_TIME, 'value': 1}) 
     stretch = pd.DataFrame({'onset': fixation.iloc[ np.where(stretch_trial > 0)[0] + 1 ] - STRETCH_DURATION, 
                     'duration': STRETCH_DURATION, 
@@ -114,10 +128,18 @@ for i in runs:
 #    output_ev(stretch, i,  OUTPUTNAME + '3')
 
 # 4 regressors
-    output_ev(correct, i, OUTPUTNAME + '1')
-    output_ev(incorrect, i, OUTPUTNAME + '2')
-    output_ev(fixate, i, OUTPUTNAME + '3')
-    output_ev(stretch, i, OUTPUTNAME + '4')
+#    output_ev(correct, i, OUTPUTNAME + '1')
+#    output_ev(incorrect, i, OUTPUTNAME + '2')
+#    output_ev(fixate, i, OUTPUTNAME + '3')
+#    output_ev(stretch, i, OUTPUTNAME + '4')
+
+    output_ev(fixate, i, OUTPUTNAME + '1')
+    output_ev(stretch, i, OUTPUTNAME + '2')    
+    output_ev(trainedcorrect, i, OUTPUTNAME + '3')
+    output_ev(untrainedcorrect, i, OUTPUTNAME + '4')
+    output_ev(trainedincorrect, i, OUTPUTNAME + '5')
+    output_ev(untrainedincorrect, i, OUTPUTNAME + '6')
+
     
     # Single trials for RSA analysis
     for j, xx in enumerate(onset):
