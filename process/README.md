@@ -1,9 +1,16 @@
 ANALYSES TO DO:
 
 
+Revise how you get the effects
+
+STRANGE BLOBS IN GLM results?
+
+use xargs instead of waiting. with sleep..
 
 fmri trained >/< untrained
 only correct >/< 0 
+
+
 
 no incorrect trained, no incorrect untrained 
 add regressors: trained incorrect, trained correct?

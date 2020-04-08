@@ -97,7 +97,7 @@ for i in runs:
     directory = 'run' + str(i)
     if not os.path.exists(directory):
         os.makedirs(directory)
-
+    
     # for fMRI
     execute = pd.DataFrame({'onset': onset, 'duration': duration, 'value': 1}) 
     correct = pd.DataFrame({'onset': onset[accuracy==1.0], 'duration': duration[accuracy==1.0], 'value': 1}) 
@@ -139,7 +139,6 @@ for i in runs:
     output_ev(untrainedcorrect, i, OUTPUTNAME + '4')
     output_ev(trainedincorrect, i, OUTPUTNAME + '5')
     output_ev(untrainedincorrect, i, OUTPUTNAME + '6')
-
     
     # Single trials for RSA analysis
     for j, xx in enumerate(onset):
@@ -153,4 +152,18 @@ for i in runs:
     # Add fixation and stretch
     output_ev(fixate, i, 'FIXATION', noext = True)
     output_ev(stretch, i, 'STRETCH', noext = True)
-    
+
+
+    # aggregate effects
+    OUTPUTNAME = 'AEV'
+    output_ev(fixate, i, OUTPUTNAME + '1')
+    output_ev(stretch, i, OUTPUTNAME + '2')    
+    output_ev(incorrect, i, OUTPUTNAME + '3')    
+
+    mylabels = labels.values
+    for l in np.unique(mylabels):        
+        correct = pd.DataFrame({'onset': onset[(accuracy==1.0) & (mylabels == l)], 
+                                       'duration': duration[(accuracy==1.0) & (mylabels == l)], 
+                                       'value': 1}) 
+
+        output_ev(correct, i, OUTPUTNAME + 'cor%s'%(l))

@@ -5,9 +5,9 @@
 
 export HOMEDIR=/home/benjamin.garzon/Data/LeftHand/Lund1
 PROGDIR=/home/benjamin.garzon/Software/LeftHand/process/
-SCANLIST=$HOMEDIR/dicoms/Scan_list_wave1_complete.csv
-SCANLIST=$HOMEDIR/dicoms/Scan_list_wave1_missing.csv
-export HEUDICONV_FILE=/home/benjamin.garzon/Data/LeftHand/Lund1/heudiconv_files/heuristic_conv.py
+
+SCANLIST=$HOMEDIR/dicoms/ScanList_wave5.csv
+export HEUDICONV_FILE=/home/benjamin.garzon/Data/LeftHand/Lund1/heudiconv_files/heuristic_conv_reim.py
 
 #clean up .heudiconv 
 rm -r $HOMEDIR/data_BIDS/.heudiconv
@@ -19,33 +19,37 @@ cd $HOMEDIR/
 
 convert(){
 
+cd $HOMEDIR/
+
 SUBJECT=$1 
 SESSION=$2
 SUFFIX=$3
 
 if  [ ! -e "$HOMEDIR/dicoms/$SUBJECT/${SUFFIX}" ] && [ -e "$HOMEDIR/dicoms/$SUBJECT/${SUFFIX}.tar.gz" ]; then
     echo "Uncompressing  $SUBJECT $SESSION $SUFFIX"
-    tar -xzf $HOMEDIR/dicoms/$SUBJECT/${SUFFIX}.tar.gz
+    #cd $HOMEDIR/dicoms/$SUBJECT/
+    tar -xzf $HOMEDIR/dicoms/$SUBJECT/${SUFFIX}.tar.gz --directory $HOMEDIR/dicoms/$SUBJECT/
 fi
 # take the chance to clean up
-rm -r $HOMEDIR/7T033{subject}_${SUFFIX}/*/Dicom/*dummy*
-rm -r $HOMEDIR/7T033{subject}_${SUFFIX}/*/Dicom/*SmartBrain*
-rm -r $HOMEDIR/7T033{subject}_${SUFFIX}/*/Dicom/*Aligned*
-rm -r $HOMEDIR/7T033{subject}_${SUFFIX}/*/Dicom/*Survey*
+rm -r $HOMEDIR/dicoms/$SUBJECT/${SUFFIX}/Dicom/*dummy*
+rm -r $HOMEDIR/dicoms/$SUBJECT/${SUFFIX}/Dicom/*SmartBrain*
+rm -r $HOMEDIR/dicoms/$SUBJECT/${SUFFIX}/Dicom/*Aligned*
+rm -r $HOMEDIR/dicoms/$SUBJECT/${SUFFIX}/Dicom/*Survey*
 
 echo heudiconv -d "$HOMEDIR/dicoms/{subject}/${SUFFIX}/Dicom/*/*.dcm" -s ${SUBJECT} -ss ${SESSION} -f $HEUDICONV_FILE -o $HOMEDIR/data_BIDS/ -b --overwrite
 heudiconv -d "$HOMEDIR/dicoms/{subject}/${SUFFIX}/Dicom/*/*.dcm" -s ${SUBJECT} -ss ${SESSION} -f $HEUDICONV_FILE -o $HOMEDIR/data_BIDS/ -b --overwrite
 
 # compress and clean when finished
 echo "Compressing $SUBJECT $SESSION"
-tar -czf $HOMEDIR/dicoms/$SUBJECT/${SUFFIX}.tar.gz $HOMEDIR/dicoms/$SUBJECT/${SUFFIX} 
-rm -r $HOMEDIR/dicoms/$SUBJECT/${SUFFIX}
+cd $HOMEDIR/dicoms/$SUBJECT/
+tar --remove-files -czf $HOMEDIR/dicoms/$SUBJECT/${SUFFIX}.tar.gz ${SUFFIX} 
 rm -r $HOMEDIR/data_BIDS/sourcedata/sub-${SUBJECT}/ses-${SESSION}
 }
 
 rm $HOMEDIR/dicoms/missing.csv
 tail -n +2 $SCANLIST | while read line
 do
+
 SUBJECT=`echo $line | cut -f1 -d','`
 SESSION=`echo $line | cut -f2 -d','`
 DIR=`echo $line | cut -f3 -d','`
@@ -86,7 +90,3 @@ echo $line | sed "s/,/${TAB}/g"  >> $HOMEDIR/dicoms/curr_subject.csv
 rm $HOMEDIR/dicoms/curr_subject.csv
 done
 
-
-#convert lue001 1 20190426 &
-#convert lue001 2 20190506 &
-#convert lue001 3 20190513 &

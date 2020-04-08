@@ -46,7 +46,8 @@ HCPDIR=/home/share/Software/HCP/workbench/bin_rh_linux64/
 # Same always
 SIMPLE3_FSF_FILE=$HOMEDIR/fmri_designs/fMRInoreg_3stretch.fsf
 SIMPLE4_FSF_FILE=$HOMEDIR/fmri_designs/fMRInoreg_4stretch.fsf
-SIMPLE6_FSF_FILE=$HOMEDIR/fmri_designs/fMRInoreg_6stretch_training.fsf
+#SIMPLE6_FSF_FILE=$HOMEDIR/fmri_designs/fMRInoreg_6stretch_training.fsf
+SIMPLE6_FSF_FILE=$HOMEDIR/fmri_designs/fMRInoreg_6stretch_training_noF.fsf
 MULTI_FSF_FILE=$HOMEDIR/fmri_designs/fMRInoreg_multistretch.fsf
 
 WD=$HOMEDIR/fmriprep
@@ -63,8 +64,9 @@ EES=`echo "((1000 * $WFS)/($FIELDSTRENGTH*3.4*42.57 * ($EPIFAC+1))/$SENSEP)" | b
 
 FX_FILE=tstat
 RADIUS=15.0
-NPROC=30
-MAXFEATPROCS=25
+NPROC=20
+MAXFEATPROCS=30
+FMRIPREPPROCS=20
 NEVS=4
 ACC_FWHM=5
 FWHM=5
@@ -130,9 +132,16 @@ cd $HOMEDIR/data_BIDS/sub-${SUBJECT}/
 INTENDEDFOR=\"`echo ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-??_bold.nii.gz | sed 's/ /","/g'`\"
 echo -e "{\n\"EchoTime1\": $ECHOTIME1, \n\"EchoTime2\": $ECHOTIME2, \n\"PhaseEncodingDirection\": \"j\", \n\"Units\": \"rad/s\", \n\"IntendedFor\": [ $INTENDEDFOR ] \n}" > $HOMEDIR/data_BIDS/sub-${SUBJECT}/ses-${SESSION}/fmap/sub-${SUBJECT}_ses-${SESSION}_fieldmap.json 
 
+
 cd $HOMEDIR/data_BIDS/sub-${SUBJECT}/ses-${SESSION}/anat/
+if [ -e sub-${SUBJECT}_ses-${SESSION}_MP2RAGE_DelRec1.nii.gz ]; then
 ln -s sub-${SUBJECT}_ses-${SESSION}_MP2RAGE_DelRec2.nii.gz re.nii.gz 
 ln -s sub-${SUBJECT}_ses-${SESSION}_MP2RAGE_DelRec1.nii.gz im.nii.gz
+else
+ln -s sub-${SUBJECT}_ses-${SESSION}_MP2RAGE_DelRecReal.nii.gz re.nii.gz 
+ln -s sub-${SUBJECT}_ses-${SESSION}_MP2RAGE_DelRecImag.nii.gz im.nii.gz
+ln -s sub-${SUBJECT}_ses-${SESSION}_MP2RAGE_DelRecImag.json sub-${SUBJECT}_ses-${SESSION}_MP2RAGE_DelRec1.json
+fi
 
 fslroi sub-${SUBJECT}_ses-${SESSION}_MP2RAGE.nii.gz mag 1 1
 #fslroi sub-${SUBJECT}_ses-${SESSION}_MP2RAGE.nii.gz phase 0 1
@@ -191,13 +200,13 @@ PYTHONPATH="" singularity run \
    --longitudinal \
    --fs-license-file \
    $WD/license.txt \
-   --nthreads 4 \
+   --nthreads $FMRIPREPPROCS \
    -w $WORK \
    --write-graph \
    --output-space 'fsnative' \
    --participant-label ${SUBJECT}   
-
 fi
+
 
 PYTHONPATH="" singularity run \
    $HOMEDIR/fmriprep.img \
@@ -209,7 +218,7 @@ PYTHONPATH="" singularity run \
    --longitudinal \
    --fs-license-file \
    $WD/license.txt \
-   --nthreads 4 \
+   --nthreads $FMRIPREPPROCS \
    -w $WORK \
    --write-graph \
    --output-space 'T1w' \
@@ -225,7 +234,7 @@ PYTHONPATH="" singularity run \
    --longitudinal \
    --fs-license-file \
    $WD/license.txt \
-   --nthreads 4 \
+   --nthreads $FMRIPREPPROCS \
    -w $WORK \
    --write-graph \
    --template 'MNI152NLin2009cAsym' \
@@ -290,10 +299,15 @@ cd $SUBDIR
 for xxx in 1; do # just to make it wait
 for run in $RUNS; 
 do
+  if [ -e "$HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/run$run/volume" ] && \
+  [ ! -e "$HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/run$run/volume/cope1.nii.gz" ] ; then
+     rm -r "$HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/run$run/volume"
+  fi 
   if [ ! -e "$HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/run$run/volume" ]; then
-      FUNCVOL=$HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-0${run}_bold_space-T1w_preproc.nii.gz
-      FUNCSURFL=$HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-0${run}_bold_space-fsnative.L.func.gii
-      FUNCSURFR=$HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-0${run}_bold_space-fsnative.R.func.gii
+#      FUNCVOL=$HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-0${run}_bold_space-T1w_preproc.nii.gz
+      FUNCVOL=$HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-0${run}_bold_space-MNI152NLin2009cAsym_preproc.nii.gz
+      # FUNCSURFL=$HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-0${run}_bold_space-fsnative.L.func.gii
+      # FUNCSURFR=$HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-0${run}_bold_space-fsnative.R.func.gii
     
       RUN_DIR=$SUBDIR/run$run
     
@@ -342,12 +356,13 @@ do
       rm -r $RUN_DIR/surfL $RUN_DIR/surfR $RUN_DIR/volume 
     #  film_gls --rn=$RUN_DIR/surfL --sa --in=$RUN_DIR/lh.smoothed.func.gii --pd=fMRI.mat --con=fMRI.con --mode=surface --in2=$SUBDIR/surf/lh.midthickness.gii
     #  film_gls --rn=$RUN_DIR/surfR --sa --in=$RUN_DIR/rh.smoothed.func.gii --pd=fMRI.mat --con=fMRI.con --mode=surface --in2=$SUBDIR/surf/rh.midthickness.gii 
-      film_gls --rn=$RUN_DIR/volume --sa --ms=$FWHM --in=$RUN_DIR/smoothed_data.nii.gz --thr=1000 --pd=fMRI.mat --con=fMRI.con --mode=volume &
+      film_gls --rn=$RUN_DIR/volume --sa --ms=$FWHM --in=$RUN_DIR/smoothed_data.nii.gz --thr=1000 --pd=fMRI.mat --con=fMRI.con --mode=volume 
   fi # volume exists
 done
 
 done
 rm $SUBDIR/run*/smoothed_data.nii.gz
+
 fi # PHASE 5
 
   ##### do second level analysis
@@ -494,14 +509,23 @@ fi # PHASE 7
 # Run searchlight analysis
 ###############################################
 
+# Find available fMRI runs, based on the data that are valid
+cd $HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/
+RUNS=`ls run*/volume/cope1.nii.gz  | cut -d'/' -f1 | cut -d'n' -f2`
+RUNS=`echo $RUNS`
+echo "Found following runs: $RUNS"
+
 if [ $PHASE == 0 ] || [ $PHASE == 8 ]; then
 
 # Prepare engine
 for hemi in rh lh; do
+    if [ ! -e "$HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/surf/${hemi}-${RADIUS}-qe.gzipped.hdf5" ] && \
+    [ -e "$HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/effects.nii.gz" ]; then
     python $PROGDIR/prepare_queryengine.py \
     $SUBDIR \
     $HOMEDIR/responses/sub-${SUBJECT}/ses-${SESSION}/sequences.csv \
     $hemi $RADIUS "$RUNS"
+    fi
 done
 
 fi #PHASE 8
@@ -511,28 +535,31 @@ if [ $PHASE == 0 ] || [ $PHASE == 9 ]; then
 
 # Run searchlight
 for hemi in rh lh; do
+if [ ! -e "$SUBDIR/surf/$TESTDIR/$hemi.sl_within_spread_correlation_${RADIUS}.fsaverage.func.mgh" ]; then
+
     python $PROGDIR/surface_searchlight.py \
     $SUBDIR \
     $HOMEDIR/responses/sub-${SUBJECT}/ses-${SESSION}/sequences.csv  \
     $SUBJECTS_DIR/sub-${SUBJECT}/label/${hemi}.cortex.label\
     $hemi $RADIUS $NPROC $TESTDIR "$RUNS"
 
-# Resample to average
-for metric in $METRICS; do
-  mri_convert $SUBDIR/surf/$TESTDIR/$hemi.sl_${metric}_${RADIUS}.func.gii $SUBDIR/surf/$TESTDIR/$hemi.sl_${metric}_${RADIUS}.func.mgh
-  ln -s $SUBJECTS_DIR/fsaverage6/surf/lh.sphere.reg $SUBJECTS_DIR/sub-${SUBJECT}/surf/lh.sphere6.reg
-  ln -s $SUBJECTS_DIR/fsaverage6/surf/rh.sphere.reg $SUBJECTS_DIR/sub-${SUBJECT}/surf/rh.sphere6.reg 
-  mri_surf2surf --srcsubject sub-${SUBJECT} \
-    --srcsurfval $SUBDIR/surf/$TESTDIR/$hemi.sl_${metric}_${RADIUS}.func.mgh \
-    --trgsubject fsaverage \
-    --srcsurfreg sphere6.reg \
-    --trgsurfval $SUBDIR/surf/$TESTDIR/$hemi.sl_${metric}_${RADIUS}.fsaverage.func.mgh \
-    --hemi $hemi \
-    --fwhm-trg $ACC_FWHM \
-    --cortex
-
-  mri_convert $SUBDIR/surf/$TESTDIR/$hemi.sl_${metric}_${RADIUS}.fsaverage.func.mgh $SUBDIR/surf/$TESTDIR/$hemi.sl_${metric}_${RADIUS}.fsaverage.func.gii
-  done
+    # Resample to average
+    for metric in $METRICS; do
+      mri_convert $SUBDIR/surf/$TESTDIR/$hemi.sl_${metric}_${RADIUS}.func.gii $SUBDIR/surf/$TESTDIR/$hemi.sl_${metric}_${RADIUS}.func.mgh
+      ln -s $SUBJECTS_DIR/fsaverage6/surf/lh.sphere.reg $SUBJECTS_DIR/sub-${SUBJECT}/surf/lh.sphere6.reg
+      ln -s $SUBJECTS_DIR/fsaverage6/surf/rh.sphere.reg $SUBJECTS_DIR/sub-${SUBJECT}/surf/rh.sphere6.reg 
+      mri_surf2surf --srcsubject sub-${SUBJECT} \
+        --srcsurfval $SUBDIR/surf/$TESTDIR/$hemi.sl_${metric}_${RADIUS}.func.mgh \
+        --trgsubject fsaverage \
+        --srcsurfreg sphere6.reg \
+        --trgsurfval $SUBDIR/surf/$TESTDIR/$hemi.sl_${metric}_${RADIUS}.fsaverage.func.mgh \
+        --hemi $hemi \
+        --fwhm-trg $ACC_FWHM \
+        --cortex
+    
+      mri_convert $SUBDIR/surf/$TESTDIR/$hemi.sl_${metric}_${RADIUS}.fsaverage.func.mgh $SUBDIR/surf/$TESTDIR/$hemi.sl_${metric}_${RADIUS}.fsaverage.func.gii
+      done
+fi
 done
 
 rm $SUBDIR/surf/$TESTDIR/*.mgh $SUBDIR/surf/$TESTDIR/qe.mask.nii.gz #$SUBDIR/surf/*gzipped.hdf5 
@@ -574,6 +601,7 @@ rm ${FIG}*lateral* ${FIG}*medial*
 export SURF_L=$SUBJECTS_DIR/fsaverage/surf/lh.inflated
 export SURF_R=$SUBJECTS_DIR/fsaverage/surf/rh.inflated
 
+# plot individual maps
 if [ $PHASE == 0 ] || [ $PHASE == 10 ]; then
 
 if [ ! -e $HOMEDIR/fmriprep/results ]; then 
@@ -633,6 +661,8 @@ for label in $LABELS; do
 done
 
 # done every session, although it would be enough to do it for the last one
+
+if [ "${SESSION}" -eq 7 ] ; then
 for metric in $METRICS; do
 # average across subjects
     for hemi in rh lh; do
@@ -709,7 +739,8 @@ for metric in $METRICS; do
       $HOMEDIR/fmriprep/analysis/surf/rh.sl_${metric}_${RADIUS}.ses-${SESSION}.mean.func.gii \
       $LIM1 $LIM2 $HOMEDIR/fmriprep/results/sl_${metric}_${RADIUS}_ses-${SESSION}_mean
 
-done
+done # metric
+fi
 
 rm $LABELSDIR/*label*
 fi #PHASE 11

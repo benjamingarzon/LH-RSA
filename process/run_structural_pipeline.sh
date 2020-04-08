@@ -7,10 +7,10 @@ EXPERT_FILE=/home/benjamin.garzon/Software/LeftHand/process/expert.opts
 # remove myelin inhomogeneity
 # 1201.3, 1201.4, 1201.5 bad quality scan, not used for constructing base
 
-MAXPROCS=8
+MAXPROCS=15
 NSESSIONS=7
-SUBJECTS="lue1101 lue1103 lue1104 lue1105 lue1106 lue1107 lue1201 lue1202 lue1203 lue1204 lue1205 lue1206 lue1207"
-SUBJECTS="lue1206" 
+SUBJECTS="lue3101 lue3102 lue3103 lue3104 lue3105 lue3106 lue3107 lue3201 lue3202 lue3203 lue3204 lue3205 lue3206 lue3207"
+SUBJECTS="lue3205 lue3204 lue3203 lue3201"
 
 WD=/home/benjamin.garzon/Data/LeftHand/Lund1/data_BIDS
 VBM_DIR=/home/benjamin.garzon/Data/LeftHand/Lund1/vbm

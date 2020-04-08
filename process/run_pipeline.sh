@@ -4,42 +4,23 @@
 # lue1103 ses3 run 4 
 # lue1104 ses-1 run 2-5
 
-# effects not done
-# lue1106
-#lue1201 3-7
-#lue1202 
-#lue1203 5-7
 
-# redo 1207.1 run2 with fmriprep and run
-# redo 1202 fmriprep
-# after redone 1203 fmriprep and run
 
 HOMEDIR=/home/benjamin.garzon/Data/LeftHand/Lund1
 SUBJECTS_DIR=/home/benjamin.garzon/Data/LeftHand/Lund1/freesurfer
 
-#PHASES="8 9 10"
-PHASES="4 5 6 7 8 9 10 11 12"
-PHASES="1 4 5 6 7 8 9 10 11 12"
-PHASES="1 4 5 6 7"
-#PHASES="1 4 5"
-PHASES="3"
-#PHASES="5"
-#PHASES="9 10 11"
-#PHASES="10 11"
+PHASES="2"
 
+NSESSIONS=6 # wave 4
+#NSESSIONS=7 
 
-NSESSIONS=7
 SESSIONS=`seq $NSESSIONS`
-#SESSIONS="7 6 5 4 3 2 1"
+#SESSIONS="7 6 5 4 3 2"
 
-# check lue1106 1201 1202 1203
-SUBJECTS="lue1101 lue1103 lue1104 lue1105 lue1106 lue1107 lue1201 lue1202 lue1203 lue1204 lue1205 lue1206 lue1207"
-#SUBJECTS="lue1101 lue1103 lue1104 lue1105 lue1106 lue1201"
-#SUBJECTS="lue1207 lue1206 lue1205 lue1204 lue1203 lue1202"
-#SUBJECTS="lue1106 lue1201 lue1204" 
-SUBJECTS="lue1207 lue1202" # lue1204" #lue1202 lue1203 
-#SUBJECTS="lue1203" # lue1204" #lue1202 lue1203 
-#SUBJECTS="lue1106"
+SUBJECTS="lue4101 lue4102 lue4104 lue4106 lue4201 lue4202 lue4203 lue4204 lue4205 lue4206" # lue4207 lue4103 lue4105 lue4107"
+#SUBJECTS="lue3101 lue3102 lue3103 lue3104 lue3105 lue3106 lue3107 lue3201 lue3202 lue3203 lue3204 lue3205 lue3206 lue3207"
+#SUBJECTS="lue1103 lue1104 lue1105 lue1106 lue1107 lue1201 lue1202 lue1203 lue1204 lue1205 lue1206 lue1207"
+
 
 WD=/home/benjamin.garzon/Data/LeftHand/Lund1/data_BIDS
 RESPONSES_FILE=$HOMEDIR/responses/trials_table_Lund1fmri_clean.csv

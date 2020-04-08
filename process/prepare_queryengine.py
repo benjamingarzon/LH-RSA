@@ -66,13 +66,14 @@ else:
                    chunks = sequences.run,
                    mask = mask_fn)
     
-    fds2 = fmri_dataset(samples = epi_fn2,
-                   targets = sequences.seq_type, 
-                   chunks = sequences.run,
-                   mask = mask_fn)
+#    fds2 = fmri_dataset(samples = epi_fn2,
+#                   targets = sequences.seq_type, 
+#                   chunks = sequences.run,
+#                   mask = mask_fn)
 
-    fds = fds1.copy()
-    fds.samples = np.dstack((fds1.samples, fds2.samples))
+    fds = fds1
+#    fds = fds1.copy()
+#    fds.samples = np.dstack((fds1.samples, fds2.samples))
 
     qe = disc_surface_queryengine(radius, 
                                   fds, 

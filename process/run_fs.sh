@@ -282,14 +282,12 @@ for ANATDIR in $ANATLIST; do
 
 done
 
-if [ ]; then
 # wait for all to finish
 while [ `ls $SUBJECTS_DIR/sub-${SUBJECT}.?/stats/lh.aparc.stats | wc -w` -lt $NANAT ]; do
     echo "Waiting for all cross to finish"
     echo "sub-${SUBJECT}: Only `ls $SUBJECTS_DIR/sub-${SUBJECT}.?/stats/lh.aparc.stats | wc -w` out of $NANAT have finished"
     sleep 500
 done
-fi
 
 echo "Cross-sectionals done!"
 ##################################################################

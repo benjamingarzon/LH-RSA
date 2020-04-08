@@ -228,6 +228,16 @@ class flatten_mapper(Mapper):
         Mapper.__init__(self, **kwargs)
     
     def _forward_dataset(self, ds):
+        return(ds)
+
+class flatten_mapper_2(Mapper):
+
+    is_trained = True
+    
+    def __init__(self, **kwargs):
+        Mapper.__init__(self, **kwargs)
+    
+    def _forward_dataset(self, ds):
         mapped_ds = ds.copy()
         # standardize so that the two dimensions are comparable
 #        ds0 = stats.zscore(ds.samples[:, :, 0], axis = None)
