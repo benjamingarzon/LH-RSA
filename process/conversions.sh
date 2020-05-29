@@ -6,8 +6,10 @@
 export HOMEDIR=/home/benjamin.garzon/Data/LeftHand/Lund1
 PROGDIR=/home/benjamin.garzon/Software/LeftHand/process/
 
-SCANLIST=$HOMEDIR/dicoms/ScanList_wave5.csv
-export HEUDICONV_FILE=/home/benjamin.garzon/Data/LeftHand/Lund1/heudiconv_files/heuristic_conv_reim.py
+SCANLIST=$HOMEDIR/dicoms/Scan_list_wave2.csv
+
+#export HEUDICONV_FILE=/home/benjamin.garzon/Data/LeftHand/Lund1/heudiconv_files/heuristic_conv_reim.py # real and imaginary
+export HEUDICONV_FILE=/home/benjamin.garzon/Data/LeftHand/Lund1/heudiconv_files/heuristic_conv.py
 
 #clean up .heudiconv 
 rm -r $HOMEDIR/data_BIDS/.heudiconv
@@ -25,6 +27,9 @@ SUBJECT=$1
 SESSION=$2
 SUFFIX=$3
 
+#rm "$HOMEDIR/dicoms/$SUBJECT/${SUFFIX}.tar.gz"
+
+#cp -r "$HOMEDIR/dicoms/HD/sessions/${SUFFIX}" "$HOMEDIR/dicoms/$SUBJECT/${SUFFIX}"
 if  [ ! -e "$HOMEDIR/dicoms/$SUBJECT/${SUFFIX}" ] && [ -e "$HOMEDIR/dicoms/$SUBJECT/${SUFFIX}.tar.gz" ]; then
     echo "Uncompressing  $SUBJECT $SESSION $SUFFIX"
     #cd $HOMEDIR/dicoms/$SUBJECT/
@@ -57,6 +62,9 @@ TAB='\t'
 head -n 1 $SCANLIST | sed "s/,/${TAB}/g" > $HOMEDIR/dicoms/curr_subject.csv
 echo $line | sed "s/,/${TAB}/g"  >> $HOMEDIR/dicoms/curr_subject.csv
 
+    # to overwrite
+#    rm -r $HOMEDIR/data_BIDS/sub-$SUBJECT/ses-$SESSION
+
     if [ ! -e "$HOMEDIR/data_BIDS/sub-$SUBJECT/ses-$SESSION/anat" ] || [ ! -e "$HOMEDIR/data_BIDS/sub-$SUBJECT/ses-$SESSION/fmap" ] || [ ! -e "$HOMEDIR/data_BIDS/sub-$SUBJECT/ses-$SESSION/func" ]; then
         echo Converting $SUBJECT $SESSION $DIR
         convert $SUBJECT $SESSION $DIR
@@ -80,7 +88,7 @@ echo $line | sed "s/,/${TAB}/g"  >> $HOMEDIR/dicoms/curr_subject.csv
    fi
 
    if [ ! -e "$HOMEDIR/data_BIDS/sub-$SUBJECT/ses-$SESSION/func" ]; then
-        echo Func runs missing: "sub-$SUBJECT ses-$SESSION" >> $HOMEDIR/dicoms/missing.csv
+        echo fMRI missing: "sub-$SUBJECT ses-$SESSION" >> $HOMEDIR/dicoms/missing.csv
      else 
      if [ `ls "$HOMEDIR/data_BIDS/sub-$SUBJECT/ses-$SESSION/func" | wc -l` -lt 15 ]; then 
         echo Func runs missing: "sub-$SUBJECT ses-$SESSION. Only found `ls $HOMEDIR/data_BIDS/sub-$SUBJECT/ses-$SESSION/func/*.nii.gz | wc -l`" >> $HOMEDIR/dicoms/missing.csv
