@@ -1,6 +1,0 @@
-
-conversions.sh
-run_structural_pipeline.sh
-fs_analysis.sh
-run_pipeline.sh
-run_vbm.sh

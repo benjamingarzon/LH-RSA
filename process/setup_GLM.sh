@@ -51,7 +51,7 @@ set fmri(con_mode_old) orig
 set fmri(con_mode) orig
 
 # Display images for contrast_real 1
-set fmri(conpic_real.1) 0
+set fmri(conpic_real.1) 1
 
 # Title for contrast_real 1
 set fmri(conname_real.1) \"Mean>0\"
@@ -78,6 +78,5 @@ for index in `seq 2 $NEVS_ORIG`; do
 echo -e "# Real contrast_orig vector 1 element $index
 set fmri(con_orig1.$index) 0
 "; done >> fsfchunk
-
 
 

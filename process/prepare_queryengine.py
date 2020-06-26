@@ -23,8 +23,9 @@ if True:
     runs = np.array([int(x) for x in sys.argv[5].split(' ') ])    
 
 else:    
-    datapath = '/home/benjamin.garzon/Data/LeftHand/Lund1/fmriprep/analysis/sub-lue1105/ses-1/'
-    sequences_fn = '/home/benjamin.garzon/Data/LeftHand/Lund1/responses/sub-lue1105/ses-1/sequences.csv'
+    WD = '/home/benjamin.garzon/Data/LeftHand/Lund1/'
+    datapath = os.path.join(WD, 'fmriprep/analysis/sub-lue1105/ses-1/')
+    sequences_fn = os.path.join(WD, 'responses/sub-lue1105/ses-1/sequences.csv')
     hemi = 'rh'
     radius = 15.0
     runs = np.array([int(x) for x in "1 2 3 4 5".split(' ') ])

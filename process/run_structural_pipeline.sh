@@ -11,11 +11,11 @@ MAXPROCS=15
 NSESSIONS=7
 SUBJECTS="lue3101 lue3102 lue3103 lue3104 lue3105 lue3106 lue3107 lue3201 lue3202 lue3203 lue3204 lue3205 lue3206 lue3207"
 SUBJECTS="lue3203  lue3202 lue3201 lue3101 lue3102 lue3103 lue3104 lue3105 lue3106 lue3107"
-
+SUBJECTS="lue2101 lue4101"
 WD=/home/benjamin.garzon/Data/LeftHand/Lund1/data_BIDS
 VBM_DIR=/home/benjamin.garzon/Data/LeftHand/Lund1/vbm
 
-OVERWRITE=0
+OVERWRITE=1
 DOFS=1
 for SUBJECT in $SUBJECTS; do
     if [ `ls $HOMEDIR/data_BIDS/sub-$SUBJECT/*/anat/sub-${SUBJECT}_ses-*_MP2RAGE.nii.gz | wc -l` -eq $NSESSIONS ]; then    

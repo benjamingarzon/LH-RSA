@@ -12,6 +12,102 @@ from mvpa2.measures.rsa import PDist
 from scipy import stats
 from sklearn.decomposition import PCA
 
+def indicator(index_vector, positive=False):
+    """ Indicator matrix with one
+    column per unique element in vector
+
+    Parameters:
+        index_vector (numpy.ndarray)
+            n_row vector to code - discrete values (one dimensional)
+        positive (bool)
+            should the function ignore zero negative entries
+            in the index_vector? Default: false
+
+    Returns:
+        indicator_matrix (numpy.ndarray)
+            nrow x nconditions indicator matrix
+
+    """
+    c_unique = np.unique(index_vector)
+    n_unique = c_unique.size
+    rows = np.size(index_vector)
+    if positive:
+        c_unique = c_unique[c_unique > 0]
+        n_unique = c_unique.size
+    indicator_matrix = np.zeros((rows, n_unique))
+    for i in np.arange(n_unique):
+        indicator_matrix[index_vector == c_unique[i], i] = 1
+    return indicator_matrix
+
+
+
+"""
+A Python implementation of NNLS algorithm
+References:
+[1]  Lawson, C.L. and R.J. Hanson, Solving Least-Squares Problems, Prentice-Hall, Chapter 23, p. 161, 1974.
+"""
+def lsqnonneg(C, d):
+    '''Linear least squares with nonnegativity constraints.
+    (x, resnorm, residual) = lsqnonneg(C,d) returns the vector x that minimizes norm(d-C*x)
+    subject to x >= 0, C and d must be real
+    '''
+
+    eps = 2.22e-16    # from matlab
+
+    tol = 10*eps*np.linalg.norm(C,1)*(max(C.shape)+1)
+
+    C = np.asarray(C)
+
+    (m,n) = C.shape
+    P = []
+    R = [x for x in range(0,n)]
+
+    x = np.zeros(n)
+
+    resid = d - np.dot(C, x)
+    w = np.dot(C.T, resid)
+
+    count = 0
+
+    # outer loop to put variables into set to hold positive coefficients
+    while np.any(R) and np.max(w) > tol:
+
+        j = np.argmax(w)
+        P.append(j)
+        R.remove(j)
+
+        AP = np.zeros(C.shape)
+        AP[:,P] = C[:,P]
+
+        s=np.dot(np.linalg.pinv(AP), d)
+
+        s[R] = 0
+     
+        while np.min(s) < 0:
+
+            i = [i for i in P if s[i] <= 0]
+
+            alpha = min(x[i]/(x[i] - s[i]))
+            x = x + alpha*(s-x)
+
+            j = [j for j in P if x[j] == 0]
+            if j:
+                R.append(*j)
+                P.remove(j)
+            
+            AP = np.zeros(C.shape)
+            AP[:,P] = C[:,P]
+            s=np.dot(np.linalg.pinv(AP), d)
+            s[R] = 0
+     
+        x = s
+        resid = d - np.dot(C, x)
+
+        w = np.dot(C.T, resid)
+
+    return (x, sum(resid * resid), resid)
+
+
 def distinctiveness(x):
     return np.mean(x, axis=0)
 
@@ -492,6 +588,55 @@ class Pwithin_spread(PDist):
 #        out = Dataset(np.array((within_spread, )).T)
 #        return out
 
+
+class Psecond_moment(PDist):
+
+    def __init__(self, 
+                 XG,
+                 mapper = None, 
+                 filter_accuracy = False,
+                 accuracy = 0,           
+                 return_pars = 0,
+                 **kwargs):
+
+        self.mapper = mapper
+        self.filter_accuracy = filter_accuracy     
+        self.correct = accuracy == 1
+        self.XG = XG
+        self.return_pars = return_pars
+        super(Psecond_moment, self).__init__(**kwargs)
+
+    def _call(self, ds):
+
+        mapped_ds = self.mapper(ds)
+        data = mapped_ds.samples
+        
+        # remove constant columns
+        constantcols = np.all(data[1:] == data[:-1], axis=0)
+        data = data[:, ~constantcols]
+        if np.sum(constantcols)>0:
+            print(np.sum(constantcols))
+        try:
+            
+            if self.filter_accuracy:
+                data = data[self.correct]
+                chunks = ds.chunks[self.correct]
+                targets = ds.targets[self.correct]
+            else:
+                chunks = ds.chunks
+                targets = ds.targets   
+    
+            G_hat = np.dot(data, data.T).reshape(-1, 1)/data.shape[0]
+            theta, resnorm, residual = lsqnonneg(self.XG, G_hat)
+            #Gpred = np.sum(G * theta.ravel(), axis = 2)
+
+        except ValueError:
+            print("Value error")
+            theta = -np.ones(self.XG.shape[1])
+            
+        out = Dataset(theta[self.return_pars])
+
+        return out
 
 
 class PDistMulti(PDist):

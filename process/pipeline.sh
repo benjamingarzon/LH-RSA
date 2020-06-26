@@ -59,17 +59,24 @@ SINGLE2_FSF_FILE=$HOMEDIR/fmri_designs/fMRIsingle2.fsf
 WD=$HOMEDIR/fmriprep
 SUBJECTS_DIR=$WD/freesurfer
 WORK=$HOMEDIR/work_sub-${SUBJECT}_ses-${SESSION}
-ECHOTIME1=0.001544 #1551
+ECHOTIME1=0.001544 
 ECHOTIME2=0.002544 
 TE=25 #ms
 EPIFAC=39
-WFS=23.761 #2.366
+WFS=23.761 
 SENSEP=3
 FIELDSTRENGTH=7
-#EES=`echo "((1000 * $WFS)/($FIELDSTRENGTH*3.4*42.57 * ($EPIFAC+1))/$SENSEP)" | bc -l | awk '{printf "%f", $0}'`
-EES=`echo "($WFS/($FIELDSTRENGTH*3.4*42.57 * ($EPIFAC+1))/$SENSEP)" | bc -l | awk '{printf "%f", $0}'`
+TR=1.2
+TemporalFilter=90
 
-FX_FILE=tstat
+
+#EES=`echo "$WFS/($FIELDSTRENGTH*3.4*42.57 *($EPIFAC+1)*$SENSEP)" | bc -l | awk '{printf "%f", $0}'` # in sec
+#EES=`echo "$SENSEP*$WFS/($FIELDSTRENGTH*3.4*42.57 *($EPIFAC+1))" | bc -l | awk '{printf "%f", $0}'` # in sec
+
+RI=-500
+RS=0.2442
+
+FX_FILE=pe #tstat
 RADIUS=15.0
 NPROC=20
 MAXFEATPROCS=30
@@ -77,6 +84,7 @@ FMRIPREPPROCS=20
 NEVS=4
 ACC_FWHM=5
 FWHM=5
+FWHM_SURF=10
 SIGMA=`echo $FWHM/2.3548 | bc -l`
 
 TESTDIR=metrics
@@ -126,15 +134,20 @@ cd $HOMEDIR/
 
 cp data_BIDS/sub-${SUBJECT}/ses-${SESSION}/fmap/sub-${SUBJECT}_ses-${SESSION}_epi1.nii.gz data_BIDS/sub-${SUBJECT}/ses-${SESSION}/fmap/sub-${SUBJECT}_ses-${SESSION}_magnitude.nii.gz 
 
-fslmaths data_BIDS/sub-${SUBJECT}/ses-${SESSION}/fmap/sub-${SUBJECT}_ses-${SESSION}_epi2.nii.gz -mul 6.28 data_BIDS/sub-${SUBJECT}/ses-${SESSION}/fmap/sub-${SUBJECT}_ses-${SESSION}_fieldmap_rads.nii.gz 
-fugue --loadfmap=data_BIDS/sub-${SUBJECT}/ses-${SESSION}/fmap/sub-${SUBJECT}_ses-${SESSION}_fieldmap_rads.nii.gz -m --savefmap=data_BIDS/sub-${SUBJECT}/ses-${SESSION}/fmap/sub-${SUBJECT}_ses-${SESSION}_fieldmap.nii.gz
+# rescale values see PMC3998686
+# FP = (PV + RI/RS)/SS = PV*RS + RI
+fslmaths data_BIDS/sub-${SUBJECT}/ses-${SESSION}/fmap/sub-${SUBJECT}_ses-${SESSION}_epi2.nii.gz -mul $RS -add $RI data_BIDS/sub-${SUBJECT}/ses-${SESSION}/fmap/sub-${SUBJECT}_ses-${SESSION}_fieldmap.nii.gz 
 
 # fix Philips json files
 for run in $RUNS; do
     sed -i 's/Axis/Direction/g' data_BIDS/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-0${run}_bold.json
     myline=`cat data_BIDS/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-0${run}_bold.json | grep EchoTrainLength`
     sed -i '/EffectiveEchoSpacing/d' data_BIDS/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-0${run}_bold.json
-    sed -i '/'"$myline"'/a \  \"EffectiveEchoSpacing\": '"$EES"',' data_BIDS/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-0${run}_bold.json    
+    sed -i '/WaterFatShift/d' data_BIDS/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-0${run}_bold.json
+    sed -i '/ParallelReductionFactorInPlane/d' data_BIDS/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-0${run}_bold.json
+#    sed -i '/'"$myline"'/a \  \"EffectiveEchoSpacing\": '"$EES"',' data_BIDS/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-0${run}_bold.json    
+    sed -i '/'"$myline"'/a \  \"ParallelReductionFactorInPlane\": '"$SENSEP"',' data_BIDS/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-0${run}_bold.json    
+    sed -i '/'"$myline"'/a \  \"WaterFatShift\": '"$WFS"',' data_BIDS/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-0${run}_bold.json    
 
     #check that the runs are ok
     nvols=`fslnvols data_BIDS/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-0${run}_bold.nii.gz`
@@ -153,7 +166,10 @@ find data_BIDS | grep invalid.nii.gz > $INVALID_FILES
 
 cd $HOMEDIR/data_BIDS/sub-${SUBJECT}/
 INTENDEDFOR=\"`echo ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-??_bold.nii.gz | sed 's/ /","/g'`\"
-echo -e "{\n\"EchoTime1\": $ECHOTIME1, \n\"EchoTime2\": $ECHOTIME2, \n\"PhaseEncodingDirection\": \"j\", \n\"Units\": \"rad/s\", \n\"IntendedFor\": [ $INTENDEDFOR ] \n}" > $HOMEDIR/data_BIDS/sub-${SUBJECT}/ses-${SESSION}/fmap/sub-${SUBJECT}_ses-${SESSION}_fieldmap.json 
+#echo -e "{\n\"EchoTime1\": $ECHOTIME1, \n\"EchoTime2\": $ECHOTIME2, \n\"PhaseEncodingDirection\": \"j\", \n\"Units\": \"rad/s\", \n\"IntendedFor\": [ $INTENDEDFOR ] \n}" > $HOMEDIR/data_BIDS/sub-${SUBJECT}/ses-${SESSION}/fmap/sub-${SUBJECT}_ses-${SESSION}_fieldmap.json 
+
+#echo -e "{\n\"PhaseEncodingDirection\": \"j\", \n\"Units\": \"rad/s\", \n\"IntendedFor\": [ $INTENDEDFOR ] \n}" > $HOMEDIR/data_BIDS/sub-${SUBJECT}/ses-${SESSION}/fmap/sub-${SUBJECT}_ses-${SESSION}_fieldmap.json 
+echo -e "{\n\"PhaseEncodingDirection\": \"j\", \n\"Units\": \"Hz\", \n\"IntendedFor\": [ $INTENDEDFOR ] \n}" > $HOMEDIR/data_BIDS/sub-${SUBJECT}/ses-${SESSION}/fmap/sub-${SUBJECT}_ses-${SESSION}_fieldmap.json 
 
 
 cd $HOMEDIR/data_BIDS/sub-${SUBJECT}/ses-${SESSION}/anat/
@@ -202,12 +218,11 @@ fi
 # Process with fmriprep
 ###############################################
 
-
 rm -r $WORK
 mkdir $WORK
 cp /usr/local/freesurfer/license.txt $WD/
 
-#rm -r $HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}
+rm -r $HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}
 
 PYTHONPATH="" singularity run \
    --cleanenv $HOMEDIR/fmriprep.simg \
@@ -224,48 +239,11 @@ PYTHONPATH="" singularity run \
    --skip_bids_validation \
    --output-spaces T1w MNI152NLin2009cAsym fsaverage6 \
    --participant-label ${SUBJECT}  
-
-
-#   --ignore fieldmaps \
-
-#PYTHONPATH="" singularity run \
-#   $HOMEDIR/fmriprep.img \
-#   $HOMEDIR/data_BIDS \
-#   $WD \
-#   participant \
-#   --ignore slicetiming \
-#   --ignore fieldmaps \
-#   --longitudinal \
-#   --fs-license-file \
-#   $WD/license.txt \
-#   --nthreads $FMRIPREPPROCS \
-#   -w $WORK \
-#   --write-graph \
-#   --output-space 'T1w' \
-#   --participant-label ${SUBJECT} 
-
-#PYTHONPATH="" singularity run \
-#   $HOMEDIR/fmriprep.img \
-#   $HOMEDIR/data_BIDS \
-#   $WD \
-#   participant \
-#   --ignore slicetiming \
-#   --ignore fieldmaps \
-#   --longitudinal \
-#   --fs-license-file \
-#   $WD/license.txt \
-#   --nthreads $FMRIPREPPROCS \
-#   -w $WORK \
-#   --write-graph \
-#   --template 'MNI152NLin2009cAsym' \
-#   --participant-label ${SUBJECT}   
-
 rm -r $WORK
+#   --force-syn \
 
 fi # PHASE 3
-   
-# --ignore fieldmaps \
-#   --use-syn-sdc \
+
 #   --use-aroma \
 
 
@@ -301,6 +279,93 @@ ln -s $SUBJECTS_DIR/sub-${SUBJECT}/surf/rh.sphere.reg $SUBDIR/surf/rh.sphere.reg
 
 fi
 
+# Prepare surfaces and masks
+# Import labels,  somatomotor mask label to subject 
+
+LABELSDIR=$HOMEDIR/fmriprep/analysis/sub-$SUBJECT/label
+mkdir $LABELSDIR
+
+if [ ! -e $HOMEDIR/fmriprep/analysis/surf ]; then 
+    mkdir $HOMEDIR/fmriprep/analysis/surf
+fi
+if [ ! -e $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf ]; then 
+    mkdir $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf
+fi
+
+for hemi in lh rh; do
+  mri_surf2surf --srcsubject fsaverage \
+        --srcsurfval $HOMEDIR/labels/fsaverage/${hemi}.somatomotor-mask.func.gii  \
+        --trgsubject sub-${SUBJECT} \
+        --trgsurfval $LABELSDIR/${hemi}.somatomotor-mask.func.gii \
+        --hemi $hemi \
+        --cortex
+
+  mri_cor2label --i $LABELSDIR/${hemi}.somatomotor-mask.func.gii \
+   --id 1 --l $LABELSDIR/${hemi}.somatomotor-mask.label \
+   --surf sub-$SUBJECT $hemi white 
+done
+
+if [ -e $HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/anat/sub-${SUBJECT}_ses-${SESSION}_desc-brain_mask.nii.gz ]; then
+mri_vol2vol --mov $HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/anat/sub-${SUBJECT}_ses-${SESSION}_desc-brain_mask.nii.gz --targ $HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/data_mean.nii.gz --regheader --o $HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/mask.nii.gz --nearest
+else 
+mri_vol2vol --mov $HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/anat/sub-${SUBJECT}_desc-brain_mask.nii.gz --targ $HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/data_mean.nii.gz --regheader --o $HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/mask.nii.gz --nearest
+fi
+
+mri_label2vol --label $LABELSDIR/lh.somatomotor-mask.label --regheader T1.mgz --subject sub-${SUBJECT} --fill-ribbon --hemi lh \
+--o $HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/lh.ribbon.nii.gz
+mri_label2vol --label $LABELSDIR/rh.somatomotor-mask.label --regheader T1.mgz --subject sub-${SUBJECT} --fill-ribbon --hemi rh \
+--o $HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/rh.ribbon.nii.gz
+
+mri_vol2vol --mov $HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/lh.ribbon.nii.gz --targ $HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/data_mean.nii.gz --regheader --o $HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/lh.ribbon.nii.gz --nearest
+mri_vol2vol --mov $HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/rh.ribbon.nii.gz --targ $HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/data_mean.nii.gz --regheader --o $HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/rh.ribbon.nii.gz --nearest
+
+fslmaths $HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/lh.ribbon.nii.gz -add \
+$HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/rh.ribbon.nii.gz -bin -kernel boxv 7 -dilF \
+-mul $HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/mask -bin  \
+$HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/mask
+rm $HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/*ribbon.nii.gz
+
+ln -s $SUBJECTS_DIR/sub-${SUBJECT}/surf/lh.inflated $SUBDIR/surf/lh.inflated
+ln -s $SUBJECTS_DIR/sub-${SUBJECT}/surf/rh.inflated $SUBDIR/surf/rh.inflated
+ln -s $SUBJECTS_DIR/sub-${SUBJECT}/surf/lh.curv $SUBDIR/surf/lh.curv
+ln -s $SUBJECTS_DIR/sub-${SUBJECT}/surf/rh.curv $SUBDIR/surf/rh.curv
+ln -s $SUBJECTS_DIR/fsaverage/surf/lh.inflated $SUBDIR/surf/lh.fsaverage.inflated
+ln -s $SUBJECTS_DIR/fsaverage/surf/rh.inflated $SUBDIR/surf/rh.fsaverage.inflated
+ln -s $SUBJECTS_DIR/fsaverage/surf/lh.curv $SUBDIR/surf/lh.fsaverage.curv
+ln -s $SUBJECTS_DIR/fsaverage/surf/rh.curv $SUBDIR/surf/rh.fsaverage.curv
+
+# downsample surfaces
+rm $SUBDIR/surf/*.ds.*
+
+if [ ! -e $LABELSDIR/${hemi}.somatomotor-mask.ds.label ]; then 
+# get labels if they do not exist
+for hemi in rh lh; do
+    for surface in pial white inflated; do
+        mri_surf2surf --hemi $hemi --srcsubject sub-${SUBJECT} --sval-xyz $surface --trgsubject fsaverage6 --trgicoorder 6 --trgsurfval  $SUBDIR/surf/${hemi}.${surface}.ds.mgh --tval-xyz $SUBJECTS_DIR/sub-${SUBJECT}/mri/T1.mgz 
+        mris_convert --to-scanner $SUBDIR/surf/${hemi}.${surface}.ds.mgh $SUBDIR/surf/${hemi}.${surface}.ds.gii
+    done
+
+ln -s $SUBJECTS_DIR/fsaverage6/surf/${hemi}.sphere.reg $SUBJECTS_DIR/sub-${SUBJECT}/surf/${hemi}.sphere6.reg
+ln -s $SUBDIR/surf/${hemi}.white.ds.mgh $SUBJECTS_DIR/sub-${SUBJECT}/surf/${hemi}.white.ds.mgh
+
+# adapt mask
+mri_convert $LABELSDIR/${hemi}.somatomotor-mask.func.gii $LABELSDIR/${hemi}.somatomotor-mask.func.mgh
+
+mri_surf2surf --srcsubject sub-${SUBJECT} \
+   --srcsurfval $LABELSDIR/${hemi}.somatomotor-mask.func.mgh \
+   --srcsurfreg sphere.reg \
+   --trgsubject sub-${SUBJECT} \
+   --trgsurfval $LABELSDIR/${hemi}.somatomotor-mask.ds.func.mgh \
+   --trgsurfreg sphere6.reg \
+   --hemi $hemi 
+    
+mri_cor2label --i $LABELSDIR/${hemi}.somatomotor-mask.ds.func.mgh \
+   --id 1 --l $LABELSDIR/${hemi}.somatomotor-mask.ds.label \
+   --surf sub-$SUBJECT $hemi white.ds.mgh
+done
+rm $SUBDIR/surf/*.ds.mgh $LABELSDIR/*.somatomotor-mask.func.gii $LABELSDIR/*.somatomotor-mask*func.mgh $SUBJECTS_DIR/sub-${SUBJECT}/surf/${hemi}.white.ds.mgh
+fi
+
 fi #PHASE 4
 
 if [ "$OVERWRITE" -eq 1 ]; then
@@ -317,12 +382,11 @@ if [ $PHASE == 0 ] || [ $PHASE == 5 ]; then
 cd $SUBDIR
 
 
-
 for xxx in 1; do # just to make it wait
 for run in $RUNS; 
 do
   RUN_DIR=$SUBDIR/run$run
-#  rm -r $RUN_DIR/volume $RUN_DIR/surf*
+  rm -r $RUN_DIR/volume $RUN_DIR/surf*
 
   if [ -e "$RUN_DIR/volume" ] && \
   [ ! -e "$RUN_DIR/volume/cope1.nii.gz" ] ; then
@@ -355,9 +419,20 @@ do
       $SUBJECTS_DIR/fsaverage6/surf/${HEMI}.midthickness.164k_fs_LR.surf.gii \
       $SUBJECTS_DIR/fsaverage6/surf/${HEMI}.sphere.reg.surf.gii
 
+      # temporal filtering
+      $HCPDIR/wb_command -metric-convert -to-nifti $FUNCSURF $RUN_DIR/fake_nifti.nii.gz
+      fslmaths $RUN_DIR/fake_nifti.nii.gz -Tstd -bin $RUN_DIR/fake_mask.nii.gz
+      FACTOR=`fslstats $RUN_DIR/fake_nifti.nii.gz -k $RUN_DIR/fake_mask.nii.gz -p 50`
+      fslmaths $RUN_DIR/fake_nifti.nii.gz -mul $FACTOR $RUN_DIR/fake_nifti.nii.gz
+      fslmaths $RUN_DIR/fake_nifti.nii.gz -Tmean $RUN_DIR/fake_mean.nii.gz
+      fslmaths $RUN_DIR/fake_nifti.nii.gz -bptf `echo "0.5 * $TemporalFilter / $TR" | bc -l` -1 -add $RUN_DIR/fake_mean.nii.gz $RUN_DIR/fake_nifti.nii.gz
+      
+      $HCPDIR/wb_command -metric-convert -from-nifti $RUN_DIR/fake_nifti.nii.gz $SUBJECTS_DIR/fsaverage6/surf/${HEMI}.midthickness.surf.gii $RUN_DIR/${HEMI}.filtered.func.gii
+      rm $RUN_DIR/fake_*
+
       # avoid negative or zero values outside the cortex
       $HCPDIR/wb_command -metric-math "x*(x>=0) + 0*(x<0)" $RUN_DIR/${HEMI}.dilated.func.gii \
-      -var x $FUNCSURF 
+      -var x $RUN_DIR/${HEMI}.filtered.func.gii
 
       $HCPDIR/wb_command -metric-dilate $RUN_DIR/${HEMI}.dilated.func.gii $SUBJECTS_DIR/fsaverage6/surf/${HEMI}.midthickness.surf.gii 100 $RUN_DIR/${HEMI}.dilated.func.gii -nearest 
 
@@ -386,26 +461,31 @@ do
            sed -i "s%set fmri(shape${k}) 3%set fmri(shape${k}) 10%" $FSF_FILE 
           fi
       done
-
       
       NVOLS=`fslnvols $FUNCVOL`
       sed -i "s%@NVOLS%$NVOLS%" $FSF_FILE
-      sed -i "s%@fMRI%$FUNC%" $FSF_FILE
+      sed -i "s%@fMRI%$RUN_DIR/data_smooth.nii.gz%" $FSF_FILE
       sed -i "s%@STRUCTURAL_BRAIN%$STRUCT%" $FSF_FILE
-      sed -i "s%@ANALYSIS%$RUN_DIR/analysis%" $FSF_FILE  
+      sed -i "s%@ANALYSIS%$RUN_DIR/volume/analysis.feat%" $FSF_FILE  
       sed -i "s%@CONFOUNDS%$RUN_DIR/mc_run-0${run}.csv%" $FSF_FILE        
+      #sed -i "s%@FWHM%$FWHM%" $FSF_FILE        
       
       # now run it
       feat_model fMRI
       #rm -r $RUN_DIR/surfL $RUN_DIR/surfR $RUN_DIR/volume 
       # surface	
 
-      film_gls --rn=$RUN_DIR/surfL --sa --ms=15 --epith=$FWHM --in=$RUN_DIR/lh.dilated.func.gii --in2=$SUBJECTS_DIR/fsaverage6/surf/lh.midthickness.surf.gii --pd=fMRI.mat --con=fMRI.con --mode=surface  
-      film_gls --rn=$RUN_DIR/surfR --sa --ms=15 --epith=$FWHM --in=$RUN_DIR/rh.dilated.func.gii --in2=$SUBJECTS_DIR/fsaverage6/surf/rh.midthickness.surf.gii --pd=fMRI.mat --con=fMRI.con --mode=surface  
+      film_gls --rn=$RUN_DIR/surfL --sa --ms=15 --epith=$FWHM_SURF --in=$RUN_DIR/lh.dilated.func.gii --in2=$SUBJECTS_DIR/fsaverage6/surf/lh.midthickness.surf.gii --pd=fMRI.mat --con=fMRI.con --mode=surface  
+      film_gls --rn=$RUN_DIR/surfR --sa --ms=15 --epith=$FWHM_SURF --in=$RUN_DIR/rh.dilated.func.gii --in2=$SUBJECTS_DIR/fsaverage6/surf/rh.midthickness.surf.gii --pd=fMRI.mat --con=fMRI.con --mode=surface  
 
-      # volume
-      film_gls --rn=$RUN_DIR/volume --sa --ms=$FWHM --in=$FUNCVOL--thr=1000 --pd=fMRI.mat --con=fMRI.con --mode=volume 
-      rm rh.dilated.func.gii lh.dilated.func.gii
+      # volume, smooth and run
+      fslmaths $FUNCVOL -s $SIGMA $RUN_DIR/data_smooth.nii.gz
+      feat fMRI.fsf
+      # film_gls --rn=$RUN_DIR/volume --sa --ms=$FWHM --in=$FUNCVOL--thr=1000 --pd=fMRI.mat --con=fMRI.con --mode=volume 
+
+      mv $RUN_DIR/volume/analysis.feat/stats/*nii.gz $RUN_DIR/volume
+      
+      rm -r $RUN_DIR/volume/analysis.feat $RUN_DIR/*.dilated.func.gii $RUN_DIR/*.filtered.func.gii $RUN_DIR/data_smooth.nii.gz
   fi # volume exists
 done
 
@@ -419,18 +499,16 @@ fi # PHASE 5
 # Prepare parameter estimates. Using fmriprep outputs
 # assume PHASE5 already run
 
-# PERFORM WITHIN MASK ONLY
 if [ $PHASE == 0 ] || [ $PHASE == 6 ]; then
 
 ##########################
 # LEAST SQUARES ALL
 ##########################
 
+if [ ! -e "$HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/effects_LSS.nii.gz" ]; then
 
-if [ ! -e "$HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/effectsLSA.nii.gz" ]; then
 for run in $RUNS; 
 do
-
   FUNC=$HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-0${run}_space-T1w_desc-preproc_bold.nii.gz
 
   RUN_DIR=$SUBDIR/run$run
@@ -440,6 +518,8 @@ do
   rm -r $MODEL_DIR
   mkdir $MODEL_DIR
 
+  #FUNC_MASKED=$MODEL_DIR/data.nii.gz
+  #fslmaths $FUNC -mas $SUBDIR/mask.nii.gz $FUNC_MASKED
   FSF_FILE=$MODEL_DIR/fMRI.fsf
 
   cd $MODEL_DIR
@@ -457,11 +537,14 @@ do
   cp $HOMEDIR/responses/sub-${SUBJECT}/ses-${SESSION}/run$run/STRETCH $MODEL_DIR/
 
   NVOLS=`fslnvols $FUNC`
+  NVOXELS=`echo \`fslinfo $FUNC | awk 'NR>=3 && NR <= 6 {print $2F}' \` | awk '{ for(j=i=1; i<=NF; i++) j*=$i; print j; j=0 }'`
+
   sed -i "s%@NEVS_ORIG%$NEVS_ORIG%" $FSF_FILE
   sed -i "s%@NEVS_REAL%$NEVS_REAL%" $FSF_FILE
   sed -i "s%@NCONS_ORIG%$NCONS_ORIG%" $FSF_FILE
   sed -i "s%@NCONS_REAL%$NCONS_REAL%" $FSF_FILE
   sed -i "s%@NVOLS%$NVOLS%" $FSF_FILE
+  sed -i "s%@NVOXELS%$NVOXELS%" $FSF_FILE
   sed -i "s%@fMRI%$FUNC%" $FSF_FILE
   sed -i "s%@ANALYSIS%$MODEL_DIR/analysis%" $FSF_FILE 
 
@@ -475,31 +558,35 @@ do
   done
 
   feat $FSF_FILE
+  # repeat to get prewhitened data
+  #film_gls --in=$RUN_DIR/model/analysis.feat/filtered_func_data --rn=$RUN_DIR/model/analysis.feat/stats \
+# --pd=$RUN_DIR/model/analysis.feat/design.mat --thr=1000.0 --sa -ms=5 --con=$RUN_DIR/model/analysis.feat/design.con --outputPWdata
 
-  # parse values
-  mv $RUN_DIR/model/analysis.feat/stats/${FX_FILE}1.nii.gz $RUN_DIR/effects_LSA_$run.nii.gz 
-  mv $RUN_DIR/model/analysis.feat/stats/${FX_FILE}2.nii.gz $RUN_DIR/derivatives_LSA_$run.nii.gz 
-  
-#  rm -r $RUN_DIR/model
   fslmerge -t $RUN_DIR/effects_LSA_$run `ls -v $RUN_DIR/model/analysis.feat/stats/${FX_FILE}*.nii.gz` 
-  fslmerge -t $RUN_DIR/effects_LSA_1 `ls -v model/analysis.feat/stats/pe*.nii.gz` 
+  python $PROGDIR/compute_effects.py $RUN_DIR/model/analysis.feat/design.mat \
+  $RUN_DIR/effects_LSA_$run.nii.gz \
+  $RUN_DIR/model/analysis.feat/stats/res4d.nii.gz \
+  $SUBDIR/mask.nii.gz \
+  $HOMEDIR/responses/sub-${SUBJECT}/ses-${SESSION}/sequences.csv \
+  $run \
+  $RUN_DIR/effects_LSS_${run}.nii.gz \
+  $RUN_DIR/derivatives_LSS_${run}.nii.gz #--multivar
+
+  #rm -r $MODEL_DIR
 
 done
 
-##----
-fi
 
-#exit 1
 ##########################
 # LEAST SQUARES SINGLE
 ##########################
+if [ ]; then
+#if [ ! -e "$HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/effects.nii.gz" ]; then
 
-
-if [ ! -e "$HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/effects.nii.gz" ]; then
 for run in $RUNS; 
 do
 
-  FUNC=$HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-0${run}_bold_space-T1w_preproc.nii.gz
+  FUNC=$HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-0${run}_space-T1w_desc-preproc_bold.nii.gz
 
   RUN_DIR=$SUBDIR/run$run
 #  rm -r $RUN_DIR
@@ -538,6 +625,7 @@ do
 
   # Now run it
   feat $FSF_FILE &
+  
   sleep 10
     while [ `ps -a | grep fsl_sub | wc -l` -gt $MAXFEATPROCS ]; do
       sleep 1800
@@ -552,12 +640,13 @@ while [ `ls -v $RUN_DIR/model*/analysis.feat/stats/${FX_FILE}2.nii.gz | wc -l` -
     sleep 1800
 done
 
-  fslmerge -t $RUN_DIR/effects_$run `ls -v $RUN_DIR/model*/analysis.feat/stats/${FX_FILE}1.nii.gz` 
-  fslmerge -t $RUN_DIR/derivatives_$run `ls -v $RUN_DIR/model*/analysis.feat/stats/${FX_FILE}2.nii.gz` 
+  fslmerge -t $RUN_DIR/effects_LSS_$run `ls -v $RUN_DIR/model?/analysis.feat/stats/${FX_FILE}1.nii.gz $RUN_DIR/model??/analysis.feat/stats/${FX_FILE}1.nii.gz` 
+  fslmerge -t $RUN_DIR/derivatives_LSS_$run `ls -v $RUN_DIR/model?/analysis.feat/stats/${FX_FILE}2.nii.gz $RUN_DIR/model??/analysis.feat/stats/${FX_FILE}2.nii.gz` 
   #rm -r $RUN_DIR/model*
 
 done
 
+fi # LSS extra computation
 
 #echo done
 #fi # PHASE 6
@@ -568,65 +657,18 @@ done
 # Merge parameters
 cd $HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/
 
-#for run in $RUNS; do
-#  fslmerge -t run$run/effects_$run `ls -v run$run/model*/analysis.feat/stats/${FX_FILE}1.nii.gz` 
-#  fslmerge -t run$run/derivatives_$run `ls -v run$run/model*/analysis.feat/stats/${FX_FILE}2.nii.gz` 
-#done
-  fslmerge -t effects `ls -v run*/effects*` 
-  fslmerge -t derivatives `ls -v run*/derivatives*` 
+  fslmerge -t effects `ls -v run*/effects_LSS_?.nii.gz` 
+  fslmerge -t derivatives `ls -v run*/derivatives_LSS_?.nii.gz` 
 
-#  fslmerge -t other1 `ls -v run$run/model*/analysis.feat/stats/pe3.nii.gz` 
-#  fslmerge -t other2fsaverage `ls -v run$run/model*/analysis.feat/stats/pe5.nii.gz` 
-#  fslmerge -t other3 `ls -v run$run/model*/analysis.feat/stats/pe7.nii.gz` 
-#  fslmerge -t other4 `ls -v run$run/model*/analysis.feat/stats/pe9.nii.gz` 
-
-#  fslmerge -t fixation `ls -v run$run/model*/analysis.feat/stats/pe11.nii.gz` 
-#  fslmerge -t stretch `ls -v run$run/model*/analysis.feat/stats/pe13.nii.gz` 
-  
-#  fslmaths fixation -Tmean -s 3 fixation_mean
   fslmaths effects -Tmean -s 3 effects_mean
   fslmaths derivatives -Tmean -s 3 derivatives_mean
-#  fslmaths stretch -Tmean -s 3 stretch_mean
   
   echo "Total volumes : " `fslnvols effects.nii.gz`
-  rm -r run*/model*
-  rm fixation.nii.gz stretch.nii.gz run*/effects* run*/derivatives*
-   # Get sigma of residuals
-#  fslmaths sigmasquared.nii.gz -sqrt sigma.nii.gz
-
-# Prepare surfaces
-if [ -e $HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/anat/sub-${SUBJECT}_ses-${SESSION}_T1w_brainmask.nii.gz ]; then
-mri_vol2vol --mov $HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/anat/sub-${SUBJECT}_ses-${SESSION}_T1w_brainmask.nii.gz --targ $HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/effects.nii.gz --regheader --o $HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/mask.nii.gz --nearest
-else 
-mri_vol2vol --mov $HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/anat/sub-${SUBJECT}_T1w_brainmask.nii.gz --targ $HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/effects.nii.gz --regheader --o $HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/mask.nii.gz --nearest
-fi
-fslmaths $HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/effects.nii.gz -abs -Tmin -thr 0 -mas $HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/mask -bin $HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/mask
-
-ln -s $SUBJECTS_DIR/sub-${SUBJECT}/surf/lh.inflated $SUBDIR/surf/lh.inflated
-ln -s $SUBJECTS_DIR/sub-${SUBJECT}/surf/rh.inflated $SUBDIR/surf/rh.inflated
-ln -s $SUBJECTS_DIR/sub-${SUBJECT}/surf/lh.curv $SUBDIR/surf/lh.curv
-ln -s $SUBJECTS_DIR/sub-${SUBJECT}/surf/rh.curv $SUBDIR/surf/rh.curv
-ln -s $SUBJECTS_DIR/fsaverage/surf/lh.inflated $SUBDIR/surf/lh.fsaverage.inflated
-ln -s $SUBJECTS_DIR/fsaverage/surf/rh.inflated $SUBDIR/surf/rh.fsaverage.inflated
-ln -s $SUBJECTS_DIR/fsaverage/surf/lh.curv $SUBDIR/surf/lh.fsaverage.curv
-ln -s $SUBJECTS_DIR/fsaverage/surf/rh.curv $SUBDIR/surf/rh.fsaverage.curv
-
-# downsample surfaces
-rm $SUBDIR/surf/*.ds.*
+  #rm -r run*/model*
+  #rm fixation.nii.gz stretch.nii.gz run*/effects* run*/derivatives*
 
 
-for hemi in rh lh; do
-    for surface in pial white; do
-        mri_surf2surf --hemi $hemi --srcsubject sub-${SUBJECT} --sval-xyz $surface --trgsubject fsaverage6 --trgicoorder 6 --trgsurfval  $SUBDIR/surf/${hemi}.${surface}.ds.mgh --tval-xyz $SUBJECTS_DIR/sub-${SUBJECT}/mri/T1.mgz 
-        mris_convert --to-scanner $SUBDIR/surf/${hemi}.${surface}.ds.mgh $SUBDIR/surf/${hemi}.${surface}.ds.gii
-done
-        surface=inflated
-        mri_surf2surf --hemi $hemi --srcsubject sub-${SUBJECT} --sval-xyz $surface --trgsubject fsaverage6 --trgicoorder 6 --trgsurfval  $SUBDIR/surf/${hemi}.${surface}.ds.mgh --tval-xyz $SUBJECTS_DIR/sub-${SUBJECT}/mri/T1.mgz
-        mris_convert --to-scanner $SUBDIR/surf/${hemi}.${surface}.ds.mgh $SUBDIR/surf/${hemi}.${surface}.ds.gii
-done
-rm $SUBDIR/surf/*.ds.mgh
-
-fi # check if effects already exists
+fi # check if effects already exist
 fi # PHASE 7
 
 ###############################################
@@ -657,6 +699,8 @@ fi #PHASE 8
 
 if [ $PHASE == 0 ] || [ $PHASE == 9 ]; then
 
+LABELSDIR=$HOMEDIR/fmriprep/analysis/sub-$SUBJECT/label
+
 # Run searchlight
 for hemi in rh lh; do
 if [ ! -e "$SUBDIR/surf/$TESTDIR/$hemi.sl_within_spread_correlation_${RADIUS}.fsaverage.func.mgh" ]; then
@@ -664,14 +708,13 @@ if [ ! -e "$SUBDIR/surf/$TESTDIR/$hemi.sl_within_spread_correlation_${RADIUS}.fs
     python $PROGDIR/surface_searchlight.py \
     $SUBDIR \
     $HOMEDIR/responses/sub-${SUBJECT}/ses-${SESSION}/sequences.csv  \
-    $SUBJECTS_DIR/sub-${SUBJECT}/label/${hemi}.cortex.label\
+    $LABELSDIR/${hemi}.somatomotor-mask.label\
     $hemi $RADIUS $NPROC $TESTDIR "$RUNS"
+#    $SUBJECTS_DIR/sub-${SUBJECT}/label/${hemi}.somatomotor.label 
 
     # Resample to average
     for metric in $METRICS; do
       mri_convert $SUBDIR/surf/$TESTDIR/$hemi.sl_${metric}_${RADIUS}.func.gii $SUBDIR/surf/$TESTDIR/$hemi.sl_${metric}_${RADIUS}.func.mgh
-      ln -s $SUBJECTS_DIR/fsaverage6/surf/lh.sphere.reg $SUBJECTS_DIR/sub-${SUBJECT}/surf/lh.sphere6.reg
-      ln -s $SUBJECTS_DIR/fsaverage6/surf/rh.sphere.reg $SUBJECTS_DIR/sub-${SUBJECT}/surf/rh.sphere6.reg 
       mri_surf2surf --srcsubject sub-${SUBJECT} \
         --srcsurfval $SUBDIR/surf/$TESTDIR/$hemi.sl_${metric}_${RADIUS}.func.mgh \
         --trgsubject fsaverage \
@@ -750,39 +793,7 @@ fi #PHASE 10
 # average what we have and find rois
 if [ $PHASE == 0 ] || [ $PHASE == 11 ]; then
 
-LABELSDIR=$HOMEDIR/fmriprep/analysis/sub-$SUBJECT/labels
-
-if [ ! -e $HOMEDIR/fmriprep/analysis/surf ]; then 
-    mkdir $HOMEDIR/fmriprep/analysis/surf
-fi
-if [ ! -e $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf ]; then 
-    mkdir $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf
-    mkdir $LABELSDIR
-fi
-
-
-# get labels
-#labels of interest
 LABELS="S_front_inf S_postcentral G_precentral S_front_sup Pole_occipital S_intrapariet_and_P_trans G_temporal_middle G_and_S_cingul-Mid-Ant"
-
-cd $LABELSDIR
-
-mri_annotation2label --sd $SUBJECTS_DIR --outdir $LABELSDIR --hemi rh --annotation aparc.a2009s --subject fsaverage6
-mri_annotation2label --sd $SUBJECTS_DIR --outdir $LABELSDIR --hemi lh --annotation aparc.a2009s --subject fsaverage6
-
-for label in $LABELS; do
-    echo $label
-    mris_convert --label lh.${label}.label ${label}\
-        $SUBJECTS_DIR/fsaverage6/surf/lh.white \
-        lh.${label}.label.gii
-    $HCPDIR/wb_command -gifti-label-to-roi lh.${label}.label.gii -name ${label} lh.${label}.func.gii
-        
-    mris_convert --label rh.${label}.label ${label}\
-        $SUBJECTS_DIR/fsaverage6/surf/rh.white \
-        rh.${label}.label.gii
-    $HCPDIR/wb_command -gifti-label-to-roi rh.${label}.label.gii -name ${label} rh.${label}.func.gii
-
-done
 
 # done every session, although it would be enough to do it for the last one
 
@@ -866,7 +877,7 @@ for metric in $METRICS; do
 done # metric
 fi
 
-rm $LABELSDIR/*label*
+#rm $LABELSDIR/*label*
 fi #PHASE 11
 
 ###############################################

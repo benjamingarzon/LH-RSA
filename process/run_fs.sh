@@ -295,18 +295,19 @@ echo "Cross-sectionals done!"
 ##################################################################
 echo "Running base"    
 do_fs_long_base sub-${SUBJECT} "$SUBJECTS_DIR/sub-${SUBJECT}.?" $STRUCT_DIR/sub-$SUBJECT/T2wtoT1w_template_brain.nii.gz
+if [ ! -f "$SUBJECTS_DIR/sub-$SUBJECT" ]; then
 ln -sf $SUBJECTS_DIR/sub-${SUBJECT}.base $SUBJECTS_DIR/sub-$SUBJECT 
-
-fslmerge -t $WD/sub-${SUBJECT}/sub-${SUBJECT}_T1w_all.nii.gz $WD/sub-$SUBJECT/ses-*/anat/T1w_template.nii.gz
-fslmaths $WD/sub-${SUBJECT}/sub-${SUBJECT}_T1w_all.nii.gz -log -Tmean -exp $WD/sub-${SUBJECT}/sub-${SUBJECT}_T1w_mean.nii.gz
-mri_vol2vol --mov $WD/sub-${SUBJECT}/sub-${SUBJECT}_T1w_mean.nii.gz --targ $WD/sub-${SUBJECT}/T1w_template.nii.gz --nearest --regheader --out $WD/sub-${SUBJECT}/sub-${SUBJECT}_T1w_mean.nii.gz  
-fslmaths $WD/sub-${SUBJECT}/sub-${SUBJECT}_T1w_mean.nii.gz -mul $WD/sub-${SUBJECT}/T1w_template.nii.gz $WD/sub-${SUBJECT}/sub-${SUBJECT}_T1w.nii.gz
-rm $WD/sub-${SUBJECT}/sub-${SUBJECT}_T1w_all.nii.gz $WD/sub-${SUBJECT}/sub-${SUBJECT}_T1w_mean.nii.gz
+fi
+#fslmerge -t $WD/sub-${SUBJECT}/sub-${SUBJECT}_T1w_all.nii.gz $WD/sub-$SUBJECT/ses-*/anat/T1w_template.nii.gz
+#fslmaths $WD/sub-${SUBJECT}/sub-${SUBJECT}_T1w_all.nii.gz -log -Tmean -exp $WD/sub-${SUBJECT}/sub-${SUBJECT}_T1w_mean.nii.gz
+#mri_vol2vol --mov $WD/sub-${SUBJECT}/sub-${SUBJECT}_T1w_mean.nii.gz --targ $WD/sub-${SUBJECT}/T1w_template.nii.gz --nearest --regheader --out $WD/sub-${SUBJECT}/sub-${SUBJECT}_T1w_mean.nii.gz  
+#fslmaths $WD/sub-${SUBJECT}/sub-${SUBJECT}_T1w_mean.nii.gz -mul $WD/sub-${SUBJECT}/T1w_template.nii.gz $WD/sub-${SUBJECT}/sub-${SUBJECT}_T1w.nii.gz
+#rm $WD/sub-${SUBJECT}/sub-${SUBJECT}_T1w_all.nii.gz $WD/sub-${SUBJECT}/sub-${SUBJECT}_T1w_mean.nii.gz
 
 # copy to anat dir
 for DIR in $ANATLIST; do
     SESSION=`echo $DIR | cut -d'/' -f9 | cut -d '-' -f2` 
-    ln -sf $WD/sub-${SUBJECT}/sub-${SUBJECT}_T1w.nii.gz $WD/sub-${SUBJECT}/ses-${SESSION}/anat/sub-${SUBJECT}_ses-${SESSION}_T1w.nii.gz
+    ln -sf $STRUCT_DIR/sub-${SUBJECT}/sub-${SUBJECT}_T1w.nii.gz $WD/sub-${SUBJECT}/ses-${SESSION}/anat/sub-${SUBJECT}_ses-${SESSION}_T1w.nii.gz
 done
 
 ##################################################################

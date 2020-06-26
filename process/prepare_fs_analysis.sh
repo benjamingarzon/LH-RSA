@@ -155,8 +155,8 @@ mris_calc -o lh.${METRIC}.std.diff.func.gii lh.${METRIC}.1.std.func.gii sub lh.$
 #freeview -f f$SUBJECTS_DIR/saverage/surf/lh.inflated:overlay=lh.${METRIC}.2.std.func.gii $SUBJECTS_DIR/fsaverage/surf/rh.inflated:overlay=rh.${METRIC}.2.std.func.gii
 
 
-#fslmaths $SUBJECTS_DIR/results/lh.${METRIC}.nii.gz -Tmean -bin $SUBJECTS_DIR/results/lh.${METRIC}.mask.nii.gz
-#fslmaths $SUBJECTS_DIR/results/rh.${METRIC}.nii.gz -Tmean -bin $SUBJECTS_DIR/results/rh.${METRIC}.mask.nii.gz
+fslmaths $SUBJECTS_DIR/results/lh.${METRIC}.nii.gz -Tmean -bin $SUBJECTS_DIR/results/lh.${METRIC}.mask.nii.gz
+fslmaths $SUBJECTS_DIR/results/rh.${METRIC}.nii.gz -Tmean -bin $SUBJECTS_DIR/results/rh.${METRIC}.mask.nii.gz
 
 # create a mask in motor cortex
 #fslmaths $SUBJECTS_DIR/results/lh.${METRIC}.nii.gz -Tmean -thr 3 -bin $SUBJECTS_DIR/results/lh.${METRIC}.small.mask.nii.gz
