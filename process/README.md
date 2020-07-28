@@ -29,7 +29,7 @@ process/run_structural_pipeline.sh
 process/prepare_fs_analysis.sh # prepare thickness and T1 maps for freesurfer analysis
 
 ## Structural vbm
-
+process/prepare_for_cat.sh 
 
 # Analyzing the data:
 # Structural

@@ -5,6 +5,10 @@ HCPDIR=/home/share/Software/HCP/workbench/bin_rh_linux64/
 SUBJECTS_DIR=/usr/local/freesurfer/subjects/
 
 LABELSDIR=/home/benjamin.garzon/Data/LeftHand/Lund1/labels/fsaverage
+
+VBM_TEMPLATE=/home/benjamin.garzon/Data/LeftHand/Lund1/cat12/mask.nii.gz
+fMRI_TEMPLATE=/home/benjamin.garzon/Data/LeftHand/Lund1/fmriprep/fmriprep/sub-lue1202/ses-1/func/sub-lue1202_ses-1_task-sequence_run-01_space-MNI152NLin2009cAsym_desc-brain_mask.nii.gz
+
 mkdir $LABELSDIR
 cd $LABELSDIR
 
@@ -49,6 +53,7 @@ for hemi in lh rh; do
        cp ${hemi}.${label}.func.gii ${hemi}.mask.func.gii
     fi
   done
+
     mv ${hemi}.mask.func.gii ${hemi}.somatomotor-mask.func.gii
     $HCPDIR/wb_command -metric-convert -to-nifti \
     ${hemi}.somatomotor-mask.func.gii \
@@ -56,11 +61,43 @@ for hemi in lh rh; do
 
     # resample to fsaverage6 space as well
     mri_surf2surf --srcsubject fsaverage --trgsubject fsaverage6 --sval ${hemi}.somatomotor-mask.func.gii  --hemi lh --tval ${hemi}.somatomotor-mask.fsaverage6.func.gii 
+
+    # resample to MNI space as well     	
+    mri_cor2label --i ./${hemi}.somatomotor-mask.func.gii \
+    --id 1 --l ./${hemi}.somatomotor-mask.MNI.label \
+    --surf fsaverage $hemi white 
+
+   mri_label2label --srclabel ./${hemi}.somatomotor-mask.MNI.label \
+   --srcsubject fsaverage \
+   --trgsubject cvs_avg35_inMNI152 \
+   --trglabel ./${hemi}.somatomotor-mask.MNI.label \
+   --hemi ${hemi} --regmethod surface
     
+   mri_label2vol --label ./${hemi}.somatomotor-mask.MNI.label \
+    --regheader T1.mgz --subject cvs_avg35_inMNI152 --fill-ribbon --hemi $hemi \
+    --o ./${hemi}.somatomotor-mask.MNI.nii.gz  
+
 done
 
-freeview -f /usr/local/freesurfer/subjects/fsaverage/surf/rh.inflated:overlay=rh.somatomotor-mask.func.gii
-freeview -f /usr/local/freesurfer/subjects/fsaverage/surf/lh.inflated:overlay=lh.somatomotor-mask.func.gii
+    fslmaths lh.somatomotor-mask.MNI.nii.gz -add rh.somatomotor-mask.MNI.nii.gz \
+    -bin -kernel boxv 7 -dilF -bin somatomotor-mask.MNI.nii.gz
+
+    # for VBM 
+    mri_vol2vol --mov ./somatomotor-mask.MNI.nii.gz --targ $VBM_TEMPLATE --regheader --o ./somatomotor-mask.MNI.VBM.nii.gz --nearest
+    fslmaths somatomotor-mask.MNI.VBM.nii.gz -mas $VBM_TEMPLATE somatomotor-mask.MNI.VBM.nii.gz
+
+    # for MRI
+    mri_vol2vol --mov ./somatomotor-mask.MNI.nii.gz --targ $VBM_TEMPLATE --regheader --o ./somatomotor-mask.MNI.fMRI.nii.gz --nearest
+    fslmaths somatomotor-mask.MNI.fMRI.nii.gz -mas $fMRI_TEMPLATE somatomotor-mask.MNI.fMRI.nii.gz
+
+
+freeview somatomotor-mask.MNI.fMRI.nii.gz -f /usr/local/freesurfer/subjects/fsaverage/surf/rh.inflated:overlay=rh.somatomotor-mask.func.gii
+freeview somatomotor-mask.MNI.VBM.nii.gz -f /usr/local/freesurfer/subjects/fsaverage/surf/lh.inflated:overlay=lh.somatomotor-mask.func.gii
+
+fslmaths /home/benjamin.garzon/Data/LeftHand/Lund1/labels/fsaverage/rh.mask.nii.gz /home/benjamin.garzon/Data/LeftHand/Lund1/labels/fsaverage/rh.mask.nii.gz -odt char
+fslmaths /home/benjamin.garzon/Data/LeftHand/Lund1/labels/fsaverage/lh.mask.nii.gz /home/benjamin.garzon/Data/LeftHand/Lund1/labels/fsaverage/lh.mask.nii.gz -odt char
+ln -s /home/benjamin.garzon/Data/LeftHand/Lund1/labels/fsaverage/rh.mask.nii.gz /home/benjamin.garzon/Data/LeftHand/Lund1/freesurfer/results/rh.mask.nii.gz
+ln -s /home/benjamin.garzon/Data/LeftHand/Lund1/labels/fsaverage/lh.mask.nii.gz /home/benjamin.garzon/Data/LeftHand/Lund1/freesurfer/results/lh.mask.nii.gz
 
 LABELSDIR=/home/benjamin.garzon/Data/LeftHand/Lund1/labels/fsaverage6
 mkdir $LABELSDIR

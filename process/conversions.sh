@@ -6,7 +6,7 @@
 export HOMEDIR=/home/benjamin.garzon/Data/LeftHand/Lund1
 PROGDIR=/home/benjamin.garzon/Software/LeftHand/process/
 
-SCANLIST=$HOMEDIR/dicoms/Scan_list_wave2.csv
+SCANLIST=$HOMEDIR/dicoms/Scan_list_wave3_missing.csv
 
 #export HEUDICONV_FILE=/home/benjamin.garzon/Data/LeftHand/Lund1/heudiconv_files/heuristic_conv_reim.py # real and imaginary
 export HEUDICONV_FILE=/home/benjamin.garzon/Data/LeftHand/Lund1/heudiconv_files/heuristic_conv.py
@@ -63,7 +63,7 @@ head -n 1 $SCANLIST | sed "s/,/${TAB}/g" > $HOMEDIR/dicoms/curr_subject.csv
 echo $line | sed "s/,/${TAB}/g"  >> $HOMEDIR/dicoms/curr_subject.csv
 
     # to overwrite
-#    rm -r $HOMEDIR/data_BIDS/sub-$SUBJECT/ses-$SESSION
+    rm -r $HOMEDIR/data_BIDS/sub-$SUBJECT/ses-$SESSION
 
     if [ ! -e "$HOMEDIR/data_BIDS/sub-$SUBJECT/ses-$SESSION/anat" ] || [ ! -e "$HOMEDIR/data_BIDS/sub-$SUBJECT/ses-$SESSION/fmap" ] || [ ! -e "$HOMEDIR/data_BIDS/sub-$SUBJECT/ses-$SESSION/func" ]; then
         echo Converting $SUBJECT $SESSION $DIR

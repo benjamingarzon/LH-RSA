@@ -48,8 +48,8 @@ PATH=$PATH:$HCPDIR
 INVALID_FILES=$HOMEDIR/logs/invalid_files.txt
 
 # Same always
-SIMPLE3_FSF_FILE=$HOMEDIR/fmri_designs/fMRInoreg_3stretch.fsf
-SIMPLE4_FSF_FILE=$HOMEDIR/fmri_designs/fMRInoreg_4stretch.fsf
+#SIMPLE3_FSF_FILE=$HOMEDIR/fmri_designs/fMRInoreg_3stretch.fsf
+#SIMPLE4_FSF_FILE=$HOMEDIR/fmri_designs/fMRInoreg_4stretch.fsf
 #SIMPLE6_FSF_FILE=$HOMEDIR/fmri_designs/fMRInoreg_6stretch_training.fsf
 SIMPLE6_FSF_FILE=$HOMEDIR/fmri_designs/fMRInoreg_6stretch_training_noF.fsf
 MULTI_FSF_FILE=$HOMEDIR/fmri_designs/fMRInoreg_multistretch.fsf
@@ -78,9 +78,9 @@ RS=0.2442
 
 FX_FILE=pe #tstat
 RADIUS=15.0
-NPROC=20
+NPROC=30
 MAXFEATPROCS=30
-FMRIPREPPROCS=20
+FMRIPREPPROCS=30
 NEVS=4
 ACC_FWHM=5
 FWHM=5
@@ -132,12 +132,6 @@ if [ $PHASE == 0 ] || [ $PHASE == 2 ]; then
 
 cd $HOMEDIR/
 
-cp data_BIDS/sub-${SUBJECT}/ses-${SESSION}/fmap/sub-${SUBJECT}_ses-${SESSION}_epi1.nii.gz data_BIDS/sub-${SUBJECT}/ses-${SESSION}/fmap/sub-${SUBJECT}_ses-${SESSION}_magnitude.nii.gz 
-
-# rescale values see PMC3998686
-# FP = (PV + RI/RS)/SS = PV*RS + RI
-fslmaths data_BIDS/sub-${SUBJECT}/ses-${SESSION}/fmap/sub-${SUBJECT}_ses-${SESSION}_epi2.nii.gz -mul $RS -add $RI data_BIDS/sub-${SUBJECT}/ses-${SESSION}/fmap/sub-${SUBJECT}_ses-${SESSION}_fieldmap.nii.gz 
-
 # fix Philips json files
 for run in $RUNS; do
     sed -i 's/Axis/Direction/g' data_BIDS/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-0${run}_bold.json
@@ -145,7 +139,6 @@ for run in $RUNS; do
     sed -i '/EffectiveEchoSpacing/d' data_BIDS/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-0${run}_bold.json
     sed -i '/WaterFatShift/d' data_BIDS/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-0${run}_bold.json
     sed -i '/ParallelReductionFactorInPlane/d' data_BIDS/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-0${run}_bold.json
-#    sed -i '/'"$myline"'/a \  \"EffectiveEchoSpacing\": '"$EES"',' data_BIDS/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-0${run}_bold.json    
     sed -i '/'"$myline"'/a \  \"ParallelReductionFactorInPlane\": '"$SENSEP"',' data_BIDS/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-0${run}_bold.json    
     sed -i '/'"$myline"'/a \  \"WaterFatShift\": '"$WFS"',' data_BIDS/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-0${run}_bold.json    
 
@@ -164,13 +157,36 @@ done
 
 find data_BIDS | grep invalid.nii.gz > $INVALID_FILES
 
+# create fieldmaps
+
+# more than one?
+if [ `ls data_BIDS/sub-${SUBJECT}/ses-${SESSION}/fmap/sub-${SUBJECT}_ses-${SESSION}_run*_epi1.nii.gz | wc -l` -gt 0 ]; then
+
+for run in $RUNS; do
+cp data_BIDS/sub-${SUBJECT}/ses-${SESSION}/fmap/sub-${SUBJECT}_ses-${SESSION}_run-0${run}_epi1.nii.gz \
+data_BIDS/sub-${SUBJECT}/ses-${SESSION}/fmap/sub-${SUBJECT}_ses-${SESSION}_run-0${run}_magnitude.nii.gz 
+fslmaths data_BIDS/sub-${SUBJECT}/ses-${SESSION}/fmap/sub-${SUBJECT}_ses-${SESSION}_run-0${run}_epi2.nii.gz \
+-mul $RS -add $RI data_BIDS/sub-${SUBJECT}/ses-${SESSION}/fmap/sub-${SUBJECT}_ses-${SESSION}_run-0${run}_fieldmap.nii.gz 
+
+INTENDEDFOR="ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-0${run}_bold.nii.gz"
+echo -e "{\n\"PhaseEncodingDirection\": \"j\", \n\"Units\": \"Hz\", \n\"IntendedFor\": [ \"$INTENDEDFOR\" ] \n}" > $HOMEDIR/data_BIDS/sub-${SUBJECT}/ses-${SESSION}/fmap/sub-${SUBJECT}_ses-${SESSION}_run-0${run}_fieldmap.json 
+
+done
+
+else
+# only one fieldmap
+cp data_BIDS/sub-${SUBJECT}/ses-${SESSION}/fmap/sub-${SUBJECT}_ses-${SESSION}_epi1.nii.gz data_BIDS/sub-${SUBJECT}/ses-${SESSION}/fmap/sub-${SUBJECT}_ses-${SESSION}_magnitude.nii.gz 
+
+# rescale values see PMC3998686
+# FP = (PV + RI/RS)/SS = PV*RS + RI
+fslmaths data_BIDS/sub-${SUBJECT}/ses-${SESSION}/fmap/sub-${SUBJECT}_ses-${SESSION}_epi2.nii.gz -mul $RS -add $RI data_BIDS/sub-${SUBJECT}/ses-${SESSION}/fmap/sub-${SUBJECT}_ses-${SESSION}_fieldmap.nii.gz 
+
 cd $HOMEDIR/data_BIDS/sub-${SUBJECT}/
 INTENDEDFOR=\"`echo ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-??_bold.nii.gz | sed 's/ /","/g'`\"
-#echo -e "{\n\"EchoTime1\": $ECHOTIME1, \n\"EchoTime2\": $ECHOTIME2, \n\"PhaseEncodingDirection\": \"j\", \n\"Units\": \"rad/s\", \n\"IntendedFor\": [ $INTENDEDFOR ] \n}" > $HOMEDIR/data_BIDS/sub-${SUBJECT}/ses-${SESSION}/fmap/sub-${SUBJECT}_ses-${SESSION}_fieldmap.json 
-
-#echo -e "{\n\"PhaseEncodingDirection\": \"j\", \n\"Units\": \"rad/s\", \n\"IntendedFor\": [ $INTENDEDFOR ] \n}" > $HOMEDIR/data_BIDS/sub-${SUBJECT}/ses-${SESSION}/fmap/sub-${SUBJECT}_ses-${SESSION}_fieldmap.json 
 echo -e "{\n\"PhaseEncodingDirection\": \"j\", \n\"Units\": \"Hz\", \n\"IntendedFor\": [ $INTENDEDFOR ] \n}" > $HOMEDIR/data_BIDS/sub-${SUBJECT}/ses-${SESSION}/fmap/sub-${SUBJECT}_ses-${SESSION}_fieldmap.json 
 
+fi
+# anatomical data
 
 cd $HOMEDIR/data_BIDS/sub-${SUBJECT}/ses-${SESSION}/anat/
 if [ -e sub-${SUBJECT}_ses-${SESSION}_MP2RAGE_DelRec1.nii.gz ]; then
@@ -231,6 +247,7 @@ PYTHONPATH="" singularity run \
    participant \
    --ignore slicetiming \
    --longitudinal \
+   --force-syn \
    --fs-license-file \
    $WD/license.txt \
    --nthreads $FMRIPREPPROCS \
@@ -238,9 +255,10 @@ PYTHONPATH="" singularity run \
    --write-graph \
    --skip_bids_validation \
    --output-spaces T1w MNI152NLin2009cAsym fsaverage6 \
-   --participant-label ${SUBJECT}  
+   --participant-label ${SUBJECT} 
+
+# clean up 
 rm -r $WORK
-#   --force-syn \
 
 fi # PHASE 3
 
