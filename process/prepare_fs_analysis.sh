@@ -1,18 +1,18 @@
 #!/usr/bin/sh
-
-# run for i in 0.25 0.50 0.75; do ./fs_analysis.sh T1 $i; done; ./fs_analysis.sh thickness
 # different metrics: area, t1 values
 HOMEDIR=/home/benjamin.garzon/Data/LeftHand/Lund1
 STRUCT_DIR=/home/benjamin.garzon/Data/LeftHand/Lund1/data_BIDS
 PROGDIR=~/Software/LeftHand/process/
 
 SUBJECTS_DIR=/home/benjamin.garzon/Data/LeftHand/Lund1/freesurfer
+SUBJECTS_DIR=/home/share/MotorSkill/freesurfer/
 
-SUBJECTS="lue1101 lue1103 lue1104 lue1105 lue1106 lue1107 lue1201 lue1202 lue1203 lue1204 lue1205 lue1206 lue1207"
-#SUBJECTS="lue1101 lue1103"
-
-TYPE=thickness
-TYPE=T1
+rm /home/share/MotorSkill/freesurfer/fsaverage
+ln -s /usr/local/freesurfer/subjects/fsaverage /home/share/MotorSkill/freesurfer/fsaverage
+cd $SUBJECTS_DIR
+SUFFIX=$3
+SUBJECTS=`echo sub-lue${SUFFIX}??? | sed 's/sub-//g'`
+echo $SUBJECTS
 
 if [ $1 ]; then TYPE=$1; else TYPE=thickness; fi
 if [ $2 ]; then FRAC=$2; else FRAC=0.25; fi
@@ -21,11 +21,16 @@ HCPDIR=/home/share/Software/HCP/workbench/bin_rh_linux64/
 
 WD=/home/benjamin.garzon/Data/LeftHand/Lund1/data_BIDS
 NSESSIONS=7
-SMOOTH=5
-
+SMOOTH=10
+OVERWRITE=1
 for SUBJECT in $SUBJECTS; do
     for SESSION in `seq $NSESSIONS`; do
        for HEMI in rh lh; do           
+           if [ "$OVERWRITE" == "0" ] && \
+              [ -f "$SUBJECTS_DIR/sub-${SUBJECT}.${SESSION}.long.sub-${SUBJECT}.base/surf/${HEMI}.${METRIC}.nii.gz" ]; then
+ 		# Already done 
+		continue
+           fi
 
 	   if [ $TYPE == "T1" ]; then
                METRIC="${TYPE}-${FRAC}"
@@ -123,6 +128,7 @@ $SUBJECTS_DIR/results/rh.${METRIC}_mean.func.gii
 rm $SUBJECTS_DIR/results/?h.${METRIC}_mean.nii.gz 
 
 # mean of std
+if [ ]; then
 for GROUP in 1 2; do 
     fslmerge -t $SUBJECTS_DIR/results/rh.${METRIC}.${GROUP}.std.nii.gz $SUBJECTS_DIR/sub-lue1${GROUP}*.base/surf/rh.${METRIC}.std.nii.gz
     fslmerge -t $SUBJECTS_DIR/results/lh.${METRIC}.${GROUP}.std.nii.gz $SUBJECTS_DIR/sub-lue1${GROUP}*.base/surf/lh.${METRIC}.std.nii.gz
@@ -140,13 +146,14 @@ for GROUP in 1 2; do
     $SUBJECTS_DIR/results/rh.${METRIC}.${GROUP}.std.func.gii
 
 done 
+fi
 rm $SUBJECTS_DIR/results/?h.${METRIC}.*std.nii.gz $SUBJECTS_DIR/results/?h.${METRIC}_mean.nii.gz #$SUBJECTS_DIR/sub-*.?.long.sub-*.base/surf/?h.${METRIC}.nii.gz
 rm $SUBJECTS_DIR/sub-*.base/surf/?h.${METRIC}.?.std.nii.gz $SUBJECTS_DIR/results/?h.white.gii
 
 cd $SUBJECTS_DIR/results
 
-mris_calc -o rh.${METRIC}.std.diff.func.gii rh.${METRIC}.1.std.func.gii sub rh.${METRIC}.2.std.func.gii
-mris_calc -o lh.${METRIC}.std.diff.func.gii lh.${METRIC}.1.std.func.gii sub lh.${METRIC}.2.std.func.gii
+##mris_calc -o rh.${METRIC}.std.diff.func.gii rh.${METRIC}.1.std.func.gii sub rh.${METRIC}.2.std.func.gii
+##mris_calc -o lh.${METRIC}.std.diff.func.gii lh.${METRIC}.1.std.func.gii sub lh.${METRIC}.2.std.func.gii
 
 #freeview -f $SUBJECTS_DIR/fsaverage/surf/lh.inflated:overlay=$SUBJECTS_DIR/results/lh.${METRIC}.std.diff.func.gii $SUBJECTS_DIR/fsaverage/surf/rh.inflated:overlay=$SUBJECTS_DIR/results/rh.${METRIC}.std.diff.func.gii
 #freeview -f $SUBJECTS_DIR/fsaverage/surf/lh.inflated:overlay=$SUBJECTS_DIR/results/lh.${METRIC}_mean.func.gii $SUBJECTS_DIR/fsaverage/surf/rh.inflated:overlay=$SUBJECTS_DIR/results/rh.${METRIC}_mean.func.gii
@@ -154,9 +161,8 @@ mris_calc -o lh.${METRIC}.std.diff.func.gii lh.${METRIC}.1.std.func.gii sub lh.$
 #freeview -f $SUBJECTS_DIR/fsaverage/surf/lh.inflated:overlay=lh.${METRIC}.1.std.func.gii $SUBJECTS_DIR/fsaverage/surf/rh.inflated:overlay=rh.${METRIC}.1.std.func.gii
 #freeview -f f$SUBJECTS_DIR/saverage/surf/lh.inflated:overlay=lh.${METRIC}.2.std.func.gii $SUBJECTS_DIR/fsaverage/surf/rh.inflated:overlay=rh.${METRIC}.2.std.func.gii
 
-
-fslmaths $SUBJECTS_DIR/results/lh.${METRIC}.nii.gz -Tmean -bin $SUBJECTS_DIR/results/lh.${METRIC}.mask.nii.gz
-fslmaths $SUBJECTS_DIR/results/rh.${METRIC}.nii.gz -Tmean -bin $SUBJECTS_DIR/results/rh.${METRIC}.mask.nii.gz
+##fslmaths $SUBJECTS_DIR/results/lh.${METRIC}.nii.gz -Tmean -bin $SUBJECTS_DIR/results/lh.${METRIC}.mask.nii.gz
+##fslmaths $SUBJECTS_DIR/results/rh.${METRIC}.nii.gz -Tmean -bin $SUBJECTS_DIR/results/rh.${METRIC}.mask.nii.gz
 
 # create a mask in motor cortex
 #fslmaths $SUBJECTS_DIR/results/lh.${METRIC}.nii.gz -Tmean -thr 3 -bin $SUBJECTS_DIR/results/lh.${METRIC}.small.mask.nii.gz
@@ -164,4 +170,16 @@ fslmaths $SUBJECTS_DIR/results/rh.${METRIC}.nii.gz -Tmean -bin $SUBJECTS_DIR/res
 
 mris_convert --to-scanner $SUBJECTS_DIR/fsaverage/surf/lh.pial $SUBJECTS_DIR/results/lh.fsaverage.white.gii
 mris_convert --to-scanner $SUBJECTS_DIR/fsaverage/surf/rh.pial $SUBJECTS_DIR/results/rh.fsaverage.white.gii
+
+# if there are several T1 depths merge together in 1 file
+if [ $TYPE == "T1" ]; then
+fslmerge -t lh.T1.nii.gz lh.T1-0.??.nii.gz
+fslmerge -t rh.T1.nii.gz rh.T1-0.??.nii.gz
+rm lh.T1.txt rh.T1.txt
+for d in $DEPTHS; do
+echo $d
+sed "s/$/\t$d/" lh.T1-${d}.txt >> lh.T1.txt
+sed "s/$/\t$d/" rh.T1-${d}.txt >> rh.T1.txt
+done
+fi
 
