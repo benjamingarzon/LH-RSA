@@ -11,31 +11,15 @@ source('~/Software/ImageLMMR/ImageLMMR.R')
 setwd("~/Software/LeftHand/analysis")
 source('./mytests.R')
 
-SUBJECTS_DIR= '/home/benjamin.garzon/Data/LeftHand/Lund1/freesurfer/'
-
+SUBJECTS_DIR= '~/Data/LeftHand/Lund1/freesurfer/'
 # check 1104
 NPROCS = 30
+
+source('./load_covariates.R')
 
 ###############################################################
 # Define the pipeline
 ###############################################################
-
-training = seq(0, 6)*6
-training.quadratic = -(training - max(training)/2)^2 
-min.quad = min(training.quadratic)
-training.quadratic = training.quadratic - min.quad
-training.asymptotic = c(training.quadratic[1:4], rep(training.quadratic[4], 3))  
-
-# rescale
-training = scale(training, center = T, scale = F)/10
-training.quadratic = scale(training.quadratic, center = T, scale = F)/100
-training.asymptotic = scale(training.asymptotic, center = T, scale = F)/100 
-training.level = c(-1, NA, 1, 1, 1, 1, NA)
-training.level = c(-1, 1, 1, NA, NA, NA, NA)
-
-plot(training, training.quadratic, type = "b", xlim = c(-2, 2))
-points(training, training, type = "b", col = "green")
-points(training, training.asymptotic, type = "b", col = "red")
 
 doit = function(WD, MYTEST, OD, 
                 MASK = 'rh.thickness.mask.nii.gz', 
@@ -58,14 +42,7 @@ doit = function(WD, MYTEST, OD,
     TP = IMAGES$V2
   )
   
-  DATA$GROUP = "Experimental"
-  DATA$GROUP[grep("lue.2", DATA$SUBJECT)] = "Control"
-
-  DATA$TRAINING = training[DATA$TP]
-  DATA$TRAINING.Q = training.quadratic[DATA$TP]
-  DATA$TRAINING.A = training.asymptotic[DATA$TP]
-  DATA$TRAINING.L = training.level[DATA$TP]
-  
+  DATA = merge(DATA, covars.table, by = c("SUBJECT", "TP"), all.x = T)
   if (!is.null(IMAGES$V3)) DATA$DEPTH = 1 - IMAGES$V3 # depth starting from cortical surface 
 
   View(DATA)  
@@ -122,6 +99,16 @@ lh.mask = 'lh.mask.nii.gz'
 
 NPERMS = 0
 
+results.reasoning.rh = doit(DATADIR,
+                               testreasoning,
+                               'tests/thickness/reasoning/',
+                               MASK = rh.mask,
+                               IMAGES_LIST = 'rh.thickness.txt',
+                               IMAGING_NAME = 'rh.thickness.nii.gz',
+                               to_gifti = rh.gii,
+                               NPERMS = NPERMS, shuffle_by = c('BETWEEN', 'WITHIN'))
+
+stophere
 results.T1.quadratic.rh = doit(DATADIR,
                                testquadratic_depth,
                                'tests/T1/quadratic.rh',
