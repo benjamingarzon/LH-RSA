@@ -72,7 +72,8 @@ def compute_effects(args):
         sigma = np.std(res_LSS, axis = 0)
 
         if not args.multivar:
-            beta_LSS_prewhitened = beta_LSS[:,:1]/sigma
+            # two first, effect and derivative
+            beta_LSS_prewhitened = beta_LSS[:,:1]/sigma 
         else: 
             cov_ledoit, _ = ledoit_wolf(res_LSS)    
             Uc, Dc, Vhc = svd(cov_ledoit, full_matrices = False)

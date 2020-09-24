@@ -18,7 +18,7 @@ debug.active += ["SVS", "SLC"]
 metrics = ['correlation'] #['correlation', 'euclidean']:
 minacc = 1.0
 
-if False:
+if True:
   datapath = sys.argv[1] 
   sequences_fn = sys.argv[2] 
   label_fn = sys.argv[3]
@@ -89,7 +89,7 @@ roi_ids = np.intersect1d(labels[0].ravel(), qe.ids)
 seq_train = sequences.loc[:, ["seq_type", "seq_train"]].drop_duplicates()
 seq_train = dict(zip(seq_train["seq_type"], seq_train["seq_train"]))
 
-for metric in []: #metrics:
+for metric in metrics:
   # compute within-sequence spread
   dsm_ic = Pwithin_spread(
     seq_train = seq_train, 
@@ -136,7 +136,7 @@ for metric in []: #metrics:
              spread_path_fn, 
              vertices = qe.voxsel.source.nvertices)
 
-if False:
+if True:
     # compute classification accuracy 
       
     classifiers = {
@@ -200,21 +200,21 @@ if True:
     return_pars = np.arange(8),
     square=False)
 
-    sl_pcm_ic = Searchlight(dsm_ic, 
+    sl_secmom_ic = Searchlight(dsm_ic, 
                               queryengine = qe,
                               nproc = NPROC, 
                               roi_ids = roi_ids)
     
-    results_pcm = sl_pcm_ic(fds)                        
+    results_secmom = sl_secmom_ic(fds)                        
     
-    results_pcm_aux = results_pcm.copy()
+    results_secmom_aux = results_secmom.copy()
     
     # compute ratio between untrained and trained in log scale
-    results_pcm_aux.samples = 
-    np.log(results_pcm.samples[7]/results_pcm.samples[6]).reshape(1, -1)
-    pcm_path_fn = os.path.join(
+    results_secmom_aux.samples = \
+    np.log(results_secmom.samples[7]/results_secmom.samples[6]).reshape(1, -1)
+    secmom_path_fn = os.path.join(
               surfpath, 
-              '%s.sl_pcm_%.1f.func.gii' % (hemi, radius))
-    map2gifti2(results_pcm_aux, 
-                 pcm_path_fn, 
+              '%s.sl_secmom_%.1f.func.gii' % (hemi, radius))
+    map2gifti2(results_secmom_aux, 
+                 secmom_path_fn, 
                  vertices = qe.voxsel.source.nvertices)
