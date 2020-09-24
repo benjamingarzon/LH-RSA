@@ -210,7 +210,7 @@ if True:
     results_pcm_aux = results_pcm.copy()
     
     # compute ratio between untrained and trained in log scale
-    results_pcm_aux.samples = 
+    results_pcm_aux.samples = \
     np.log(results_pcm.samples[7]/results_pcm.samples[6]).reshape(1, -1)
     pcm_path_fn = os.path.join(
               surfpath, 
