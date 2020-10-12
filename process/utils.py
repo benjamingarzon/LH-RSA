@@ -11,7 +11,7 @@ from mvpa2.suite import *
 from mvpa2.measures.rsa import PDist
 from scipy import stats
 from sklearn.decomposition import PCA
-
+from mvpa2.datasets.gifti import surf_from_any, anat_surf_to_gifti_image
 def indicator(index_vector, positive=False):
     """ Indicator matrix with one
     column per unique element in vector
@@ -517,9 +517,10 @@ class Pwithin_spread(PDist):
         data = data[:, ~constantcols]
         if np.sum(constantcols)>0:
             print(np.sum(constantcols))
+        ###
         try:
             data_pca = self.pca.fit_transform(data)
-            
+        
             if self.filter_accuracy:
                 data_pca = data_pca[self.correct]
                 chunks = ds.chunks[self.correct]
@@ -569,11 +570,11 @@ class Pwithin_spread(PDist):
         except LinAlgError:
             print("PCA did not converge!")
  #           print(data)
-            spread = 0
+            within_spread = 0
         except ValueError:
             print("Value error")
  #           print(data)
-            spread = 0
+            within_spread = 0
             
         out = Dataset(np.array((within_spread,)))
         return out
@@ -761,8 +762,8 @@ def map2gifti2(ds, filename=None, encoding='GIFTI_ENCODING_B64GZ',
         values = np.zeros((samples.shape[0], vertices))
         for i, sample in enumerate(samples):
             values[i, node_indices] = sample
-        darray = _build_array(np.arange(vertices), 'NIFTI_INTENT_NODE_INDEX')
-        darrays.append(darray)
+        #darray = _build_array(np.arange(vertices), 'NIFTI_INTENT_NODE_INDEX')
+        #darrays.append(darray) 
         samples = values
 
     else:
@@ -775,7 +776,7 @@ def map2gifti2(ds, filename=None, encoding='GIFTI_ENCODING_B64GZ',
         intent = 'NIFTI_INTENT_NONE' if intents is None else intents[i]
         darray = _build_array(sample, intent)
         darrays.append(darray)
-
+        
     # if there is a surface, add it
     if surface is not None:
         surface_object = surf_from_any(surface, )
@@ -785,9 +786,9 @@ def map2gifti2(ds, filename=None, encoding='GIFTI_ENCODING_B64GZ',
             darrays.append(darray)
 
     image = gifti.GiftiImage(darrays=darrays)
-
     if filename is not None:
         nb.save(image, filename)
+    return(image)
 
 
 def _warn_if_fmri_dataset(ds):
