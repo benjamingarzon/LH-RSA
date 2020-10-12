@@ -25,18 +25,21 @@
 
 export SUBJECTS_DIR=$1
 WD=$2 # BIDS dir
-STRUCT_DIR=$3 # BIDS dir
+STRUCT_DIR=$3 #VBM dir
 SUBJECT=$4
 EXPERT_FILE=$5
 OVERWRITE=$6
 export DOFS=$7
+SESSIONS=$8
 
 REGCOST="NMI"
+PIXDIM=0.700000
 
-RECONALL=~/Software/LeftHand/process/recon-allT2
+#RECONALL=~/Software/LeftHand/process/recon-allT2-AGE
+RECONALL=~/Software/LeftHand/process/recon-allT2-6.0
 
 if [ "$OVERWRITE" -eq 1 ]; then
-rm $STRUCT_DIR/sub-$SUBJECT/*template* $WD/sub-$SUBJECT/ses-*/anat/*restore*
+rm -r $STRUCT_DIR/sub-$SUBJECT $WD/sub-$SUBJECT/ses-*/anat/*restore* #/*template*
 rm -r $SUBJECTS_DIR/sub-$SUBJECT*
 fi
 
@@ -51,7 +54,6 @@ PD=$5 # not used
 DIR=$6
 
 OUTDIR=$DIR/ses-$SESSION
-
 
 MASK=$DIR/brainmask.nii.gz
 
@@ -102,7 +104,11 @@ if [ ! -f "$SUBJECTS_DIR/${SUB}.$SESSION/stats/lh.aparc.stats" ]; then
     
     $RECONALL -autorecon1 -noskullstrip -s ${SUB}.$SESSION -i $OUTDIR/T1wmasked.nii.gz -hires \
     -expert $EXPERT_FILE
-
+  
+    # sometimes it mysteriously fails...
+    #while [ ! -f  "$SUBJECTS_DIR/${SUB}.$SESSION/mri/T1.mgz" ]; do 
+    #$RECONALL -autorecon1 -noskullstrip -s ${SUB}.$SESSION -hires
+    #done 
     cd $SUBJECTS_DIR/${SUB}.$SESSION/mri
     cp T1.mgz brainmask.auto.mgz
     ln -s brainmask.auto.mgz brainmask.mgz
@@ -143,9 +149,14 @@ BASE=$2
 # create longs
 if [ ! -f "$SUBJECTS_DIR/${SUBDIR}.long.${BASE}/stats/lh.aparc.stats" ]; then 
   rm -r $SUBJECTS_DIR/${SUBDIR}.long.${BASE}
-  $RECONALL -long ${SUBDIR} $BASE -all -hires -expert $EXPERT_FILE #-T2pial
+  recon-all -long ${SUBDIR} $BASE -all -hires -expert $EXPERT_FILE #-T2pial
+
+    #while [ ! -f  "$SUBJECTS_DIR/${SUBDIR}.long.${BASE}/mri/T1.mgz" ]; do 
+    #  $RECONALL -long ${SUBDIR} $BASE -all -hires #-expert $EXPERT_FIL
+    #done 
+
   echo "$SUBDIR is finished!"
-  rm -r $SUBJECTS_DIR/${SUBDIR}
+#  rm -r $SUBJECTS_DIR/${SUBDIR}
 else
    echo "$SUBDIR long already done"
 fi
@@ -156,12 +167,31 @@ fi
 ##############################################################################
 
 echo Doing subject $SUBJECT
+
+if [ "$SESSIONS" ]; then
+echo "Running only sessions: $SESSIONS"
+# run only specific sessions
+ANATLIST=""
+T1wLIST=""
+T2wLIST="" 
+
+for SESS in $SESSIONS; do
+ANATLIST="$ANATLIST $WD/sub-$SUBJECT/ses-${SESS}/anat"
+T1wLIST="$T1wLIST $WD/sub-$SUBJECT/ses-${SESS}/anat/magRAGE.nii.gz"
+T2wLIST="$T2wLIST $WD/sub-$SUBJECT/ses-${SESS}/anat/sub-${SUBJECT}_ses-${SESS}_T2w.nii.gz"
+done
+
+else
+
 ANATLIST=$WD/sub-$SUBJECT/ses-*/anat
+T1wLIST=$WD/sub-$SUBJECT/ses-*/anat/magRAGE.nii.gz
+T2wLIST=$WD/sub-$SUBJECT/ses-*/anat/sub-${SUBJECT}_ses-*_T2w.nii.gz 
+
+fi
+
 NANAT=`echo $ANATLIST | wc -w`
 SESLIST=`echo $ANATLIST | sed 's/anat//g' | sed "s%$WD%$STRUCT_DIR%g"`
 
-T1wLIST=$WD/sub-$SUBJECT/ses-*/anat/magRAGE.nii.gz
-T2wLIST=$WD/sub-$SUBJECT/ses-*/anat/sub-*_ses-*_T2w.nii.gz 
 
 mkdir -p $STRUCT_DIR
 mkdir -p $STRUCT_DIR/sub-$SUBJECT
@@ -185,8 +215,10 @@ T2wLTAS=`echo $T1wLIST | sed 's%anat/magRAGE.nii.gz%T2wtotemplate.lta%g' | sed "
 
 
 # build T1w template
+
 if [ ! -f "$STRUCT_DIR/sub-$SUBJECT/T1w_template_brain.nii.gz" ]; then
 for STRUCT in $T1wLIST; do
+    echo "Segmenting $STRUCT"
     fast -B -v $STRUCT &    
 done
 
@@ -195,8 +227,28 @@ while [ `ls $WD/sub-$SUBJECT/ses-*/anat/magRAGE_restore.nii.gz | wc -l` -lt $NAN
     sleep 500
 done
 
+# make sure that dimensions are correct
+for vol in $T1wNOBIAS; do
+ if [ "$PIXDIM" = "`fslval $vol pixdim1| sed 's/ *$//g'`" ] && \
+    [ "$PIXDIM" = "`fslval $vol pixdim2| sed 's/ *$//g'`" ] && \
+    [ "$PIXDIM" = "`fslval $vol pixdim3| sed 's/ *$//g'`" ]; then
+   echo "$vol has correct dimensions"
+ else
+   echo "Reslicing $vol"
+   flirt -in $vol -ref $vol -applyisoxfm $PIXDIM -out $vol
+ fi
+done
+
+if [ `echo $T1wNOBIAS | wc -w` -eq 1 ]; then
+# if only one timepoint
+cp $T1wNOBIAS $STRUCT_DIR/sub-$SUBJECT/T1w_template.nii.gz
+mri_robust_register --mov $T1wNOBIAS --dst $STRUCT_DIR/sub-$SUBJECT/T1w_template.nii.gz --lta $T1wLTAS --mapmov $T1wtoTEMPLATE --iscale --weights $WEIGHTS --satit
+else
 mri_robust_template --mov $T1wNOBIAS --template $STRUCT_DIR/sub-$SUBJECT/T1w_template.nii.gz --satit --lta $T1wLTAS --mapmov $T1wtoTEMPLATE --iscale --weights $WEIGHTS --maxit 30
+fi
+
 rm -r $SUBJECTS_DIR/sub-${SUBJECT}.template
+
 $RECONALL -autorecon1 -s sub-${SUBJECT}.template -i $STRUCT_DIR/sub-$SUBJECT/T1w_template.nii.gz -hires 
 rm $WD/sub-$SUBJECT/ses-*/anat/*pve* $WD/sub-$SUBJECT/ses-*/anat/*mixel* $WD/sub-$SUBJECT/ses-*/anat/*_seg.nii.gz
 
@@ -210,17 +262,37 @@ fi
 if [ ! -e $STRUCT_DIR/sub-$SUBJECT/T2w_template.nii.gz ]; then
 
 for STRUCT in $T2wLIST; do
+    echo "Segmenting $STRUCT"
     fast -B -v -t 2 $STRUCT &     
 done
+
 
 while [ `ls $WD/sub-$SUBJECT/ses-*/anat/*T2w_restore.nii.gz | wc -l` -lt $NANAT ]; do
     echo "Waiting for T2w segmentations to finish"
     sleep 500
 done
 
-rm $WD/sub-$SUBJECT/ses-*/anat/*pve* $WD/sub-$SUBJECT/ses-*/anat/*mixel* $WD/sub-$SUBJECT/ses-*/anat/*_seg.nii.gz
-mri_robust_template --mov $T2wNOBIAS --template $STRUCT_DIR/sub-$SUBJECT/T2w_template.nii.gz --satit --lta $T2wLTAS  --mapmov $T2wtoTEMPLATE --iscale --maxit 30
+# make sure that dimensions are correct
+for vol in $T2wNOBIAS; do
+ if [ "$PIXDIM" = "`fslval $vol pixdim1| sed 's/ *$//g'`" ] && \
+    [ "$PIXDIM" = "`fslval $vol pixdim2| sed 's/ *$//g'`" ] && \
+    [ "$PIXDIM" = "`fslval $vol pixdim3| sed 's/ *$//g'`" ]; then
+     echo "$vol has correct dimensions"
+ else
+     echo "Reslicing $vol"
+     flirt -in $vol -ref $vol -applyisoxfm $PIXDIM -out $vol
+ fi
+done
 
+rm $WD/sub-$SUBJECT/ses-*/anat/*pve* $WD/sub-$SUBJECT/ses-*/anat/*mixel* $WD/sub-$SUBJECT/ses-*/anat/*_seg.nii.gz
+
+if [ `echo $T2wNOBIAS | wc -w` -eq 1 ]; then
+# if only one timepoint
+cp $T2wNOBIAS $STRUCT_DIR/sub-$SUBJECT/T2w_template.nii.gz
+mri_robust_register --mov $T2wNOBIAS --dst $STRUCT_DIR/sub-$SUBJECT/T2w_template.nii.gz --lta $T2wLTAS --mapmov $T2wtoTEMPLATE --iscale --satit
+else
+mri_robust_template --mov $T2wNOBIAS --template $STRUCT_DIR/sub-$SUBJECT/T2w_template.nii.gz --satit --lta $T2wLTAS  --mapmov $T2wtoTEMPLATE --iscale --maxit 30
+fi 
 bet $STRUCT_DIR/sub-$SUBJECT/T2w_template.nii.gz $STRUCT_DIR/sub-$SUBJECT/T2w_template_brain.nii.gz -R
 
 # register T2w template to T1w template
@@ -253,13 +325,17 @@ fslmaths $STRUCT_DIR/sub-$SUBJECT/T1wall.nii.gz -Tmean $STRUCT_DIR/sub-$SUBJECT/
 rm $STRUCT_DIR/sub-$SUBJECT/T1wall.nii.gz
 
 # clean the boundaries
-fslmaths $STRUCT_DIR/sub-$SUBJECT/brainmask.nii.gz -kernel boxv 7 -ero -bin $STRUCT_DIR/sub-$SUBJECT/min
-fslmaths $STRUCT_DIR/sub-$SUBJECT/T1wmean.nii.gz -thr 0.7 -bin $STRUCT_DIR/sub-$SUBJECT/th
-fslmaths $STRUCT_DIR/sub-$SUBJECT/brainmask.nii.gz -bin -sub $STRUCT_DIR/sub-$SUBJECT/min -bin $STRUCT_DIR/sub-$SUBJECT/rim
-fslmaths $STRUCT_DIR/sub-$SUBJECT/rim -mul $STRUCT_DIR/sub-$SUBJECT/th -bin \ 
--sub 1 -mul -1 -mul $STRUCT_DIR/sub-$SUBJECT/brainmask.nii.gz $STRUCT_DIR/sub-$SUBJECT/brainmask.nii.gz  
+#fslmaths $STRUCT_DIR/sub-$SUBJECT/brainmask.nii.gz -kernel boxv 7 -ero -bin $STRUCT_DIR/sub-$SUBJECT/min
+#fslmaths $STRUCT_DIR/sub-$SUBJECT/T1wmean.nii.gz -thr 0.7 -bin $STRUCT_DIR/sub-$SUBJECT/th
+#fslmaths $STRUCT_DIR/sub-$SUBJECT/brainmask.nii.gz -bin -sub $STRUCT_DIR/sub-$SUBJECT/min -bin $STRUCT_DIR/sub-$SUBJECT/rim
+#fslmaths $STRUCT_DIR/sub-$SUBJECT/rim -mul $STRUCT_DIR/sub-$SUBJECT/th -bin \
+#-sub 1 -mul -1 -mul $STRUCT_DIR/sub-$SUBJECT/brainmask.nii.gz $STRUCT_DIR/sub-$SUBJECT/brainmask.nii.gz  
+
+#fslmaths $STRUCT_DIR/sub-$SUBJECT/brainmask.nii.gz -bin $STRUCT_DIR/sub-$SUBJECT/brainmask.nii.gz
+
 fslmaths $STRUCT_DIR/sub-$SUBJECT/brainmask.nii.gz -bin -kernel \
 boxv 5 -fmean -thr 0.7 -bin $STRUCT_DIR/sub-$SUBJECT/brainmask.nii.gz
+
 rm $STRUCT_DIR/sub-$SUBJECT/rim.nii.gz $STRUCT_DIR/sub-$SUBJECT/min.nii.gz $STRUCT_DIR/sub-$SUBJECT/th.nii.gz 
 fi
 
@@ -273,6 +349,16 @@ for ANATDIR in $ANATLIST; do
     T1w=$ANATDIR/MP2RAGEpos.nii.gz 
     PD=$ANATDIR/mag.nii.gz 
     T2w=$ANATDIR/sub-${SUBJECT}_ses-${SESSION}_T2w.nii.gz 
+
+    vol=$T1w 
+    if [ "$PIXDIM" = "`fslval $vol pixdim1| sed 's/ *$//g'`" ] && \
+       [ "$PIXDIM" = "`fslval $vol pixdim2| sed 's/ *$//g'`" ] && \
+       [ "$PIXDIM" = "`fslval $vol pixdim3| sed 's/ *$//g'`" ]; then
+       echo "$vol has correct dimensions"
+    else
+       echo "Reslicing $vol"
+       flirt -in $vol -ref $vol -applyisoxfm $PIXDIM -out $vol
+    fi
     
     if [ -e "$T1w" ] && [ -e "$T2w" ] && [ -e "$PD" ] ; then
         # all available
@@ -290,25 +376,20 @@ while [ `ls $SUBJECTS_DIR/sub-${SUBJECT}.?/stats/lh.aparc.stats | wc -w` -lt $NA
 done
 
 echo "Cross-sectionals done!"
+if [ `echo $T1wNOBIAS | wc -w` -eq 1 ]; then
+# If one timepoint, finish here
+exit 1;
+fi
 ##################################################################
 # run base reconstruction
 ##################################################################
 echo "Running base"    
 do_fs_long_base sub-${SUBJECT} "$SUBJECTS_DIR/sub-${SUBJECT}.?" $STRUCT_DIR/sub-$SUBJECT/T2wtoT1w_template_brain.nii.gz
 if [ ! -f "$SUBJECTS_DIR/sub-$SUBJECT" ]; then
-ln -sf $SUBJECTS_DIR/sub-${SUBJECT}.base $SUBJECTS_DIR/sub-$SUBJECT 
+  ln -sf $SUBJECTS_DIR/sub-${SUBJECT}.base $SUBJECTS_DIR/sub-$SUBJECT 
 fi
-#fslmerge -t $WD/sub-${SUBJECT}/sub-${SUBJECT}_T1w_all.nii.gz $WD/sub-$SUBJECT/ses-*/anat/T1w_template.nii.gz
-#fslmaths $WD/sub-${SUBJECT}/sub-${SUBJECT}_T1w_all.nii.gz -log -Tmean -exp $WD/sub-${SUBJECT}/sub-${SUBJECT}_T1w_mean.nii.gz
-#mri_vol2vol --mov $WD/sub-${SUBJECT}/sub-${SUBJECT}_T1w_mean.nii.gz --targ $WD/sub-${SUBJECT}/T1w_template.nii.gz --nearest --regheader --out $WD/sub-${SUBJECT}/sub-${SUBJECT}_T1w_mean.nii.gz  
-#fslmaths $WD/sub-${SUBJECT}/sub-${SUBJECT}_T1w_mean.nii.gz -mul $WD/sub-${SUBJECT}/T1w_template.nii.gz $WD/sub-${SUBJECT}/sub-${SUBJECT}_T1w.nii.gz
-#rm $WD/sub-${SUBJECT}/sub-${SUBJECT}_T1w_all.nii.gz $WD/sub-${SUBJECT}/sub-${SUBJECT}_T1w_mean.nii.gz
 
-# copy to anat dir
-for DIR in $ANATLIST; do
-    SESSION=`echo $DIR | cut -d'/' -f9 | cut -d '-' -f2` 
-    ln -sf $STRUCT_DIR/sub-${SUBJECT}/sub-${SUBJECT}_T1w.nii.gz $WD/sub-${SUBJECT}/ses-${SESSION}/anat/sub-${SUBJECT}_ses-${SESSION}_T1w.nii.gz
-done
+
 
 ##################################################################
 # run longitudinal reconstruction

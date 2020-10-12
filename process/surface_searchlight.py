@@ -222,9 +222,15 @@ if True:
     results_secmom_aux = results_secmom.copy()
     
     # compute ratio between untrained and trained in log scale
+<<<<<<< HEAD
     results_secmom_aux.samples = \
     np.log(results_secmom.samples[7]/results_secmom.samples[6]).reshape(1, -1)
     secmom_path_fn = os.path.join(
+=======
+    results_pcm_aux.samples = \
+    np.log(results_pcm.samples[7]/results_pcm.samples[6]).reshape(1, -1)
+    pcm_path_fn = os.path.join(
+>>>>>>> 1907bde775ef567fb94f46ae67816ed3b2a83016
               surfpath, 
               '%s.sl_secmom_%.1f.func.gii' % (hemi, radius))
     map2gifti2(results_secmom_aux, 
