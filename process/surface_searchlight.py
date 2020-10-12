@@ -18,7 +18,7 @@ debug.active += ["SVS", "SLC"]
 metrics = ['correlation'] #['correlation', 'euclidean']:
 minacc = 1.0
 
-if True:
+if False:
   datapath = sys.argv[1] 
   sequences_fn = sys.argv[2] 
   label_fn = sys.argv[3]
@@ -28,7 +28,7 @@ if True:
   testdir = sys.argv[7]
   runs = np.array([int(x) for x in sys.argv[8].split(' ') ])
 else:    
-  WD = '/home/benjamin.garzon/Data/LeftHand/Lund1/'
+  WD = '/data/lv0/MotorSkill/'
   datapath = os.path.join(WD, 'fmriprep/analysis/sub-lue1101/ses-1/')
   sequences_fn = os.path.join(WD, 'responses/sub-lue1101/ses-1/sequences.csv')
   label_fn = os.path.join(WD, 'fmriprep', 
@@ -37,8 +37,8 @@ else:
                           'analysis/sub-lue1101/label/rh.somatomotor-mask.ds.label')
 
   hemi = 'rh'
-  radius = 15.0
-  NPROC = 10
+  radius = 10.0
+  NPROC = 33
   testdir = 'metrics'
   runs = np.array([int(x) for x in "1 2 3 4 5".split(' ') ])
 
@@ -84,12 +84,13 @@ fds = fds1
 #fds.samples = np.dstack((fds1.samples, fds2.samples))
 fds.sa.accuracy = sequences.accuracy
 
+# qe.ids - vertices
 roi_ids = np.intersect1d(labels[0].ravel(), qe.ids)
 
 seq_train = sequences.loc[:, ["seq_type", "seq_train"]].drop_duplicates()
 seq_train = dict(zip(seq_train["seq_type"], seq_train["seq_train"]))
 
-for metric in metrics:
+for metric in metrics: #in metrics:
   # compute within-sequence spread
   dsm_ic = Pwithin_spread(
     seq_train = seq_train, 
@@ -103,7 +104,7 @@ for metric in metrics:
   sl_rsa_ic = Searchlight(dsm_ic, 
                           queryengine = qe,
                           nproc = NPROC, 
-                          roi_ids = roi_ids)
+                          roi_ids = roi_ids[:1000])
   results_rsa = sl_rsa_ic(fds)                        
 
   spread_path_fn = os.path.join(
@@ -112,7 +113,7 @@ for metric in metrics:
   map2gifti2(results_rsa, 
              spread_path_fn, 
              vertices = qe.voxsel.source.nvertices)
-  
+  stophere
   # compute overall spread
   dsm_ic = Pspread(mapper = flatten_mapper(), 
                    NCOMPS = 10, 
@@ -138,27 +139,35 @@ for metric in metrics:
 
 if True:
     # compute classification accuracy 
-      
     classifiers = {
     'svm': LinearCSVMC()
     }
     mycl = 'svm'
-    
-    cv = CrossValidation(classifiers[mycl], 
-    NFoldPartitioner(),
-    errorfx=lambda p, 
-    t: np.mean(p == t),
-    enable_ca=['stats'])
-    
-    sl_cl = Searchlight(cv, 
-    queryengine = qe,
-    nproc = NPROC, 
-    postproc = mean_sample(), 
-    roi_ids = roi_ids)
-    
-    fds_acc = fds1[sequences.accuracy >= minacc, :]
-    
-    results_cl = sl_cl(fds_acc)                        
+    myresults = []
+    for x in seq_train.keys():
+        print(x)
+        errorfx = lambda p,t: np.sum(np.logical_and(p == t, t == x), dtype = float)/ np.sum(t == x, dtype = float)
+        cv = CrossValidation(classifiers[mycl], 
+        NFoldPartitioner(),
+        errorfx = errorfx, 
+        enable_ca=['stats'])
+        
+        sl_cl = Searchlight(cv, 
+        queryengine = qe,
+        nproc = NPROC,
+    #    postproc = mean_sample(), 
+        roi_ids = roi_ids)
+        
+        fds_acc = fds1[sequences.accuracy >= minacc, :]
+        
+        results_cl = sl_cl(fds_acc)                        
+        myresults.append(results_cl)
+        
+    results_cl.samples = np.nanmean(np.concatenate([np.expand_dims(x.samples, 2) for x in myresults], 
+                            axis = 2), 
+        axis = 2)
+    results_cl = results_cl.get_mapped(mean_sample())
+#    results_cl = sl_cl(fds)                        
     
     acc_path_fn = os.path.join(surfpath, 
     '%s.sl_acc_%s_%.1f.func.gii' % (hemi, mycl, radius))
@@ -166,7 +175,10 @@ if True:
     map2gifti2(results_cl, 
     acc_path_fn, 
     vertices = qe.voxsel.source.nvertices)
-    
+#    plot_surf(surf_mesh = os.path.join(surfpath, '../rh.inflated.ds.gii'), 
+#                               surf_map = acc_path_fn, hemi = 'right',
+#                               view = 'lateral' )
+                               
 # Component model
 if True:    
     sequences_sub = sequences.loc[sequences.accuracy >= minacc]
