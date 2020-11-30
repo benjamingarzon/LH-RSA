@@ -8,7 +8,7 @@ setwd("~/Software/LeftHand/analysis")
 source('./mytests.R')
 source('./load_covariates.R')
 
-nifti_convert = '/home/share/Software/HCP/workbench/bin_rh_linux64/wb_command -metric-convert -to-nifti'
+nifti_convert = '~/Software/workbench/bin_rh_linux64/wb_command -metric-convert -to-nifti'
 
 collect_data = T
 
@@ -35,7 +35,7 @@ contrastnum = 4
 #contrastname = "Spread"
 analysis_type = 'surfR'  #volume, surfR/L spreadR/L  
 
-NPROCS = 25
+NPROCS = 30
 # list files, adapt depending on type of analysis
 contrast = switch(which(analysis_type == c('volume', 'surfR', 'surfL', 'spreadR', 'spreadL')),
                   paste0("/cope", contrastnum, ".nii.gz"),

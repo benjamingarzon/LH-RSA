@@ -5,10 +5,9 @@ SUBJECTS_DIR=/data/lv0/MotorSkill/freesurfer #~/Data/LeftHand/Lund1/freesurfer
 
 export NPROC=20
 export MAXFEATPROCS=20
-export FMRIPREPPROCS=20
+export FMRIPREPPROCS=15
 
-PHASES="4 7 8"
-PHASES="2 3"
+PHASES="1 2 3 4 5 6"
 
 NSESSIONS=7
 
@@ -20,8 +19,12 @@ SESSIONS=`seq $NSESSIONS`
 
 #SUBJECTS="lue1101 lue1103 lue1104 lue1105 lue1106 lue1107 lue1201 lue1202 lue1203 lue1204 lue1205 lue1206 lue1207"
 #SUBJECTS="lue1201"
-#SUBJECTS="lue1101 lue1103"
-
+#SUBJECTS="lue1207 lue1206 lue1205 lue1204"
+#SUBJECTS="lue1203 lue1202 lue1201"
+#SUBJECTS="lue1101 lue1103 lue1104 lue1105 lue1106 lue1107 lue1201 lue1202 lue1203 lue1204 lue1205 lue1206 lue1207"
+#echo lue1101 lue1103 lue1104 lue1105 lue1106 lue1107 lue1201 lue1202 lue1203 lue1204 lue1205 lue1206 lue1207 | xargs -n 1 -P 15 ./run_pipeline.sh
+#echo lue2101 lue2102 | xargs -n 1 -P 2 ./run_pipeline.sh
+SUBJECTS=$1
 CWD=`pwd`
 WD=~/Data/LeftHand/Lund1/data_BIDS
 
@@ -57,7 +60,7 @@ conda init bash
 conda activate lhenv2
 
 for SUBJECT in $SUBJECTS; do
- ln -s $HOMEDIR/freesurfer/sub-${SUBJECT}.base $HOMEDIR/fmriprep/freesurfer/sub-$SUBJECT
+# ln -s $HOMEDIR/freesurfer/sub-${SUBJECT}.base $HOMEDIR/fmriprep/freesurfer/sub-$SUBJECT
 
 #if [ `ls $HOMEDIR/data_BIDS/sub-$SUBJECT/*/anat/sub-${SUBJECT}_ses-?_MP2RAGE.nii.gz | wc -l` -eq $NSESSIONS ]; then 
 

@@ -34,6 +34,7 @@ PATH=$PATH:$HCPDIR
 INVALID_FILES=$HOMEDIR/logs/invalid_files.txt
 WD=$HOMEDIR/fmriprep
 SUBJECTS_DIR=$WD/freesurfer
+SUBJECTS_DIR_AUX=$HOMEDIR/freesurfer
 WORK=$HOMEDIR/work_sub-${SUBJECT}_ses-${SESSION}
 export FS_LICENSE=/usr/local/freesurfer/license.txt
 
@@ -57,7 +58,7 @@ RI=-500
 RS=0.2442
 
 # Analysis parameters
-FX_FILE=pe #tstat
+FX_FILE=pe 
 RADIUS=10.0
 NEVS=4
 ACC_FWHM=10
@@ -208,12 +209,12 @@ if [ ! -e $HOMEDIR/fmriprep.simg ]; then
     SINGULARITY_TMPDIR=~/Data/tmp SINGULARITY_CACHEDIR=~/Data/tmp singularity build ~/Data/fmriprepversions/fmriprep20.0.7.simg docker://poldracklab/fmriprep:20.0.7 #latest
     ln -s ~/Data/fmriprepversions/fmriprep20.0.7.simg $HOMEDIR/fmriprep.simg 
 fi
-
+# remove the first time
+rm -r $HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}*
+rm -r $SUBJECTS_DIR/sub-${SUBJECT}
 rm -r $WORK
 mkdir $WORK
 cp $FS_LICENSE $WD/
-
-rm -r $HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}
 
 PYTHONPATH="" singularity run --bind /data:/data \
    --cleanenv $HOMEDIR/fmriprep.simg \
@@ -221,23 +222,54 @@ PYTHONPATH="" singularity run --bind /data:/data \
    $WD \
    participant \
    --ignore slicetiming \
-   --longitudinal \
    --force-syn \
    --fs-license-file \
    $WD/license.txt \
    --nthreads $FMRIPREPPROCS \
    -w $WORK \
+   --longitudinal \
    --use-aroma \
    --write-graph \
    --skip_bids_validation \
-   --output-spaces T1w MNI152NLin2009cAsym fsaverage6 \
+   --output-spaces MNI152NLin2009cAsym \
    --participant-label ${SUBJECT} 
+
+# replace surfaces with longitudinal surfaces
+for hemi in lh rh; do
+  for surf in pial thickness sulc curv sphere sphere.reg inflated white; do
+     mv $SUBJECTS_DIR/sub-${SUBJECT}/surf/${hemi}.${surf} $SUBJECTS_DIR/sub-${SUBJECT}/surf/${hemi}.${surf}.old
+     ln -s $SUBJECTS_DIR_AUX/sub-${SUBJECT}.base/surf/${hemi}.${surf} $SUBJECTS_DIR/sub-${SUBJECT}/surf/${hemi}.${surf} 
+  done
+
+done
+mv $SUBJECTS_DIR/sub-${SUBJECT}/mri/ribbon.mgz $SUBJECTS_DIR/sub-${SUBJECT}/mri/ribbon.mgz.old
+ln -s $SUBJECTS_DIR_AUX/sub-${SUBJECT}.base/mri/ribbon.mgz  $SUBJECTS_DIR/sub-${SUBJECT}/mri/ribbon.mgz 
+
+PYTHONPATH="" singularity run --bind /data:/data \
+   --cleanenv $HOMEDIR/fmriprep.simg \
+   $HOMEDIR/data_BIDS \
+   $WD \
+   participant \
+   --ignore slicetiming \
+   --force-syn \
+   --fs-license-file \
+   $WD/license.txt \
+   --nthreads $FMRIPREPPROCS \
+   -w $WORK \
+   --longitudinal \
+   --use-aroma \
+   --write-graph \
+   --skip_bids_validation \
+   --output-spaces MNI152NLin2009cAsym T1w fsaverage6 \
+   --participant-label ${SUBJECT} 
+
+mv $SUBJECTS_DIR/sub-${SUBJECT} $SUBJECTS_DIR/sub-${SUBJECT}.orig
+cp -r $SUBJECTS_DIR_AUX/sub-${SUBJECT}.base $SUBJECTS_DIR/sub-${SUBJECT}
 
 # clean up 
 rm -r $WORK
 
 fi # PHASE 3
-
 
 ###############################################################################
 # Prepare surfaces, labels and masks
@@ -266,6 +298,15 @@ if [ ! -e $DATAMEAN ]; then
     fslmaths $HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/data.nii.gz -Tmean $DATAMEAN
     rm $HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/data.nii.gz
 
+fi
+
+if [ ! -e "$SUBJECTS_DIR/sub-${SUBJECT}/surf/lh.midthickness" ]; then
+    mris_expand -thickness $SUBJECTS_DIR/sub-${SUBJECT}/surf/lh.white 0.5\
+    $SUBJECTS_DIR/sub-${SUBJECT}/surf/lh.midthickness
+fi
+if [ ! -e "$SUBJECTS_DIR/sub-${SUBJECT}/surf/rh.midthickness" ]; then
+    mris_expand -thickness $SUBJECTS_DIR/sub-${SUBJECT}/surf/rh.white 0.5\
+    $SUBJECTS_DIR/sub-${SUBJECT}/surf/rh.midthickness
 fi
 
     # To facilitate visualization and projection to cortical surface
@@ -575,17 +616,29 @@ do
   #film_gls --in=$RUN_DIR/model/analysis.feat/filtered_func_data --rn=$RUN_DIR/model/analysis.feat/stats \
 # --pd=$RUN_DIR/model/analysis.feat/design.mat --thr=1000.0 --sa -ms=5 --con=$RUN_DIR/model/analysis.feat/design.con --outputPWdata
 
-  fslmerge -t $RUN_DIR/effects_LSA_$run `ls -v $RUN_DIR/model/analysis.feat/stats/${FX_FILE}*.nii.gz` 
-  python $PROGDIR/compute_effects.py $RUN_DIR/model/analysis.feat/design.mat \
-  $RUN_DIR/effects_LSA_$run.nii.gz \
-  $RUN_DIR/model/analysis.feat/stats/res4d.nii.gz \
-  $SUBDIR/mask.nii.gz \
-  $HOMEDIR/responses/sub-${SUBJECT}/ses-${SESSION}/sequences.csv \
-  $run \
-  $RUN_DIR/effects_LSS_${run}.nii.gz \
-  $RUN_DIR/derivatives_LSS_${run}.nii.gz #--multivar
+  EFFECT_FILES=""
+  DERIVATIVE_FILES=""
+  for trial in `seq $NTRIALS`; do    
+    EFFECT_FILES="$EFFECT_FILES $MODEL_DIR/analysis.feat/stats/${FX_FILE}$(($trial * 2 - 1)).nii.gz"
+    DERIVATIVE_FILES="$DERIVATIVE_FILES $MODEL_DIR/analysis.feat/stats/${FX_FILE}$(($trial * 2)).nii.gz"
+  done
+  
+  fslmerge -t $RUN_DIR/effects_LSA_$run $EFFECT_FILES
+  fslmerge -t $RUN_DIR/derivatives_LSA_$run $DERIVATIVE_FILES 
+  cp $MODEL_DIR/analysis.feat/stats/res4d.nii.gz $RUN_DIR/res4d_LSA_${run}.nii.gz
+  
+#  fslmerge -t $RUN_DIR/effects_LSA_$run `ls -v $MODEL_DIR/analysis.feat/stats/${FX_FILE}*.nii.gz` 
+#  python $PROGDIR/compute_effects.py $RUN_DIR/model/analysis.feat/design.mat \
+#  $RUN_DIR/effects_LSA_$run.nii.gz \
+#  $MODEL_DIR/analysis.feat/stats/res4d.nii.gz \
+#  $SUBDIR/mask.nii.gz \
+#  $HOMEDIR/responses/sub-${SUBJECT}/ses-${SESSION}/sequences.csv \
+#  $run \
+#  $RUN_DIR/effects_LSS_${run}.nii.gz \
+#  $RUN_DIR/derivatives_LSS_${run}.nii.gz #--multivar
 
   rm -r $MODEL_DIR
+
 done
 
 # LEAST SQUARES SINGLE
@@ -657,8 +710,12 @@ fi # LSS extra computation
 # Merge parameters
 cd $HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/
 
-  fslmerge -t effects `ls -v run*/effects_LSS_?.nii.gz` 
-  fslmerge -t derivatives `ls -v run*/derivatives_LSS_?.nii.gz` 
+  fslmerge -t effects `ls -v run*/effects_LSA_?.nii.gz` 
+  fslmerge -t derivatives `ls -v run*/derivatives_LSA_?.nii.gz` 
+  fslmerge -t res4d `ls -v run*/res4d_LSA_?.nii.gz` 
+  rm `ls -v run*/res4d_LSA_?.nii.gz`
+#  fslmerge -t effects `ls -v run*/effects_LSS_?.nii.gz` 
+#  fslmerge -t derivatives `ls -v run*/derivatives_LSS_?.nii.gz` 
 
   fslmaths effects -nan effects
   fslmaths effects -Tmean -s 3 effects_mean
@@ -681,7 +738,7 @@ fi # PHASE 7
 cd $HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/
 RUNS=`ls run*/volume/cope1.nii.gz  | cut -d'/' -f1 | cut -d'n' -f2`
 RUNS=`echo $RUNS`
-echo "Found following runs: $RUNS"
+echo "Found following runs for searchlight: $RUNS"
 
 if [ $PHASE == 0 ] || [ $PHASE == 7 ]; then
 
