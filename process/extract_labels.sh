@@ -5,6 +5,7 @@ HCPDIR=/home/share/Software/HCP/workbench/bin_rh_linux64/
 SUBJECTS_DIR=/home/benjamin.garzon/Data/LeftHand/Lund1/labels/subject
 
 LABELSDIR=/home/benjamin.garzon/Data/LeftHand/Lund1/labels/fsaverage
+OUTPUT_DIR=/home/share/MotorSkill/freesurfer/
 
 VBM_TEMPLATE=/home/benjamin.garzon/Data/LeftHand/Lund1/cat12/mask.nii.gz
 fMRI_TEMPLATE=/home/benjamin.garzon/Data/LeftHand/Lund1/fmriprep/fmriprep/sub-lue1202/ses-1/func/sub-lue1202_ses-1_task-sequence_run-01_space-MNI152NLin2009cAsym_desc-brain_mask.nii.gz
@@ -123,8 +124,8 @@ cp mask.png ~/Software/LeftHand/masks/
 
 fslmaths /home/benjamin.garzon/Data/LeftHand/Lund1/labels/fsaverage/rh.mask.nii.gz /home/benjamin.garzon/Data/LeftHand/Lund1/labels/fsaverage/rh.mask.nii.gz -odt char
 fslmaths /home/benjamin.garzon/Data/LeftHand/Lund1/labels/fsaverage/lh.mask.nii.gz /home/benjamin.garzon/Data/LeftHand/Lund1/labels/fsaverage/lh.mask.nii.gz -odt char
-ln -s /home/benjamin.garzon/Data/LeftHand/Lund1/labels/fsaverage/rh.mask.nii.gz /home/benjamin.garzon/Data/LeftHand/Lund1/freesurfer/results/rh.mask.nii.gz
-ln -s /home/benjamin.garzon/Data/LeftHand/Lund1/labels/fsaverage/lh.mask.nii.gz /home/benjamin.garzon/Data/LeftHand/Lund1/freesurfer/results/lh.mask.nii.gz
+ln -s /home/benjamin.garzon/Data/LeftHand/Lund1/labels/fsaverage/rh.mask.nii.gz $OUTPUTDIR/results/rh.mask.nii.gz
+ln -s /home/benjamin.garzon/Data/LeftHand/Lund1/labels/fsaverage/lh.mask.nii.gz $OUTPUTDIR/results/lh.mask.nii.gz
 
 
 LABELSDIR=/home/benjamin.garzon/Data/LeftHand/Lund1/labels/fsaverage6

@@ -10,8 +10,6 @@ WD = '/home/share/MotorSkill/freesurfer/results'
 SUBJECTS_DIR = WD 
 MASK_DIR = '/home/benjamin.garzon/Data/LeftHand/Lund1/labels/fsaverage'
 
-# check 1104
-
 find_outliers = function(X){
   print("Finding outliers")
   mycols = colnames(X)[(grep("\\bV", colnames(X)))]
@@ -112,26 +110,43 @@ thicknessdata.melt = rbind(
   loadthickness('lh'),
   loadthickness('rh')
 )
-if (F)
+if (T)
   T1data.melt = rbind(
-    loadT1('lh', '0.25'), 
-    loadT1('lh', '0.50'),
-    loadT1('lh', '0.75'),
-    loadT1('rh', '0.25'), 
-    loadT1('rh', '0.50'),
-    loadT1('rh', '0.75')
+    loadT1('lh', '0.20'), 
+    loadT1('lh', '0.40'),
+    loadT1('lh', '0.60'),
+    loadT1('lh', '0.80'),
+    loadT1('rh', '0.20'), 
+    loadT1('rh', '0.40'),
+    loadT1('rh', '0.60'),
+    loadT1('rh', '0.80')
   )
-#stophere
+
+# compute ICC
+# s1 = 1
+# s2 = 2
+# mysubject = "lue2102"
+# mydata = thicknessdata.melt
+# function(mydata, s1, s2){
+#   for (mysubject in unique(mydata$subject)){
+#     x = mydata$value[ mydata$subject == mysubject & mydata$session == s1]
+#     y = mydata$value[ mydata$subject == mysubject & mydata$session == s2]
+#   }
+# return(cor(x, y))
+# }
+#   
+# stophere
 #myplot.T1 = ggplot(subset(T1data.melt, subject == "lue1101"), aes(x = value, group = session)) + 
   
 # thickness 
+subjects = unique(thicknessdata.melt$subject)
 
 se = function(x) sd(x)/sqrt(length(x))
 thickness.mean = thicknessdata.melt %>% group_by(subject, group, session, hemi) %>% summarise(mean = mean(value), sd = se(value)) %>% arrange(hemi, mean)
 
-myplot.thickness = ggplot(thicknessdata.melt, aes(x = value, group = cluster, color = as.factor(hemi))) + 
+myplot.thickness = ggplot(thicknessdata.melt %>% filter(subject %in% sample(subjects, 6)), aes(x = value, group = cluster, color = as.factor(hemi))) + 
   geom_density() + 
-  facet_wrap( ~ subject + hemi) + 
+  facet_wrap( ~ subject + hemi, ncol = 6) + 
   theme_classic() + 
   xlab('Cortical thickness') + 
   ylab('Frequency') 
@@ -171,7 +186,7 @@ T1.mean = T1data.melt %>% group_by(subject, group, session, hemi, depth) %>% sum
 
 myplot.T1 = ggplot(T1data.melt, aes(x = value, color = as.factor(depth), group = cluster)) + 
   geom_density() + 
-  facet_grid(subject ~ hemi) + 
+  facet_wrap( ~ subject + hemi) + #facet_grid(subject ~ hemi) + 
   theme_classic() + 
   xlab('T1 value') + 
   ylab('Frequency') 

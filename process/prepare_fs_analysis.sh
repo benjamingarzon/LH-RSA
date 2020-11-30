@@ -3,7 +3,7 @@
 HOMEDIR=/home/benjamin.garzon/Data/LeftHand/Lund1
 STRUCT_DIR=/home/benjamin.garzon/Data/LeftHand/Lund1/data_BIDS
 PROGDIR=~/Software/LeftHand/process/
-
+T1DIR=/home/benjamin.garzon/Software/LeftHand/process/T1values/MP2RAGE_B1corr
 SUBJECTS_DIR=/home/benjamin.garzon/Data/LeftHand/Lund1/freesurfer
 SUBJECTS_DIR=/home/share/MotorSkill/freesurfer/
 
@@ -22,23 +22,31 @@ HCPDIR=/home/share/Software/HCP/workbench/bin_rh_linux64/
 WD=/home/benjamin.garzon/Data/LeftHand/Lund1/data_BIDS
 NSESSIONS=7
 SMOOTH=10
-OVERWRITE=1
+OVERWRITE="1"
 for SUBJECT in $SUBJECTS; do
     for SESSION in `seq $NSESSIONS`; do
        for HEMI in rh lh; do           
-           if [ "$OVERWRITE" == "0" ] && \
-              [ -f "$SUBJECTS_DIR/sub-${SUBJECT}.${SESSION}.long.sub-${SUBJECT}.base/surf/${HEMI}.${METRIC}.nii.gz" ]; then
- 		# Already done 
-		continue
-           fi
-
+           
 	   if [ $TYPE == "T1" ]; then
-               METRIC="${TYPE}-${FRAC}"
-	       cd $PROGDIR/T1values/MP2RAGE_B1corr
-	       if [ ! -e $HOMEDIR/vbm/sub-${SUBJECT}/ses-${SESSION}/T1map.nii.gz ]; then 
-	           matlab -nosplash -nodisplay -r "estimateT1('$HOMEDIR/vbm/sub-${SUBJECT}/ses-${SESSION}/T1wtotemplate_brain.nii.gz', '$HOMEDIR/vbm/sub-${SUBJECT}/ses-${SESSION}/T1map.nii.gz'); exit"
+               METRIC="${TYPE}_${FRAC}"
+
+  	       if [ "$OVERWRITE" == "0" ] && \
+		      [ -e "$SUBJECTS_DIR/sub-${SUBJECT}.${SESSION}.long.sub-${SUBJECT}.base/surf/${HEMI}.${METRIC}.nii.gz" ]; then
+	 		echo "Already done: `ls -lh $SUBJECTS_DIR/sub-${SUBJECT}.${SESSION}.long.sub-${SUBJECT}.base/surf/${HEMI}.${METRIC}.nii.gz`" 
+			continue
 	       fi
 
+     	       if [ ! -e "$SUBJECTS_DIR/sub-${SUBJECT}.${SESSION}.long.sub-${SUBJECT}.base/surf/${HEMI}.thickness" ]; then
+			echo "Not found: $SUBJECTS_DIR/sub-${SUBJECT}.${SESSION}.long.sub-${SUBJECT}.base/surf/${HEMI}.thickness"
+			continue
+	       fi
+
+
+	       if [ ! -e $HOMEDIR/vbm/sub-${SUBJECT}/ses-${SESSION}/T1map.nii.gz ]; then 
+	           matlab -nosplash -nodisplay -r "addpath('$T1DIR'); estimateT1('$HOMEDIR/vbm/sub-${SUBJECT}/ses-${SESSION}/T1wtotemplate_brain.nii.gz', '$HOMEDIR/vbm/sub-${SUBJECT}/ses-${SESSION}/T1map.nii.gz'); exit"
+	       fi
+
+	       cd $PROGDIR/T1values/MP2RAGE_B1corr
                mri_vol2surf --mov $HOMEDIR/vbm/sub-${SUBJECT}/ses-${SESSION}/T1map.nii.gz \
                --regheader  sub-${SUBJECT}.${SESSION}.long.sub-${SUBJECT}.base --surf white \
                --projfrac $FRAC --surf-fwhm $SMOOTH --interp trilinear --cortex --hemi $HEMI --out_type mgh \
@@ -49,6 +57,17 @@ for SUBJECT in $SUBJECTS; do
                 $SUBJECTS_DIR/sub-${SUBJECT}.${SESSION}.long.sub-${SUBJECT}.base/surf/${HEMI}.${METRIC}.gii
            else
              	METRIC=$TYPE
+    	        if [ "$OVERWRITE" == "0" ] && \
+		      [ -e "$SUBJECTS_DIR/sub-${SUBJECT}.${SESSION}.long.sub-${SUBJECT}.base/surf/${HEMI}.${METRIC}.nii.gz" ]; then
+	 		echo "Already done: `ls -lh $SUBJECTS_DIR/sub-${SUBJECT}.${SESSION}.long.sub-${SUBJECT}.base/surf/${HEMI}.${METRIC}.nii.gz`" 
+			continue
+	        fi
+
+		if [ ! -e "$SUBJECTS_DIR/sub-${SUBJECT}.${SESSION}.long.sub-${SUBJECT}.base/surf/${HEMI}.${METRIC}" ]; then
+			echo "Not found: $SUBJECTS_DIR/sub-${SUBJECT}.${SESSION}.long.sub-${SUBJECT}.base/surf/${HEMI}.${METRIC}"
+			continue
+		fi
+
 	        mris_convert -c $SUBJECTS_DIR/sub-${SUBJECT}.${SESSION}.long.sub-${SUBJECT}.base/surf/${HEMI}.${METRIC} \
 	        $SUBJECTS_DIR/sub-${SUBJECT}.${SESSION}.long.sub-${SUBJECT}.base/surf/${HEMI}.white \
 	        $SUBJECTS_DIR/sub-${SUBJECT}.${SESSION}.long.sub-${SUBJECT}.base/surf/${HEMI}.${METRIC}.gii
@@ -173,13 +192,14 @@ mris_convert --to-scanner $SUBJECTS_DIR/fsaverage/surf/rh.pial $SUBJECTS_DIR/res
 
 # if there are several T1 depths merge together in 1 file
 if [ $TYPE == "T1" ]; then
-fslmerge -t lh.T1.nii.gz lh.T1-0.??.nii.gz
-fslmerge -t rh.T1.nii.gz rh.T1-0.??.nii.gz
+fslmerge -t lh.T1.nii.gz lh.T1_*.nii.gz
+fslmerge -t rh.T1.nii.gz rh.T1_*.nii.gz
 rm lh.T1.txt rh.T1.txt
 for d in $DEPTHS; do
 echo $d
-sed "s/$/\t$d/" lh.T1-${d}.txt >> lh.T1.txt
-sed "s/$/\t$d/" rh.T1-${d}.txt >> rh.T1.txt
+sed "s/$/\t$d/" lh.T1_${d}.txt >> lh.T1.txt
+sed "s/$/\t$d/" rh.T1_${d}.txt >> rh.T1.txt
 done
 fi
 
+cp 
