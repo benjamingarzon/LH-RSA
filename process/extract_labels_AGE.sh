@@ -1,14 +1,21 @@
 #!/bin/sh
 
 #labels of interest
-HCPDIR=/home/share/Software/HCP/workbench/bin_rh_linux64/
-SUBJECTS_DIR=/home/benjamin.garzon/Data/LeftHand/Lund1/labels/subject
 
+<<<<<<< HEAD
 LABELSDIR=/home/benjamin.garzon/Data/LeftHand/Lund1/labels/fsaverage
 OUTPUT_DIR=/home/share/MotorSkill/freesurfer/
+=======
+HOME=/home/xgarzb@GU.GU.SE/
+WD=/data/lv0/MotorSkill
+HCPDIR=/data/lv0/Software/workbench/bin_rh_linux64/
+SUBJECTS_DIR=$WD/labels/subject
+FS_DIR=/usr/local/freesurfer/7.1.1-1
+LABELSDIR=$WD/labels/fsaverage
+>>>>>>> a630c2eab52952298ad6fd106ebf072dc1443b64
 
-VBM_TEMPLATE=/home/benjamin.garzon/Data/LeftHand/Lund1/cat12/mask.nii.gz
-fMRI_TEMPLATE=/home/benjamin.garzon/Data/LeftHand/Lund1/fmriprep/fmriprep/sub-lue1202/ses-1/func/sub-lue1202_ses-1_task-sequence_run-01_space-MNI152NLin2009cAsym_desc-brain_mask.nii.gz
+VBM_TEMPLATE=$WD/cat12/mask.nii.gz
+fMRI_TEMPLATE=$WD/fmriprep/fmriprep/sub-lue1101/ses-1/func/sub-lue1101_ses-1_task-sequence_run-1_space-MNI152NLin2009cAsym_desc-brain_mask.nii.gz
 
 mkdir $LABELSDIR
 cd $LABELSDIR
@@ -25,12 +32,15 @@ cd $LABELSDIR
 #mri_segstats --i fsaverage_aparc/rh.somatomotor-mask.func.gii --annot fsaverage lh ./GlasserParc/lh.HCP-MMP1.annot --sum parcels
 #for i in `cat parcels | grep _ | grep -v "0.0000     0.0000     0.0000     0.0000" | sed 's/\s\+/ /g' | cut -d 'L' -f2-5| cut -d' ' -f1`; do echo -n "L${i} "; done > lh.parcels; rm parcels
 #cat rh.parcels | sed 's/R_/L_/g' > lh.parcels 
-cat ~/Software/LeftHand/masks/rh.parcels.txt | sed 's/R_/L_/g' > ~/Software/LeftHand/masks/lh.parcels.txt
+cat $HOME/Software/LeftHand/masks/rh.parcels.txt | sed 's/R_/L_/g' > $HOME/Software/LeftHand/masks/lh.parcels.txt
 
-mri_annotation2label --sd $SUBJECTS_DIR --outdir $LABELSDIR --hemi lh --annotation HCP-MMP1 --subject fsaverage
-mri_annotation2label --sd $SUBJECTS_DIR --outdir $LABELSDIR  --hemi rh --annotation HCP-MMP1 --subject fsaverage
 
-LABELS="`cat ~/Software/LeftHand/masks/rh.parcels.txt` `cat ~/Software/LeftHand/masks/lh.parcels.txt`"
+#mri_annotation2label --sd $SUBJECTS_DIR --outdir $LABELSDIR --hemi lh --annotation HCP-MMP1 --subject fsaverage
+#mri_annotation2label --sd $SUBJECTS_DIR --outdir $LABELSDIR  --hemi rh --annotation HCP-MMP1 --subject fsaverage
+
+LABELS="`cat $HOME/Software/LeftHand/masks/rh.parcels.txt` `cat $HOME/Software/LeftHand/masks/lh.parcels.txt`"
+echo $LABELS > $HOME/Software/LeftHand/masks/mask_parcels.txt
+
 
 for hemi in lh rh; do
  
@@ -76,8 +86,10 @@ for hemi in lh rh; do
     ${hemi}.somatomotor-mask.func.gii \
     ${hemi}.mask.nii.gz
 
+    mri_surf2surf --srcsubject fsaverage --trgsubject fsaverage --sval ${hemi}.somatomotor-mask.func.gii  --hemi ${hemi} --tval ${hemi}.somatomotor-mask.func.gii 
+
     # resample to fsaverage6 space as well
-    mri_surf2surf --srcsubject fsaverage --trgsubject fsaverage6 --sval ${hemi}.somatomotor-mask.func.gii  --hemi lh --tval ${hemi}.somatomotor-mask.fsaverage6.func.gii 
+    mri_surf2surf --srcsubject fsaverage --trgsubject fsaverage6 --sval ${hemi}.somatomotor-mask.func.gii  --hemi ${hemi} --tval ${hemi}.somatomotor-mask.fsaverage6.func.gii 
 
     # resample to MNI space as well     	
     mri_cor2label --i ./${hemi}.somatomotor-mask.func.gii \
@@ -104,31 +116,38 @@ done
     fslmaths somatomotor-mask.MNI.VBM.nii.gz -mas $VBM_TEMPLATE somatomotor-mask.MNI.VBM.nii.gz
 
     # for MRI
-    mri_vol2vol --mov ./somatomotor-mask.MNI.nii.gz --targ $VBM_TEMPLATE --regheader --o ./somatomotor-mask.MNI.fMRI.nii.gz --nearest
+    mri_vol2vol --mov ./somatomotor-mask.MNI.nii.gz --targ $fMRI_TEMPLATE --regheader --o ./somatomotor-mask.MNI.fMRI.nii.gz --nearest
     fslmaths somatomotor-mask.MNI.fMRI.nii.gz -mas $fMRI_TEMPLATE somatomotor-mask.MNI.fMRI.nii.gz
 
-freeview somatomotor-mask.MNI.fMRI.nii.gz -f /usr/local/freesurfer/subjects/fsaverage/surf/rh.inflated:overlay=rh.somatomotor-mask.func.gii:annot=../GlasserParc/rh.HCP-MMP1.annot
-freeview somatomotor-mask.MNI.VBM.nii.gz -f /usr/local/freesurfer/subjects/fsaverage/surf/lh.inflated:overlay=lh.somatomotor-mask.func.gii:annot=../GlasserParc/lh.HCP-MMP1.annot
+freeview somatomotor-mask.MNI.fMRI.nii.gz -f $FS_DIR/subjects/fsaverage/surf/rh.inflated:overlay=rh.somatomotor-mask.func.gii:annot=../GlasserParc/rh.HCP-MMP1.annot
+freeview somatomotor-mask.MNI.VBM.nii.gz -f $FS_DIR/subjects/fsaverage/surf/lh.inflated:overlay=lh.somatomotor-mask.func.gii:annot=../GlasserParc/lh.HCP-MMP1.annot
 
-freeview -f /usr/local/freesurfer/subjects/fsaverage/surf/rh.inflated:overlay=rh.somatomotor-mask.func.gii -viewport 3D -cam azimuth 180 elevation 0 -zoom 1.3 -ss rh.mask_medial.png
-freeview -f /usr/local/freesurfer/subjects/fsaverage/surf/lh.inflated:overlay=lh.somatomotor-mask.func.gii -viewport 3D -cam azimuth 180 elevation 0 -zoom 1.3 -ss lh.mask_lateral.png
-freeview -f /usr/local/freesurfer/subjects/fsaverage/surf/rh.inflated:overlay=rh.somatomotor-mask.func.gii -viewport 3D -cam azimuth 0 elevation 0 -zoom 1.3 -ss rh.mask_lateral.png
-freeview -f /usr/local/freesurfer/subjects/fsaverage/surf/lh.inflated:overlay=lh.somatomotor-mask.func.gii -viewport 3D -cam azimuth 0 elevation 0 -zoom 1.3 -ss lh.mask_medial.png
+freeview -f $FS_DIR/subjects/fsaverage/surf/rh.inflated:overlay=rh.somatomotor-mask.func.gii -viewport 3D -cam azimuth 180 elevation 0 -zoom 1.3 -ss rh.mask_medial.png
+freeview -f $FS_DIR/subjects/fsaverage/surf/lh.inflated:overlay=lh.somatomotor-mask.func.gii -viewport 3D -cam azimuth 180 elevation 0 -zoom 1.3 -ss lh.mask_lateral.png
+freeview -f $FS_DIR/subjects/fsaverage/surf/rh.inflated:overlay=rh.somatomotor-mask.func.gii -viewport 3D -cam azimuth 0 elevation 0 -zoom 1.3 -ss rh.mask_lateral.png
+freeview -f $FS_DIR/subjects/fsaverage/surf/lh.inflated:overlay=lh.somatomotor-mask.func.gii -viewport 3D -cam azimuth 0 elevation 0 -zoom 1.3 -ss lh.mask_medial.png
 
 pngappend rh.mask_medial.png + lh.mask_medial.png medial.png
 pngappend rh.mask_lateral.png + lh.mask_lateral.png lateral.png
 pngappend medial.png - lateral.png mask.png
 
 rm rh.mask_medial.png lh.mask_medial.png medial.png rh.mask_lateral.png lh.mask_lateral.png lateral.png
-cp mask.png ~/Software/LeftHand/masks/
+cp mask.png $HOME/Software/LeftHand/masks/
 
+<<<<<<< HEAD
 fslmaths /home/benjamin.garzon/Data/LeftHand/Lund1/labels/fsaverage/rh.mask.nii.gz /home/benjamin.garzon/Data/LeftHand/Lund1/labels/fsaverage/rh.mask.nii.gz -odt char
 fslmaths /home/benjamin.garzon/Data/LeftHand/Lund1/labels/fsaverage/lh.mask.nii.gz /home/benjamin.garzon/Data/LeftHand/Lund1/labels/fsaverage/lh.mask.nii.gz -odt char
 ln -s /home/benjamin.garzon/Data/LeftHand/Lund1/labels/fsaverage/rh.mask.nii.gz $OUTPUTDIR/results/rh.mask.nii.gz
 ln -s /home/benjamin.garzon/Data/LeftHand/Lund1/labels/fsaverage/lh.mask.nii.gz $OUTPUTDIR/results/lh.mask.nii.gz
+=======
+fslmaths $WD/labels/fsaverage/rh.mask.nii.gz $WD/labels/fsaverage/rh.mask.nii.gz -odt char
+fslmaths $WD/labels/fsaverage/lh.mask.nii.gz $WD/labels/fsaverage/lh.mask.nii.gz -odt char
+ln -s $WD/labels/fsaverage/rh.mask.nii.gz $WD/freesurfer/results/rh.mask.nii.gz
+ln -s $WD/labels/fsaverage/lh.mask.nii.gz $WD/freesurfer/results/lh.mask.nii.gz
+>>>>>>> a630c2eab52952298ad6fd106ebf072dc1443b64
 
 
-LABELSDIR=/home/benjamin.garzon/Data/LeftHand/Lund1/labels/fsaverage6
+LABELSDIR=$WD/labels/fsaverage6
 mkdir $LABELSDIR
 cd $LABELSDIR
 #mri_annotation2label --sd $SUBJECTS_DIR --outdir $LABELSDIR --hemi rh --annotation aparc.a2009s --subject fsaverage6
