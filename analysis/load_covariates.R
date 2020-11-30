@@ -2,13 +2,23 @@
 # Load covariate data
 ###############################################################
 RESPONSES_DIR= '~/Data/LeftHand/Lund1/responses/'
+NREPS = 10 # reps for inputation
 
+library(dplyr)
 library(missForest)
+library(ggplot2)
 trials.table = read.table(file.path(RESPONSES_DIR, "complete_trials_table.csv"), header = T, sep = ";")
 demo.data = read.table(file.path(RESPONSES_DIR, "SubjectData.csv"), header = T, sep = ",")
 system.table = read.table(file.path(RESPONSES_DIR, "ClassicMTX8.csv"), header = T, sep = ";") %>% 
   dplyr::rename(SUBJECT = Subject, TP = Session, system = Classic.MTX8)
-schedules = read.table('~/Data/LeftHand/Lund1/responses/all_schedule_tables.csv', header = T)
+schedules = read.table('~/Data/LeftHand/Lund1/responses/all_lue_schedule_tables.csv', header = T)
+
+aseg = read.table('/home/share/MotorSkill/freesurfer/asegstats.csv', header = T) %>% 
+  dplyr::rename(SCAN = Measure.volume, TIV = EstimatedTotalIntraCranialVol) %>% 
+  dplyr::mutate(SUBJECT = substring(SCAN, 5, 11), TP = substring(SCAN, 13, 13)) %>%
+  dplyr::select(SUBJECT, TP, TIV) %>% group_by(SUBJECT) %>% dplyr::mutate(medianTIV = median(TIV), sdTIV = sd(TIV)) 
+aseg = merge(aseg, system.table, by = c("SUBJECT", "TP"))
+print(ggplot(aseg, aes(x = reorder(SUBJECT, medianTIV), y = TIV)) + geom_boxplot())
 
 myvars = c('physical_activity', 
          'sleep', 
@@ -35,20 +45,19 @@ incomplete = !complete.cases(covars.table)
 #covars.table[, myvars] = missForest(covars.table[, myvars])$ximp
 #covars.table = missForest(covars.table)$ximp
 
-NREPS = 50
 mysubsets = NULL
 for (i in 1:NREPS){
   print(i)
-  mysubs = base::sample(unique(covars.table$SUBJECT), 50)
+  mysubs = base::sample(unique(covars.table$SUBJECT), 45)
   mysubset = subset(covars.table, SUBJECT %in% mysubs| incomplete == T)
   mysubset$SUBJECT = droplevels(mysubset$SUBJECT)
   result = missForest(mysubset)
   print(result$OOBerror)
   mysubset = result$ximp
-  mysubsets = rbind(mysubsets, mysubset %>% mutate(REP = i))
+  mysubsets = rbind(mysubsets, mysubset %>% dplyr::mutate(REP = i))
 }
 
-covars.table = merge(mysubsets %>% group_by(SUBJECT, TP) %>% summarise_if(is.numeric, mean), 
+covars.table = merge(mysubsets %>% group_by(SUBJECT, TP) %>% dplyr::summarise_if(is.numeric, mean, na.rm = T), 
                      unique(mysubsets[c("SUBJECT", "TP", "gender", "system")]),
                             by = c("SUBJECT", "TP"))  %>% dplyr::select(-REP)
                      
@@ -84,6 +93,7 @@ points(training, training.asymptotic, type = "b", col = "red")
 covars.table$GROUP = "Experimental"
 covars.table$GROUP[grep("lue.2", covars.table$SUBJECT)] = "Control"
 covars.table$GROUP.NUM = ifelse(covars.table$GROUP == "Experimental", 1, 0)  
+covars.table = covars.table %>%  mutate(GROUP = as.factor(GROUP))
 
 covars.table$TRAINING = training[covars.table$TP]
 covars.table$TRAINING.Q = training.quadratic[covars.table$TP]
@@ -122,5 +132,5 @@ theme_lh <- function () {
 # %>% group_by() %>% summarise(sdMT = mean(sdMT.log.untrained_trained))
 
 # untrained variance > trained variance
-plot.sdMT.diff = ggplot(last_trials.diff, aes(x = TP, y = sdMT.log.untrained_trained, col = GROUP, group = GROUP)) + geom_smooth(lwd=1) + geom_point(size = 3) + theme_lh()
-print(plot.sdMT.diff)
+#plot.sdMT.diff = ggplot(last_trials.diff, aes(x = TP, y = sdMT.log.untrained_trained, col = GROUP, group = GROUP)) + geom_smooth(lwd=1) + geom_point(size = 3) + theme_lh()
+#print(plot.sdMT.diff)

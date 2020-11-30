@@ -17,8 +17,8 @@ else
     B1name = "";
 end
 display(T1outname)
- %MP2name = '/home/benjamin.garzon/Data/LeftHand/Lund1/vbm/sub-lue1101/ses-1/T1wtotemplate_brain.nii.gz';
- %T1outname = '/home/benjamin.garzon/Data/LeftHand/Lund1/vbm/sub-lue1101/ses-1/T1map.nii.gz';
+% MP2name = '/home/benjamin.garzon/Data/LeftHand/Lund1/vbm/sub-lue1101/ses-1/T1wtotemplate_brain.nii.gz';
+% T1outname = '/home/benjamin.garzon/Data/LeftHand/Lund1/vbm/sub-lue1101/ses-1/T1map.nii.gz';
  invEFF = 0.8;%0.96;
 
     %% MP2RAGE protocol info and loading the MP2RAGE dataset 
@@ -33,6 +33,7 @@ display(T1outname)
     % load the MP2RAGE data
     MP2RAGEimg=load_untouch_nii(MP2RAGE.filename);
     MP2RAGE.NZslices=[ size(MP2RAGEimg.img, 3) ];% Slices Per Slab * [PartialFourierInSlice-0.5  0.5]
+    MP2RAGE.NZslices=[ 257 ];% Slices Per Slab * [PartialFourierInSlice-0.5  0.5]
 
     % check the properties of this MP2RAGE protocol... this happens to be a
     % very B1 insensitive protocol
