@@ -88,6 +88,9 @@ def compute_effects(args):
     effects = np.vstack(effects_list)
     derivatives = np.vstack(derivatives_list)
     
+    effects[np.isnan(effects)] = 0
+    derivatives[np.isnan(derivatives)] = 0
+    
     effects_img = masker.inverse_transform(effects)
     derivatives_img = masker.inverse_transform(derivatives)
     effects_img.to_filename(args.effects_LSS_file)

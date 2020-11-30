@@ -23,11 +23,11 @@ if True:
     runs = np.array([int(x) for x in sys.argv[5].split(' ') ])    
 
 else:    
-    WD = '/home/benjamin.garzon/Data/LeftHand/Lund1/'
-    datapath = os.path.join(WD, 'fmriprep/analysis/sub-lue1105/ses-1/')
-    sequences_fn = os.path.join(WD, 'responses/sub-lue1105/ses-1/sequences.csv')
+    WD = '/data/lv0/MotorSkill/'
+    datapath = os.path.join(WD, 'fmriprep/analysis/sub-lue1101/ses-1/')
+    sequences_fn = os.path.join(WD, 'responses/sub-lue1101/ses-1/sequences.csv')
     hemi = 'rh'
-    radius = 15.0
+    radius = 10.0
     runs = np.array([int(x) for x in "1 2 3 4 5".split(' ') ])
     
 surfpath = os.path.join(datapath, 'surf')
@@ -46,20 +46,22 @@ fds1 = fmri_dataset(samples = epi_fn1,
                chunks = sequences.run,
                mask = mask_fn)
 
-pial_surf_fn = os.path.join(surfpath, "%s.pial.ds.gii"
+pial_surf_fn = os.path.join(surfpath, "%s.pial.gii"
                                      % (hemi))
-white_surf_fn = os.path.join(surfpath, "%s.white.ds.gii"
+white_surf_fn = os.path.join(surfpath, "%s.white.gii"
                                      % (hemi))
-#mid_surf_fn = os.path.join(surfpath, "%s.midthickness"
-#                                     % (hemi))
+mid_surf_fn = os.path.join(surfpath, "%s.midthickness.ds.gii"
+                                     % (hemi))
 
 if True:
     qe = disc_surface_queryengine(radius, 
                                   fds1,
-                                  white_surf_fn, 
-                                  pial_surf_fn)
+                                  white_surf = white_surf_fn, 
+                                  pial_surf = pial_surf_fn,
+                                  source_surf = mid_surf_fn, 
+                                  nproc = 30)
     suffix = ''
-    
+
 else:
     
     fds1 = fmri_dataset(samples = epi_fn1,
@@ -81,6 +83,11 @@ else:
                                   white_surf_fn, 
                                   pial_surf_fn)
     suffix = '.multi'                    
+
+mask = qe.voxsel.get_mask()
+nifti_mask = qe.voxsel.get_nifti_image_mask()
+nifti_mask.to_filename(os.path.join(surfpath, '%s.qe.mask.nii.gz'%(hemi)))    
+
 #save it  
 h5save(os.path.join(surfpath, '%s-%.1f-qe%s.gzipped.hdf5'%(hemi, radius, suffix)), qe, compression=9)
 

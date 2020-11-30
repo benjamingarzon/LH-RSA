@@ -8,10 +8,12 @@ import numpy as np
 
 # creates explanatory variables (EV) 
 # For fMRI analysis
-# EV1 = correct sequence
-# EV2 = incorrect sequence
-# EV3 = fixation
-# EV4 = stretch
+# EV1 = fixation
+# EV2 = stretch
+# EV3 = trained correct sequence
+# EV4 = untrained correct sequence
+# EV5 = trained incorrect sequence
+# EV6 = untrained incorrect sequence
 
 # discount dummy time
 
@@ -29,6 +31,7 @@ STRETCH_DURATION = float(sys.argv[7])
 SESSION_FACTOR = int(sys.argv[8])
 
 OUTPUTNAME = 'EV'
+AGG_OUTPUTNAME = 'AEV'
 OUTPUTNAME_SINGLE = 'TRIAL'
 OUTPUTNAME_OTHER = 'OTHER'
 
@@ -133,6 +136,7 @@ for i in runs:
 #    output_ev(fixate, i, OUTPUTNAME + '3')
 #    output_ev(stretch, i, OUTPUTNAME + '4')
 
+# 6 regressors
     output_ev(fixate, i, OUTPUTNAME + '1')
     output_ev(stretch, i, OUTPUTNAME + '2')    
     output_ev(trainedcorrect, i, OUTPUTNAME + '3')
@@ -153,12 +157,10 @@ for i in runs:
     output_ev(fixate, i, 'FIXATION', noext = True)
     output_ev(stretch, i, 'STRETCH', noext = True)
 
-
-    # aggregate effects
-    OUTPUTNAME = 'AEV'
-    output_ev(fixate, i, OUTPUTNAME + '1')
-    output_ev(stretch, i, OUTPUTNAME + '2')    
-    output_ev(incorrect, i, OUTPUTNAME + '3')    
+    # aggregate effects - for LSA
+    output_ev(fixate, i, AGG_OUTPUTNAME + '1')
+    output_ev(stretch, i, AGG_OUTPUTNAME + '2')    
+    output_ev(incorrect, i, AGG_OUTPUTNAME + '3')    
 
     mylabels = labels.values
     for l in np.unique(mylabels):        
@@ -166,4 +168,5 @@ for i in runs:
                                        'duration': duration[(accuracy==1.0) & (mylabels == l)], 
                                        'value': 1}) 
 
-        output_ev(correct, i, OUTPUTNAME + 'cor%s'%(l))
+        output_ev(correct, i, AGG_OUTPUTNAME + 'cor%s'%(l))
+
