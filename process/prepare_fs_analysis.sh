@@ -22,7 +22,7 @@ HCPDIR=/home/share/Software/HCP/workbench/bin_rh_linux64/
 WD=/home/benjamin.garzon/Data/LeftHand/Lund1/data_BIDS
 NSESSIONS=7
 SMOOTH=10
-OVERWRITE="1"
+OVERWRITE="0"
 for SUBJECT in $SUBJECTS; do
     for SESSION in `seq $NSESSIONS`; do
        for HEMI in rh lh; do           

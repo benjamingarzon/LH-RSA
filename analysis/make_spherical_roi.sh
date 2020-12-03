@@ -6,7 +6,7 @@ METRIC=$2
 DISTANCE=$3
 RADIUS=$4
 OUTPUT=$5
-THR=0.999
+THR=$6
 
 EXTREMA=$WD/extrema.nii.gz
 

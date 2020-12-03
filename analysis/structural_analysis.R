@@ -6,6 +6,7 @@ library(reshape2)
 library(pracma)
 cat("\014")
 
+# check in case there are no clusters
 # write out how many observations in each vertex
 # do not remove outliers??
 # permutation tests
@@ -133,7 +134,7 @@ vbm.data = 'data_s8.nii.gz'
 
 upsample = NULL #'/home/benjamin.garzon/Data/LeftHand/Lund1/cat12/mask_whole_brain.nii.gz'
 
-NPERMS = 5
+NPERMS = 50
 shuffle_by = c('BETWEEN', 'WITHIN')
 
 alphavoxel = 0.05
@@ -144,7 +145,7 @@ alphavertex = 0.025
 #####################
 
 DATADIR='/home/benjamin.garzon/Data/LeftHand/Lund1/cat12crossbias8_10'
-if (F){
+if (T){
 results.thickness.cat.quadratic.rh = doit(DATADIR,
                                            testquadratic,
                                            'tests/quadratic.rh',
@@ -152,7 +153,7 @@ results.thickness.cat.quadratic.rh = doit(DATADIR,
                                            IMAGES_LIST = 'rh.thickness.txt',
                                            IMAGING_NAME = 'rh.thickness.10.nii.gz',
                                            to_gifti = rh.cat.gii, alpha = alphavertex,
-                                           NPERMS = NPERMS, shuffle_by = shuffle_by)
+                                           NPERMS = 0, shuffle_by = shuffle_by)
 
 results.thickness.cat.quadratic.lh = doit(DATADIR,
                                            testquadratic,
@@ -161,7 +162,7 @@ results.thickness.cat.quadratic.lh = doit(DATADIR,
                                            IMAGES_LIST = 'lh.thickness.txt',
                                            IMAGING_NAME = 'lh.thickness.10.nii.gz',
                                            to_gifti = lh.cat.gii, alpha = alphavertex,
-                                           NPERMS = NPERMS, shuffle_by = shuffle_by)
+                                           NPERMS = 0, shuffle_by = shuffle_by)
 
 
 results.thickness.cat.comparison.rh = doit(DATADIR,
@@ -188,7 +189,7 @@ results.thickness.cat.comparison.lh = doit(DATADIR,
 # cat12
 #####################
 
-DATADIR='/home/benjamin.garzon/Data/LeftHand/Lund1/cat12crossbias12_15'
+#DATADIR='/home/benjamin.garzon/Data/LeftHand/Lund1/cat12crossbias12_15'
 DATADIR='/home/benjamin.garzon/Data/LeftHand/Lund1/cat12crossbias8_10'
 
 results.quadratic.cat = doit(DATADIR, 
@@ -636,22 +637,22 @@ testanova(X$y, X)
 stophere
 
 
-find_outliers = function(X){
-  print("Finding outliers")
-  mycols = colnames(X)[(grep("\\bV", colnames(X)))]
-  l = length(mycols)
-
-  for (k in seq(l)){
-    for (subject in unique(X$subject)){
-      m = mean(X[X$subject == subject, mycols[k]])
-      s = sd(X[X$subject == subject, mycols[k]])
-      local_outlier = (abs(X[X$subject == subject, mycols[k]]- m) > 3*s)
-      X[local_outlier, mycols[k]] = NA
-    }
-  }
-  
-  return(X)
-}
+# find_outliers = function(X){
+#   print("Finding outliers")
+#   mycols = colnames(X)[(grep("\\bV", colnames(X)))]
+#   l = length(mycols)
+# 
+#   for (k in seq(l)){
+#     for (subject in unique(X$subject)){
+#       m = mean(X[X$subject == subject, mycols[k]])
+#       s = sd(X[X$subject == subject, mycols[k]])
+#       local_outlier = (abs(X[X$subject == subject, mycols[k]]- m) > 3*s)
+#       X[local_outlier, mycols[k]] = NA
+#     }
+#   }
+#   
+#   return(X)
+# }
 
 
 ########### stophere

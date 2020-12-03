@@ -4,7 +4,6 @@
 ###############################################################
 # functional tests
 ###############################################################
-library(irrICC)
 testaverage = function(y, X, ALTERNATIVE = 'greater')
 {
   var.names = c("INTERCEPT", "CONFIGURATION")
