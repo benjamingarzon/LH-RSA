@@ -7,8 +7,8 @@ for i in $DEPTHS; do
   echo T1 depth $i
   echo --------------------------------------------------------
 
-  seq 5 | xargs -P 5 -i ./prepare_fs_analysis.sh T1 $i {}
-#  seq 5 | xargs -i ./prepare_fs_analysis.sh T1 $i {}
+#  seq 5 | xargs -P 5 -i ./prepare_fs_analysis.sh T1 $i {}
+  seq 5 | xargs -i ./prepare_fs_analysis.sh T1 $i {}
 
 
 done 

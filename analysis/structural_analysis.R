@@ -149,7 +149,7 @@ if (T){
 results.thickness.cat.quadratic.rh = doit(DATADIR,
                                            testquadratic,
                                            'tests/quadratic.rh',
-                                           MASK = rh.cortex.mask,
+                                           MASK = rh.mask,
                                            IMAGES_LIST = 'rh.thickness.txt',
                                            IMAGING_NAME = 'rh.thickness.10.nii.gz',
                                            to_gifti = rh.cat.gii, alpha = alphavertex,
@@ -158,7 +158,7 @@ results.thickness.cat.quadratic.rh = doit(DATADIR,
 results.thickness.cat.quadratic.lh = doit(DATADIR,
                                            testquadratic,
                                            'tests/quadratic.lh',
-                                           MASK = lh.cortex.mask,
+                                           MASK = lh.mask,
                                            IMAGES_LIST = 'lh.thickness.txt',
                                            IMAGING_NAME = 'lh.thickness.10.nii.gz',
                                            to_gifti = lh.cat.gii, alpha = alphavertex,
@@ -168,7 +168,7 @@ results.thickness.cat.quadratic.lh = doit(DATADIR,
 results.thickness.cat.comparison.rh = doit(DATADIR,
                                            modelcomparison,
                                            'tests/comparison.rh',
-                                           MASK = rh.cortex.mask,
+                                           MASK = rh.mask,
                                            IMAGES_LIST = 'rh.thickness.txt',
                                            IMAGING_NAME = 'rh.thickness.10.nii.gz',
                                            to_gifti = rh.cat.gii, alpha = alphavertex,
@@ -178,10 +178,19 @@ results.thickness.cat.comparison.rh = doit(DATADIR,
 results.thickness.cat.comparison.lh = doit(DATADIR,
                                            modelcomparison,
                                            'tests/comparison.lh',
-                                           MASK = lh.cortex.mask,
+                                           MASK = lh.mask,
                                            IMAGES_LIST = 'lh.thickness.txt',
                                            IMAGING_NAME = 'lh.thickness.10.nii.gz',
                                            to_gifti = lh.cat.gii, alpha = alphavertex,
+                                           NPERMS = 0, shuffle_by = shuffle_by)
+
+results.thickness.cat.reliability.rh = doit(DATADIR,
+                                           reliability,
+                                           'tests/reliability.rh',
+                                           MASK = rh.cortex.mask,
+                                           IMAGES_LIST = 'rh.thickness.txt',
+                                           IMAGING_NAME = 'rh.thickness.10.nii.gz',
+                                           to_gifti = rh.cat.gii, alpha = alphavertex,
                                            NPERMS = 0, shuffle_by = shuffle_by)
 
 }
@@ -192,6 +201,14 @@ results.thickness.cat.comparison.lh = doit(DATADIR,
 #DATADIR='/home/benjamin.garzon/Data/LeftHand/Lund1/cat12crossbias12_15'
 DATADIR='/home/benjamin.garzon/Data/LeftHand/Lund1/cat12crossbias8_10'
 
+results.reliability.cat = doit(DATADIR, 
+                             reliability, 
+                             'tests/reliability', 
+                             MASK = 'mask_whole_brain.nii.gz',
+                             IMAGES_LIST = 'image_list.txt',
+                             IMAGING_NAME = vbm.data, upsample = upsample, 
+                             NPERMS = 0, shuffle_by = shuffle_by) 
+stophere
 results.quadratic.cat = doit(DATADIR, 
                              testquadratic, 
                              'tests/quadratic', 
@@ -242,7 +259,7 @@ if (F){
   results.thickness.reliability.rh = doit(DATADIR,
                                           reliability,
                                           'tests/thickness/reliability.rh',
-                                          MASK = 'rh.cortex.mask',
+                                          MASK = rh.cortex.mask,
                                           IMAGES_LIST = 'rh.thickness.txt',
                                           IMAGING_NAME = 'rh.thickness.nii.gz',
                                           to_gifti = rh.gii, alpha = alphavertex,
@@ -251,7 +268,7 @@ if (F){
   results.thickness.reliability.lh = doit(DATADIR,
                                           reliability,
                                           'tests/thickness/reliability.lh',
-                                          MASK = 'lh.cortex.mask',
+                                          MASK = lh.cortex.mask,
                                           IMAGES_LIST = 'lh.thickness.txt',
                                           IMAGING_NAME = 'lh.thickness.nii.gz',
                                           to_gifti = lh.gii, alpha = alphavertex,
@@ -298,7 +315,6 @@ results.thickness.quadratic.lh = doit(DATADIR,
                                       to_gifti = lh.gii, alpha = alphavertex, 
                                       NPERMS = NPERMS, shuffle_by = shuffle_by)
 
-stophere
 
 results.thickness.comparison.rh = doit(DATADIR,
                                        modelcomparison,
