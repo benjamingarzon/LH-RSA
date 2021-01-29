@@ -181,10 +181,6 @@ create_vol_rois = function(DATADIR,
     
   }
   
-  FIG_MAP = paste(gsub("/", "-", TESTDIR), TESTNAME, 'map', sep = '-')
-  FIG_ROI = paste(gsub("/", "-", TESTDIR), TESTNAME, 'roi', sep = '-')
-  
-  
   FIG_DATA = paste(gsub("/", "-", TESTDIR), TESTNAME, 'data', sep = '-')
   #browser()
   ggsave(
@@ -244,7 +240,13 @@ create_surf_rois = function(DATADIR,
     rois[hemi] = paste0(ROI_FILE, '.all.func.gii')
     tests[hemi] = TEST
     # plot data
-    load(file.path(DATADIR, DEST, 'results.rda'))
+    if (file.exists(file.path(DATADIR, DEST, 'results.rda'))) {
+      load(file.path(DATADIR, DEST, 'results.rda'))
+    }
+    else {
+      print("No results file found.") 
+      next
+      }
     mask <- fast_readnii(MASK_FILE)
     roimask <- readNIfTI(ROI_FILE)
     if (sum(roimask) == 0)
@@ -265,121 +267,7 @@ create_surf_rois = function(DATADIR,
       
       X = results$data[-results$excluded,]
       X$y = rowMeans(imaging.mat)
-      myplots[[j]] = plot_data(X, title)
-      
-      #       #browser()
-      # if (!wDEPTH)
-      #   model = lmer(y ~ 1 + SYSTEM + GROUP * (TRAINING + TRAINING.Q) + (1 |
-      #                                                                      SUBJECT),
-      #                data = X)
-      # else
-      #   model = lmer(y ~ 1 + SYSTEM + GROUP * DEPTH * (TRAINING + TRAINING.Q)  + (1 |
-      #                                                                               SUBJECT),
-      #                data = X)
-      # 
-      # print(summary(model))
-      # print(sum(!is.na(X$y)))
-      # 
-      # c.2        = c(0, 0, 0, 0, 0,  1,  0)
-      # c.4        = c(0, 0, 0, 0,  0, 0,  1)
-      # 
-      # #cont.mat = rbind(c.2, c.4)
-      # #glh = glht(model, linfct = cont.mat, alternative='greater')
-      # #sumglh = summary(glh, test = Ftest())
-      # #print(sumglh)
-      # # remove baseline and select
-      # 
-      # #X = X %>% filter(SYSTEM=='Classic')
-      # #browser()
-      # K = ifelse(wDEPTH, 20, 5)
-      # X = X %>% group_by(SUBJECT) %>% dplyr::mutate(TP.baseline = min(TP), n = sum(!is.na(y))) %>% filter(TP.baseline == 1) %>%
-      #   dplyr::mutate(y.dem = (y - y[TP.baseline]) / mean(y, na.rm = T) *
-      #                   100)
-      # print(table(paste(X$GROUP, X$TP)))
-      # 
-      # if (!wDEPTH) {
-      #   YMIN = min(X$y.dem, na.rm = T)
-      #   YMAX = max(X$y.dem, na.rm = T)
-      #   YMIN = YMIN + .1 * (YMAX - YMIN)
-      #   YMAX = YMAX - .1 * (YMAX - YMIN)
-      #   
-      #   X.sem = X %>% group_by(TP, GROUP) %>% dplyr::summarise(y.mean = mean(y.dem, na.rm = T),
-      #                                                          y.sem = sem(y.dem))
-      #   myplot = ggplot(NULL) +  geom_line(
-      #     data = X,
-      #     aes(
-      #       x = TP,
-      #       group = SUBJECT,
-      #       col = GROUP,
-      #       y = y.dem
-      #     ),
-      #     alpha = 0.2
-      #   ) + geom_point(alpha = 0.2) +
-      #     scale_colour_manual(values = myPalette) + theme_lh + theme(legend.position = "bottom") + ggtitle(title) + geom_hline(yintercept = 0, size = 0.2)
-      #   
-      #   myplots[[j]] = myplot +
-      #     geom_line(data = X.sem, aes(
-      #       x = TP,
-      #       group = GROUP,
-      #       col = GROUP,
-      #       y = y.mean
-      #     )) +
-      #     geom_point(data = X.sem, aes(
-      #       x = TP,
-      #       group = GROUP,
-      #       col = GROUP,
-      #       y = y.mean
-      #     )) +
-      #     geom_errorbar(
-      #       data = X.sem,
-      #       aes(
-      #         x = TP,
-      #         ymax = y.mean + y.sem,
-      #         ymin = y.mean - y.sem,
-      #         group = GROUP,
-      #         col = GROUP
-      #       )
-      #     ) + ylim(YMIN, YMAX)
-      #   
-      # } else {
-      #   YMIN = min(X$y, na.rm = T)
-      #   YMAX = max(X$y, na.rm = T)
-      #   YMIN = YMIN + .1 * (YMAX - YMIN)
-      #   YMAX = YMAX - .1 * (YMAX - YMIN)
-      #   
-      #   X.sem = X %>% group_by(TP, GROUP, DEPTH) %>% dplyr::summarise(y.mean = mean(y, na.rm = T), y.sem = sem(y)) #.dem
-      #   
-      #   #        myplot = ggplot(NULL) +  geom_line(data = X, aes(x = TP, group = SUBJECT, col = GROUP, y = y.dem), alpha = 0.2) + geom_point(alpha = 0.2) +
-      #   #          scale_colour_manual(values = myPalette) + theme_lh + theme(legend.position = "bottom")
-      #   
-      #   myplots[[j]] = ggplot(NULL) + geom_line(data = X.sem, aes(
-      #     x = TP,
-      #     group = GROUP,
-      #     col = GROUP,
-      #     y = y.mean
-      #   )) +
-      #     geom_point(data = X.sem, aes(
-      #       x = TP,
-      #       group = GROUP,
-      #       col = GROUP,
-      #       y = y.mean
-      #     )) +
-      #     geom_errorbar(
-      #       data = X.sem,
-      #       aes(
-      #         x = TP,
-      #         ymax = y.mean + y.sem,
-      #         ymin = y.mean - y.sem,
-      #         group = GROUP,
-      #         col = GROUP
-      #       )
-      #     ) +
-      #     ylim(YMIN, YMAX) + theme_lh + theme(legend.position = "bottom")  + ggtitle(title) + geom_hline(yintercept = 0, size = 0.2) +
-      #     facet_grid(. ~ DEPTH) +
-      #     scale_colour_manual(values = myPalette)
-      #   
-      # }
-      
+      myplots[[j]] = plot_data(X, title, wDEPTH)
       j = j + 1
     }
   }

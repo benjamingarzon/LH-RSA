@@ -25,11 +25,10 @@ THR = 0.95
 # VBM
 radius = 5
 DISTANCE = 50
-DATADIR = '~/Data/LeftHand/Lund1/cat12crossbias12_15'
+DATADIR = '~/Data/LeftHand/Lund1/cat12crossbias8_10'
 TESTDIR = 'tests/quadratic'
 MASK_NAME = 'mask.nii.gz'
 TESTNAME = 'GROUP_x_TRAINING-_p'
-
 
 #myplots.VBM = create_vol_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR)
 #################################################################################
@@ -46,13 +45,13 @@ DISTANCE = 20
 DATADIR = '/home/benjamin.garzon/Data/LeftHand/Lund1/cat12crossbias8_10/'
 TESTNAME = 'GROUP_x_TRAINING-_p'
 
-MASK_NAME = 'cortex.mask.nii.gz'
+MASK_NAME = 'mask.nii.gz'
 TESTDIR = 'tests/quadratic'
 
 SURFACE_FILES = c(surface.lh, surface.rh)
 names(SURFACE_FILES) = c("lh", "rh")
-#myplots = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR)
-#stophere
+myplots = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR)
+
 
 #################################################################################
 # thickness
@@ -72,9 +71,10 @@ DATADIR = '/home/share/MotorSkill/freesurfer/results/'
 MASK_NAME = 'mask.nii.gz'
 # thickness linear
 TESTDIR = 'tests/thickness/quadratic'
-TESTNAME = 'GROUP_x_TRAINING_p'
+TESTNAME = 'GROUP_x_TRAINING.Q-_p'
 myplots.thickness.linear.groupxtraining = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR)
 
+#stophere
 #TESTNAME = 'GROUP_x_TRAINING.Q_p'
 #myplots.thickness.quadratic.groupxtraining = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR)
 
@@ -84,7 +84,7 @@ TESTNAME = 'Omni_p'
 #myplots.thickness.quadratic.omni = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR)
 
 TESTDIR = 'tests/T1/quadratic'
-TESTNAME = 'thickness_GROUP_x_TRAINING_p'
+TESTNAME = 'thickness_GROUP_x_TRAINING-_p'
 myplots.T1.quadratic.groupxtraining = create_surf_rois(
   DATADIR,
   TESTDIR,
@@ -96,6 +96,9 @@ myplots.T1.quadratic.groupxtraining = create_surf_rois(
   myplots.thickness.linear.groupxtraining$ROI_FILE,
   wDEPTH = T
 )
+
+stophere
+
 TESTNAME = 'thickness_Omni_p'
 myplots.T1.quadratic.omni = create_surf_rois(
   DATADIR,
