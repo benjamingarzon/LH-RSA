@@ -4,14 +4,22 @@
 ###############################################################
 # functional tests
 ###############################################################
-library(irrICC)
+
+testaverage_simple = function(y, X, ALTERNATIVE = 'greater')
+{
+  val = mean(y)
+  names(val) = 'mean'
+  return(val)
+}
+  
+
 testaverage = function(y, X, ALTERNATIVE = 'greater')
 {
   var.names = c("INTERCEPT", "CONFIGURATION")
   contrast.names = c("INTERCEPT+", "INTERCEPT-")
   
-  c.1        = c(1)
-  c.2        = c(-1)
+  c.1        = c(1, 0)
+  c.2        = c(-1, 0)
   
   cont.mat = rbind(c.1, c.2)
   colnames(cont.mat) = var.names
@@ -49,140 +57,6 @@ testaverage = function(y, X, ALTERNATIVE = 'greater')
     names(val) = tags
     return(val)
     
-  }
-  )
-  
-}
-
-# testquadraticrun = function(y, X, ALTERNATIVE = 'greater')
-# { 
-#   var.names = c("INTERCEPT", "SYSTEM", "CONFIGURATION", "GROUP", "TRAINING", "TRAINING.Q", "GROUP_x_TRAINING", "GROUP_x_TRAINING.Q")
-#   contrast.names = c("GROUP_x_TRAINING+", "GROUP_x_TRAINING.Q+")
-#   
-#   c.1        = c(0, 0, 0, 0, 0, 0, 1, 0)
-#   c.2        = c(0, 0, 0, 0, 0, 0, 0, 1)
-#   
-#   cont.mat = rbind(c.1, c.2)
-#   colnames(cont.mat) = var.names
-#   rownames(cont.mat) = contrast.names
-#   
-#   tags = c(paste0(var.names, '_coef'),
-#            paste0(contrast.names, '_coef'),
-#            paste0(var.names, '_p'),
-#            paste0(contrast.names, '_p'))
-#   
-#   X$y = y
-# 
-#   tryCatch({ 
-#     model = lmer(y ~ 1  + SYSTEM + CONFIGURATION + GROUP*(TRAINING + TRAINING.Q) + 
-#                     + (1 + TRAINING + TRAINING.Q|SUBJECT/TP), data = X)
-#     
-#     pvalues = summary(model)$coefficients[ , "Pr(>|t|)"]
-#     coefs = fixef(model)
-#     glh = glht(model, linfct = cont.mat, alternative=ALTERNATIVE) 
-#     contrast.pvalues = summary(glh)$test$pvalues
-#     contrast.coefs = coef(glh)
-#     val = c(coefs, contrast.coefs, pvalues, contrast.pvalues)
-#     names(val) = tags
-#     return(val)
-#     
-#   },
-#   
-#   error = function(cond){
-#     # something went wrong, save special values
-#     pvalues = rep(2, length(var.names))
-#     coefs = rep(0, length(var.names))
-#     contrast.pvalues = rep(2, length(contrast.names))
-#     contrast.coefs = rep(0, length(contrast.names))
-#     val = c(coefs, contrast.coefs, pvalues, contrast.pvalues)
-#     names(val) = tags
-#     return(val)
-#     
-#   }
-#   )
-#   
-# }
-
-# hypothesis HF2
-testlinearrun = function(y, X, ALTERNATIVE = 'greater')
-{ 
-   var.names = c("INTERCEPT", "SYSTEM", "CONFIGURATION", "GROUP", "TRAINING", "GROUP_x_TRAINING")
-   contrast.names = c("GROUP_x_TRAINING-")
-
-  c.1        = c(0, 0, 0,  0, 0, -1)
-
-  cont.mat = rbind(c.1)
-  colnames(cont.mat) = var.names
-  rownames(cont.mat) = contrast.names
-
-  tags = c(paste0(var.names, '_coef'),
-           paste0(contrast.names, '_coef'),
-           paste0(var.names, '_p'),
-           paste0(contrast.names, '_p'))
-
-  X$y = y
-
-  tryCatch({
-    model = lmer(y ~ 1 + SYSTEM + CONFIGURATION + GROUP*TRAINING +
-                    + (1 + TRAINING |SUBJECT/TP), data = X)
-
-    pvalues = summary(model)$coefficients[ , "Pr(>|t|)"]
-    coefs = fixef(model)
-    glh = glht(model, linfct = cont.mat, alternative=ALTERNATIVE)
-    contrast.pvalues = summary(glh)$test$pvalues
-    contrast.coefs = coef(glh)
-    val = c(coefs, contrast.coefs, pvalues, contrast.pvalues)
-    names(val) = tags
-    return(val)
-
-  },
-
-  error = function(cond){
-    # something went wrong, save special values
-    pvalues = rep(2, length(var.names))
-    coefs = rep(0, length(var.names))
-    contrast.pvalues = rep(2, length(contrast.names))
-    contrast.coefs = rep(0, length(contrast.names))
-    val = c(coefs, contrast.coefs, pvalues, contrast.pvalues)
-    names(val) = tags
-    return(val)
-
-  }
-  )
-
-}
-
-modelcomparisonrun = function(y, X)
-{
-  X$y = y
-  
-  tryCatch({ 
-    model.q = lmer(y ~ 1 + SYSTEM + CONFIGURATION + GROUP*(TRAINING + TRAINING.Q) + 
-                    + (1 + TRAINING + TRAINING.Q|SUBJECT/TP), data = X)
-
-    model.a = lmer(y ~ 1 + SYSTEM + CONFIGURATION + GROUP*(TRAINING + TRAINING.A) + 
-                     + (1 + TRAINING + TRAINING.A|SUBJECT/TP), data = X)
-    
-    model.l = lmer(y ~ 1 + SYSTEM + CONFIGURATION + GROUP*TRAINING + 
-                      + (1 + TRAINING|SUBJECT/TP), data = X)
-    
-    BIC.val = BIC(model.q, model.a, model.l)
-    
-    val = c(BIC.val$BIC[1], 
-            BIC.val$BIC[2], 
-            BIC.val$BIC[3])
-    val = c(val, which.min(val)) # return the best model
-    names(val) = c("BIC_quadratic", "BIC_asymptotic", "BIC_linear", "Best")
-    
-    
-    return(val)
-    
-  },
-  
-  error = function(cond){
-    val = rep(0, 4)
-    names(val) = c("BIC_quadratic", "BIC_asymptotic", "BIC_linear", "Best")
-    return(val)
   }
   )
   

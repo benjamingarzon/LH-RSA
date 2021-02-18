@@ -2,6 +2,7 @@
 # Load covariate data
 ###############################################################
 RESPONSES_DIR= '~/Data/LeftHand/Lund1/responses/'
+MOTION_FILE= '~/Data/LeftHand/Lund1/fmriprep/motion.csv'
 NREPS = 10 # reps for inputation
 
 library(dplyr)
@@ -13,12 +14,12 @@ system.table = read.table(file.path(RESPONSES_DIR, "ClassicMTX8.csv"), header = 
   dplyr::rename(SUBJECT = Subject, TP = Session, system = Classic.MTX8)
 schedules = read.table('~/Data/LeftHand/Lund1/responses/all_lue_schedule_tables.csv', header = T)
 
-aseg = read.table('/home/share/MotorSkill/freesurfer/asegstats.csv', header = T) %>% 
-  dplyr::rename(SCAN = Measure.volume, TIV = EstimatedTotalIntraCranialVol) %>% 
-  dplyr::mutate(SUBJECT = substring(SCAN, 5, 11), TP = substring(SCAN, 13, 13)) %>%
-  dplyr::select(SUBJECT, TP, TIV) %>% group_by(SUBJECT) %>% dplyr::mutate(medianTIV = median(TIV), sdTIV = sd(TIV)) 
-aseg = merge(aseg, system.table, by = c("SUBJECT", "TP"))
-print(ggplot(aseg, aes(x = reorder(SUBJECT, medianTIV), y = TIV)) + geom_boxplot())
+#aseg = read.table('/home/share/MotorSkill/freesurfer/asegstats.csv', header = T) %>% 
+#  dplyr::rename(SCAN = Measure.volume, TIV = EstimatedTotalIntraCranialVol) %>% 
+#  dplyr::mutate(SUBJECT = substring(SCAN, 5, 11), TP = substring(SCAN, 13, 13)) %>%
+#  dplyr::select(SUBJECT, TP, TIV) %>% group_by(SUBJECT) %>% dplyr::mutate(medianTIV = median(TIV), sdTIV = sd(TIV)) 
+#aseg = merge(aseg, system.table, by = c("SUBJECT", "TP"))
+#print(ggplot(aseg, aes(x = reorder(SUBJECT, medianTIV), y = TIV)) + geom_boxplot())
 
 myvars = c('physical_activity', 
          'sleep', 
@@ -30,7 +31,8 @@ myvars = c('physical_activity',
 # aggregate
 covars.table = trials.table %>% filter(mod(sess_num, 6) == 0)%>% group_by(username, sess_num) %>% 
   summarise_at(myvars, mean) %>% 
-  mutate(SESS_HOME = sess_num, SUBJECT = username, TP = SESS_HOME %/% 6 + 1) 
+  mutate(SESS_HOME = sess_num, SUBJECT = as.factor(username), TP = SESS_HOME %/% 6 + 1) 
+
 
 covars.table = merge(covars.table, system.table, by = c("SUBJECT", "TP"), all.y = T)
 covars.table = merge(covars.table, 
@@ -40,6 +42,8 @@ covars.table = merge(covars.table,
                                                             physical_activity, sleep, cigarettes, 
                                                             liquid, coffee, alcohol, system) 
 
+covars.table$system = as.factor(covars.table$system)
+covars.table$gender = as.factor(covars.table$gender)
 
 incomplete = !complete.cases(covars.table)
 #covars.table[, myvars] = missForest(covars.table[, myvars])$ximp
@@ -134,3 +138,9 @@ theme_lh <- function () {
 # untrained variance > trained variance
 #plot.sdMT.diff = ggplot(last_trials.diff, aes(x = TP, y = sdMT.log.untrained_trained, col = GROUP, group = GROUP)) + geom_smooth(lwd=1) + geom_point(size = 3) + theme_lh()
 #print(plot.sdMT.diff)
+
+# load motion indices
+motion = read.table(MOTION_FILE, sep = ' ')%>% 
+  dplyr::rename(SUBJECT = subject, TP = session, RUN = run)%>%
+  dplyr::mutate(SUBJECT = substr(SUBJECT, 5, 12))%>%
+  dplyr::select(-group)
