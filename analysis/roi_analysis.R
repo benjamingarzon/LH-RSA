@@ -1,101 +1,80 @@
-
-
 # load model
 rm(list = ls())
 cat("\014")
 
 # plot data
 
-# run only for Classic within mask
-# plot t1 from where there is an effect
-# write how many observations
-
 setwd("~/Software/LeftHand/analysis")
 source("./plot_funcs.R")
 
 NCOL = 4
 
-FIGS_DIR = '~/Data/LeftHand/Lund1/figs'
+FIGS_DIR = '~/Data/LeftHand/Lund1/figs/structure'
 dir.create(FIGS_DIR)
-#unlink(file.path(FIGS_DIR, 'figs','*.png'))
-
-THR = 0.95
 
 #################################################################################
 # VBM
 radius = 5
 DISTANCE = 50
-DATADIR = '~/Data/LeftHand/Lund1/cat12crossbias8_10'
+DATADIR = '~/Data/LeftHand/Lund1/cat12/'
 TESTDIR = 'tests/quadratic'
 MASK_NAME = 'mask.nii.gz'
-TESTNAME = 'GROUP_x_TRAINING-_p'
+TESTNAME = 'Omni_p'
+THR=0.95
 
-#myplots.VBM = create_vol_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR)
-#################################################################################
-# cat thickness
-
-surface.rh = '/home/benjamin.garzon/Software/spm/spm12/toolbox/cat12/templates_surfaces/rh.central.freesurfer.gii'
-surface.lh = '/home/benjamin.garzon/Software/spm/spm12/toolbox/cat12/templates_surfaces/lh.central.freesurfer.gii'
-
-inflated.rh = '/home/benjamin.garzon/Data/LeftHand/Lund1/labels/subject/fsaverage/surf/rh.inflated'
-inflated.lh = '/home/benjamin.garzon/Data/LeftHand/Lund1/labels/subject/fsaverage/surf/lh.inflated'
-
-radius = 10
-DISTANCE = 20
-DATADIR = '/home/benjamin.garzon/Data/LeftHand/Lund1/cat12crossbias8_10/'
-TESTNAME = 'GROUP_x_TRAINING-_p'
-
-MASK_NAME = 'mask.nii.gz'
-TESTDIR = 'tests/quadratic'
-
-SURFACE_FILES = c(surface.lh, surface.rh)
-names(SURFACE_FILES) = c("lh", "rh")
-myplots = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR)
-
+myplots.VBM = create_vol_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, 'GMV')
 
 #################################################################################
 # thickness
 
+surface.rh='/home/benjamin.garzon/Data/LeftHand/Lund1/labels/subject/fsaverage/surf/rh.pial.gii'
+surface.lh='/home/benjamin.garzon/Data/LeftHand/Lund1/labels/subject/fsaverage/surf/lh.pial.gii'
 
-surface.rh = '/home/benjamin.garzon/Data/LeftHand/Lund1/labels/subject/fsaverage/surf/rh.pial.gii'
-surface.lh = '/home/benjamin.garzon/Data/LeftHand/Lund1/labels/subject/fsaverage/surf/lh.pial.gii'
 SURFACE_FILES = c(surface.lh, surface.rh)
 names(SURFACE_FILES) = c("lh", "rh")
 
-inflated.rh = '/home/benjamin.garzon/Data/LeftHand/Lund1/labels/subject/fsaverage/surf/rh.inflated'
-inflated.lh = '/home/benjamin.garzon/Data/LeftHand/Lund1/labels/subject/fsaverage/surf/lh.inflated'
+inflated.rh='/home/benjamin.garzon/Data/LeftHand/Lund1/labels/subject/fsaverage/surf/rh.inflated'
+inflated.lh='/home/benjamin.garzon/Data/LeftHand/Lund1/labels/subject/fsaverage/surf/lh.inflated'
 
-DISTANCE = 20
+DISTANCE=20
+radius=10
 DATADIR = '/home/share/MotorSkill/freesurfer/results/'
 
 MASK_NAME = 'mask.nii.gz'
+THR = 0.95
+
 # thickness linear
 TESTDIR = 'tests/thickness/quadratic'
-TESTNAME = 'GROUP_x_TRAINING.Q-_p'
-myplots.thickness.linear.groupxtraining = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR)
+TESTNAME = 'Omni_p'
+myplots.thickness.Omni_p = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, 'Thickness')
 
-#stophere
 #TESTNAME = 'GROUP_x_TRAINING.Q_p'
 #myplots.thickness.quadratic.groupxtraining = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR)
 
-TESTDIR = 'tests/thickness/quadratic'
-TESTNAME = 'Omni_p'
-#THR = 0.95
-#myplots.thickness.quadratic.omni = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR)
 
-TESTDIR = 'tests/T1/quadratic'
-TESTNAME = 'thickness_GROUP_x_TRAINING-_p'
-myplots.T1.quadratic.groupxtraining = create_surf_rois(
-  DATADIR,
-  TESTDIR,
-  TESTNAME,
-  DISTANCE,
-  radius,
-  MASK_NAME,
-  THR,
-  myplots.thickness.linear.groupxtraining$ROI_FILE,
-  wDEPTH = T
-)
+stophere
+#################################################################################
+# cat thickness
+
+surface.rh='/home/benjamin.garzon/Software/spm/spm12/toolbox/cat12/templates_surfaces_32k/rh.central.freesurfer.gii'
+surface.lh='/home/benjamin.garzon/Software/spm/spm12/toolbox/cat12/templates_surfaces_32k/lh.central.freesurfer.gii'
+
+DISTANCE=20
+radius=5
+DATADIR = '/home/benjamin.garzon/Data/LeftHand/Lund1/cat12cross/'
+FIGS_DIR = file.path(DATADIR, 'figs')
+dir.create(FIGS_DIR)
+TESTNAME = 'TRAINING+_p.func.gii'
+
+MASK_NAME = 'cortex.mask.nii.gz'
+TESTDIR = 'tests/linear'
+
+SURFACE_FILES = c(surface.lh, surface.rh)
+names(SURFACE_FILES) = c("lh", "rh")
+#myplots = create_surf_rois(DATADIR, TESTDIR, DISTANCE, radius, MASK_NAME)
+#print(ggarrange(plotlist = myplots, nrow = ceiling(length(myplots)/NCOL), ncol = NCOL))
+
+
 
 stophere
 

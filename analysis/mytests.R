@@ -1,6 +1,153 @@
 ###############################################################
 # Define the tests
 ###############################################################
+
+###############################################################
+# structural tests
+###############################################################
+
+
+
+# structural hypotheses
+
+testquadratic = function(y, X, ALTERNATIVE = 'greater')
+{
+  var.names = c("INTERCEPT", "SYSTEM", "GROUP" , "TRAINING", "TRAINING.Q", "GROUP_x_TRAINING", "GROUP_x_TRAINING.Q")
+  
+  contrast.names = c(
+    "GROUP_x_TRAINING+", 
+    "GROUP_x_TRAINING.Q+" 
+  )
+  
+  c.1        = c(0, 0, 0, 0, 0,  1,  0)
+  c.3        = c(0, 0, 0, 0,  0,  0,  1)
+
+  cont.mat = rbind(c.1, c.3)
+  colnames(cont.mat) = var.names
+  rownames(cont.mat) = contrast.names
+  
+  tags = c(paste0(var.names, '_coef'),
+           paste0(contrast.names, '_coef'),
+           paste0(var.names, '_tstat'),
+           paste0(contrast.names, '_tstat'),
+           paste0(var.names, '_p'),
+           paste0(contrast.names, '_p'))
+  
+  X$y = y
+  tryCatch({ 
+    model = lmer(y ~ 1 + SYSTEM + GROUP*(TRAINING + TRAINING.Q) + (1 + TRAINING + TRAINING.Q|SUBJECT), data = X)
+    model_type = 3
+    if (isSingular(model)) {
+      model = lmer(y ~ 1 + SYSTEM + GROUP*(TRAINING + TRAINING.Q) + (1 + TRAINING |SUBJECT), data = X)
+      model_type = 2
+    }
+    if (isSingular(model)) {
+      model = lmer(y ~ 1 + SYSTEM + GROUP*(TRAINING + TRAINING.Q) + (1 |SUBJECT), data = X)
+      model_type = 1
+    }
+    coefs = fixef(model)
+    pvalues = summary(model)$coefficients[ , "Pr(>|t|)"]
+    tstats = summary(model)$coefficients[ , "t value"]
+    glh = glht(model, linfct = cont.mat, alternative=ALTERNATIVE)
+    contrast.pvalues = as.numeric(summary(glh)$test$pvalues)
+    contrast.coefs = coef(glh)
+    contrast.tstats = summary(glh)$test$tstat
+    names(contrast.pvalues) = names(contrast.coefs)
+    val = c(coefs, contrast.coefs, tstats, contrast.tstats, pvalues, contrast.pvalues)
+    
+    sumglh = summary(glh, test = Ftest())
+    val = c(val, sumglh$test$fstat, sumglh$test$SSH, sumglh$test$pvalue, model_type)
+    names(val) = c(tags, 'OmniF_tstat', 'Omni_coef', 'Omni_p', 'modeltype_coef')
+    
+    return(val)
+    
+  },
+  
+  error = function(cond){
+    # something went wrong, save special values
+    pvalues = rep(2, length(var.names))
+    coefs = rep(0, length(var.names))
+    contrast.pvalues = rep(2, length(contrast.names))
+    contrast.coefs = rep(0, length(contrast.names))
+    val = c(coefs, contrast.coefs, pvalues, contrast.pvalues)
+    val = c(val, rep(0, 3), -1)
+    names(val) = c(tags, 'OmniF_tstat', 'Omni_coef', 'Omni_p', 'modeltype_coef')
+    return(val)
+    
+  }
+  )
+  
+}
+
+
+modelcomparison = function(y, X)
+{
+  
+  X$y = y
+  
+  tryCatch({ 
+    model.l = lmer(y ~ 1 + SYSTEM + GROUP*TRAINING + TRAINING.Q  + (1 |SUBJECT), data = X)
+    model.a = lmer(y ~ 1 + SYSTEM + GROUP*(TRAINING + TRAINING.A) + (1 |SUBJECT), data = X)
+    model.q = lmer(y ~ 1 + SYSTEM + GROUP*(TRAINING + TRAINING.Q) + (1 |SUBJECT), data = X)
+    
+    BIC.val = BIC(model.q, model.a, model.l)
+    
+    val = c(BIC.val$BIC[1], 
+            BIC.val$BIC[2], 
+            BIC.val$BIC[3])
+    val = c(val, BIC.val$BIC[3] - BIC.val$BIC[1], which.min(val)) # return the best model
+    names(val) = c("BIC_quadratic", "BIC_asymptotic", "BIC_linear", "BIC_linear-BIC_quadratic", "Best")
+    
+    return(val)
+  },
+  
+  error = function(cond){
+    val = rep(0, 5)
+    names(val) = c("BIC_quadratic", "BIC_asymptotic", "BIC_linear", "BIC_linear-BIC_quadratic", "Best")
+    return(val)
+  }
+  )
+  
+}
+
+
+reliability = function(y, X)
+{
+  
+  X$y = y
+  X = X %>% filter(GROUP == 'Control' & SYSTEM == 'Classic') 
+  tryCatch({ 
+    
+    XX = cast(X, 'SUBJECT ~ TP', value = 'y')
+    myICC = icc(XX[, -1], model = "twoway", type = "agreement")
+    val = myICC$value
+    names(val) = c("ICC")
+    
+    return(val)
+    
+  },
+  
+  error = function(cond){
+    val = 0
+    names(val) = c("ICC")
+    return(val)
+  }
+  )
+  
+}
+
+
+
+## same tests, including depth to T1
+
+
+
+
+
+
+
+
+### deprecated
 ###############################################################
 # functional tests
 ###############################################################
@@ -447,76 +594,6 @@ testlinear_Classic = function(y, X, ALTERNATIVE = 'greater')
 }
 
 
-# hypotheses HS1.1 and HS1.2
-
-testquadratic = function(y, X, ALTERNATIVE = 'greater')
-{
-  var.names = c("INTERCEPT", "SYSTEM", "GROUP" , "TRAINING", "TRAINING.Q", "GROUP_x_TRAINING", "GROUP_x_TRAINING.Q")
-
-  contrast.names = c(
-    #"GROUP_x_TRAINING+", 
-    "GROUP_x_TRAINING-", 
-    #"GROUP_x_TRAINING.Q+" 
-    "GROUP_x_TRAINING.Q-"
-    )
-
-  #c.1        = c(0, 0, 0, 0, 0,  1,  0)
-  c.2        = c(0, 0, 0, 0, 0,  -1,  0)
-#  c.3        = c(0, 0, 0, 0,  0,  0,  1)
-  c.4        = c(0, 0, 0, 0,  0, 0,  -1)
-  
-  cont.mat = rbind(#c.1, 
-                   c.2, 
-                   #c.3#, 
-                   c.4
-                   )
-  colnames(cont.mat) = var.names
-  rownames(cont.mat) = contrast.names
-  
-  tags = c(paste0(var.names, '_coef'),
-           paste0(contrast.names, '_coef'),
-           paste0(var.names, '_tstat'),
-           paste0(contrast.names, '_tstat'),
-           paste0(var.names, '_p'),
-           paste0(contrast.names, '_p'))
-  
-  X$y = y
-  tryCatch({ 
-#    model = lmer(y ~ 1 + SYSTEM + GROUP*(TRAINING + TRAINING.Q) + (1 + TRAINING + TRAINING.Q|SUBJECT), data = X)
-    model = lmer(y ~ 1 + SYSTEM + GROUP*(TRAINING + TRAINING.Q) + (1|SUBJECT), data = X)
-    
-    coefs = fixef(model)
-    pvalues = summary(model)$coefficients[ , "Pr(>|t|)"]
-    tstats = summary(model)$coefficients[ , "t value"]
-    glh = glht(model, linfct = cont.mat, alternative=ALTERNATIVE)
-    contrast.pvalues = summary(glh)$test$pvalues
-    contrast.coefs = coef(glh)
-    contrast.tstats = summary(glh)$test$tstat
-    val = c(coefs, contrast.coefs, tstats, contrast.tstats, pvalues, contrast.pvalues)
-      
-    sumglh = summary(glh, test = Ftest())
-    val = c(val, sumglh$test$fstat, sumglh$test$coef, sumglh$test$pvalue)
-    names(val) = c(tags, 'OmniF_tstat', 'Omni_coef', 'Omni_p')
-    
-    return(val)
-    
-  },
-  
-  error = function(cond){
-    # something went wrong, save special values
-    pvalues = rep(2, length(var.names))
-    coefs = rep(0, length(var.names))
-    contrast.pvalues = rep(2, length(contrast.names))
-    contrast.coefs = rep(0, length(contrast.names))
-    val = c(coefs, contrast.coefs, pvalues, contrast.pvalues)
-    val = c(val, 0, 0)
-    names(val) = c(tags, 'Omni_F', 'Omni_p')
-    return(val)
-    
-  }
-  )
-  
-}
 
 testquadratic_Classic = function(y, X, ALTERNATIVE = 'greater')
 {
@@ -640,68 +717,7 @@ testquadratic_depth = function(y, X, ALTERNATIVE = 'greater')
 }
 
 
-reliability = function(y, X)
-{
-  
-  X$y = y
-  X = X %>% filter(GROUP == 'Control' & SYSTEM == 'Classic') 
-  tryCatch({ 
-    
-    XX = cast(X, 'SUBJECT ~ TP', value = 'y')
-    myICC = icc(XX[, -1], model = "twoway", type = "agreement")
-    val = myICC$value
-    names(val) = c("ICC")
-    
-    return(val)
-    
-  },
-  
-  error = function(cond){
-    val = 0
-    names(val) = c("ICC")
-    return(val)
-  }
-  )
-  
-}
 
-
-modelcomparison = function(y, X)
-{
-  
-  X$y = y
-  
-  #X$TRAINING = scale(X$TRAINING, center = T, scale = T) 
-  #X$TRAINING.A = scale(X$TRAINING.A, center = T, scale = T) 
-  #X$TRAINING.Q = scale(X$TRAINING.Q, center = T, scale = T) 
-  
-  tryCatch({ 
-#    model.l = lmer(y ~ 1 + SYSTEM + GROUP*(TRAINING)  + (1 + TRAINING|SUBJECT), data = X)
-#    model.a = lmer(y ~ 1 + SYSTEM + GROUP*(TRAINING + TRAINING.A) + (1 + TRAINING + TRAINING.A|SUBJECT), data = X)
-#    model.q = lmer(y ~ 1 + SYSTEM + GROUP*(TRAINING + TRAINING.Q) + (1 + TRAINING + TRAINING.Q|SUBJECT), data = X)
-    model.l = lmer(y ~ 1 + SYSTEM + GROUP*TRAINING + TRAINING.Q  + (1 |SUBJECT), data = X)
-    model.a = lmer(y ~ 1 + SYSTEM + GROUP*(TRAINING + TRAINING.A) + (1 |SUBJECT), data = X)
-    model.q = lmer(y ~ 1 + SYSTEM + GROUP*(TRAINING + TRAINING.Q) + (1 |SUBJECT), data = X)
-    
-    BIC.val = BIC(model.q, model.a, model.l)
-    
-    val = c(BIC.val$BIC[1], 
-            BIC.val$BIC[2], 
-            BIC.val$BIC[3])
-    val = c(val, BIC.val$BIC[3] - BIC.val$BIC[1], which.min(val)) # return the best model
-    names(val) = c("BIC_quadratic", "BIC_asymptotic", "BIC_linear", "BIC_linear-BIC_quadratic", "Best")
-    
-    return(val)
-  },
-  
-  error = function(cond){
-    val = rep(0, 5)
-    names(val) = c("BIC_quadratic", "BIC_asymptotic", "BIC_linear", "BIC_linear-BIC_quadratic", "Best")
-    return(val)
-  }
-  )
-  
-}
 
 modelcomparison_depth = function(y, X)
 {

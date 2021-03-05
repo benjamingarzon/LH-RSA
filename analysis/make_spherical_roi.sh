@@ -7,15 +7,28 @@ DISTANCE=$3
 RADIUS=$4
 OUTPUT=$5
 THR=$6
+MINSIZE=50
 
 EXTREMA=$WD/extrema.nii.gz
+CLUSTERS=$WD/clusters.nii.gz
 
 #if [ ! -e $EXTREMA ]; then
+$HCPDIR/wb_command -volume-find-clusters \
+      $METRIC \
+      $THR \
+      $MINSIZE \
+      $CLUSTERS
+      
 $HCPDIR/wb_command -volume-extrema \
       $METRIC \
       $DISTANCE \
       $EXTREMA -only-maxima -threshold 0 $THR
 #fi
+
+fslmaths $EXTREMA -mas $CLUSTERS $EXTREMA
+
+mri_volcluster --in $METRIC --thmin $THR --minsize $MINSIZE --sum $WD/clusters.sum --ocn $WD/clusters_fs.nii.gz
+cat $WD/clusters.sum
 
 if [ `$HCPDIR/wb_command -volume-stats $EXTREMA -reduce MAX` -eq '0' ]; then 
 echo "No clusters!"

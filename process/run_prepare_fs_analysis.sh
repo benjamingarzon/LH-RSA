@@ -1,5 +1,9 @@
 #!/usr/bin/sh
 
+# run:
+seq 5 | xargs -P 5 -i ./prepare_fs_analysis.sh thickness 0 {}
+
+exit 1
 
 DEPTHS="-0.20 0.00 0.20 0.40 0.60 0.80" 
 for i in $DEPTHS; do 
@@ -15,8 +19,4 @@ done
 
 exit 1 
 
-# run:
-# seq 5 | xargs -P 5 -i ./prepare_fs_analysis.sh thickness 0 {}
-
-exit 1
 

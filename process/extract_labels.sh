@@ -163,4 +163,3 @@ done
 #    ${hemi}.mask.func.gii \
 #    ${hemi}.mask.nii.gz
 
-

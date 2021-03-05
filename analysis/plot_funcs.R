@@ -14,20 +14,21 @@ sem = function(x)
   sd(x, na.rm = T) / sqrt(length(x))
 
 
-plot_data = function(X, title, wDEPTH = F) {
+plot_data = function(X, title, YLABEL = 'GMV', wDEPTH = F) {
   if (!wDEPTH) {
-    model = lmer(y ~ 1 + SYSTEM + GROUP * (TRAINING + TRAINING.Q) + (1 |
-                                                                       SUBJECT),
-                 data = X)
     
-    model.experimental = lmer(
-      y ~ 1 + SYSTEM + (TRAINING + TRAINING.Q)  + (1 |
-                                                     SUBJECT),
-      data = subset(X, GROUP == "Experimental")
-    )
-    print("Only experimental: ")
-    print(summary(model.experimental))
+    model = lmer(y ~ 1 + SYSTEM + GROUP*(TRAINING + TRAINING.Q) + (1 + TRAINING + TRAINING.Q|SUBJECT), data = X)
+    model_type = 0 
+    if (isSingular(model)) {
+      model = lmer(y ~ 1 + SYSTEM + GROUP*(TRAINING + TRAINING.Q) + (1 + TRAINING |SUBJECT), data = X)
+      model_type = 1
+    }
+    if (isSingular(model)) {
+      model = lmer(y ~ 1 + SYSTEM + GROUP*(TRAINING + TRAINING.Q) + (1 |SUBJECT), data = X)
+      model_type = 2
+    }
     
+  
   }
   else {
     model = lmer(y ~ 1 + SYSTEM + GROUP * DEPTH * (TRAINING + TRAINING.Q)  + (1 |
@@ -82,7 +83,11 @@ plot_data = function(X, title, wDEPTH = F) {
                       group = GROUP,
                       col = GROUP
                     )) +
-      scale_colour_manual(values = myPalette) + theme_lh + theme(legend.position = "bottom") + 
+      scale_colour_manual(values = myPalette) + theme_lh + 
+      theme(legend.position = "bottom", legend.title = element_blank()) + 
+      xlab('Scanning session') + 
+      ylab(YLABEL) + 
+      scale_x_continuous(breaks = seq(7)) + 
       ggtitle(title) + geom_hline(yintercept = 0, size = 0.2)
     #+ ylim(YMIN, YMAX)
     
@@ -91,7 +96,7 @@ plot_data = function(X, title, wDEPTH = F) {
     YMAX = max(X$y, na.rm = T)
     YMIN = YMIN + .1 * (YMAX - YMIN)
     YMAX = YMAX - .1 * (YMAX - YMIN)
-    
+
     X.sem = X %>% group_by(TP, GROUP, DEPTH) %>% dplyr::summarise(y.mean = mean(y, na.rm = T), y.sem = sem(y)) #.dem
     
     #        myplot = ggplot(NULL) +  geom_line(data = X, aes(x = TP, group = SUBJECT, col = GROUP, y = y.dem), alpha = 0.2) + geom_point(alpha = 0.2) +
@@ -131,12 +136,13 @@ create_vol_rois = function(DATADIR,
                            DISTANCE,
                            radius,
                            MASK_NAME,
-                           THR) {
+                           THR, 
+                           YLABEL) {
   tests = NULL
   rois = NULL
   myplots = NULL
   j = 1
-  
+
   MASK_FILE = file.path(DATADIR, MASK_NAME)
   TEST = file.path(DATADIR, TESTDIR, paste(TESTNAME, 'nii.gz', sep = '.'))
   ROI_FILE = file.path(DATADIR,
@@ -153,7 +159,7 @@ create_vol_rois = function(DATADIR,
   )
   print(command)
   system(command)
-  
+
   # plot data
   load(file.path(DATADIR, TESTDIR, 'results.rda'))
   mask <- fast_readnii(MASK_FILE)
@@ -176,7 +182,7 @@ create_vol_rois = function(DATADIR,
     #browser()
     X = results$data[-results$excluded,]
     X$y = rowMeans(imaging.mat)
-    myplots[[j]] = plot_data(X, title)
+    myplots[[j]] = plot_data(X, title, YLABEL)
     j = j + 1
     
   }
@@ -205,6 +211,7 @@ create_surf_rois = function(DATADIR,
                             radius,
                             MASK_NAME,
                             THR,
+                            YLABEL,
                             PRECOMP_ROI = NULL,
                             wDEPTH = F) {
   tests = NULL
@@ -267,7 +274,7 @@ create_surf_rois = function(DATADIR,
       
       X = results$data[-results$excluded,]
       X$y = rowMeans(imaging.mat)
-      myplots[[j]] = plot_data(X, title, wDEPTH)
+      myplots[[j]] = plot_data(X, title, YLABEL, wDEPTH)
       j = j + 1
     }
   }

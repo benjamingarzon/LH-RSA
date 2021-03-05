@@ -82,6 +82,7 @@ training.asymptotic = c(training.quadratic[1:4], rep(training.quadratic[4], 3))
 
 training = scale(training, center = T, scale = F)/10
 training.quadratic = scale(training.quadratic, center = T, scale = F)/100
+training.cubic = scale(training.quadratic, center = T, scale = F)/1000
 training.asymptotic = scale(training.asymptotic, center = T, scale = F)/100 
 training.level = c(-1, NA, 1, 1, 1, 1, NA)
 training.level = c(-1, 1, 1, NA, NA, NA, NA)
@@ -90,13 +91,14 @@ plot(training, training.quadratic, type = "b", xlim = c(-2, 2))
 points(training, training, type = "b", col = "green")
 points(training, training.asymptotic, type = "b", col = "red")
 
-covars.table$GROUP = "Experimental"
+covars.table$GROUP = "Intervention"
 covars.table$GROUP[grep("lue.2", covars.table$SUBJECT)] = "Control"
-covars.table$GROUP.NUM = ifelse(covars.table$GROUP == "Experimental", 1, 0)  
+covars.table$GROUP.NUM = ifelse(covars.table$GROUP == "Intervention", 1, 0)  
 covars.table = covars.table %>%  mutate(GROUP = as.factor(GROUP))
 
 covars.table$TRAINING = training[covars.table$TP]
 covars.table$TRAINING.Q = training.quadratic[covars.table$TP]
+covars.table$TRAINING.C = training.cubic[covars.table$TP]
 covars.table$TRAINING.A = training.asymptotic[covars.table$TP]
 
 # interactions
