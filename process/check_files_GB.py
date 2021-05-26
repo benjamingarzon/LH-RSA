@@ -10,27 +10,22 @@ Script to check which data are complete.
 import glob, os
 import numpy as np 
 import pandas as pd
+import nibabel as nib
 
 # stages: 
-
 # read scan lists
-
 # freesurfer results
-
 # VBM results
-
 # processed fMRI
-
-# processed MVPA
-
 # processed anatomical
-
 # invalid files 
 
-BIDS_DIR = '~/Data/LeftHand/Lund1/data_BIDS/'
-FS_DIR = '~/Data/LeftHand/freesurfer/'
-SCAN_LIST_DIR = '/Data/LeftHand/Lund1/QC/scan_lists'
-QC_DIR = '~/Data/LeftHand/Lund1/QC/'
+BIDS_DIR = '/mnt/share/MotorSkill/data_BIDS/'
+FS_DIR = '/data/lv0/MotorSkill/freesurfer/'
+SCAN_LIST_DIR = '/data/lv0/MotorSkill/QC/scan_lists'
+QC_DIR = '/data/lv0/MotorSkill/QC/'
+ANALYSIS_DIR = '/mnt/share/MotorSkill/analysis/' #'/data/lv0/MotorSkill/fmriprep/analysis'
+FMRIPREP_DIR = '/data/lv0/MotorSkill/fmriprep/fmriprep'
 # check complete data
 scan_lists = glob.glob(os.path.join(SCAN_LIST_DIR, 'Scan_list_wave?.csv'))
 BIDS_list = [os.path.basename(x) 
@@ -46,7 +41,7 @@ runs = range(1, 6)
 # define some functions
 ###############################################################################    
 
-def check_files(subject, mydir, session, filenames, folder, 
+def check_files_2(subject, mydir, session, filenames, folder, 
                 prefix = None, 
                 add_ses = True):
     
@@ -57,7 +52,7 @@ def check_files(subject, mydir, session, filenames, folder,
         
     if prefix:
         filenames = [ prefix +  x for x in filenames ]
-        
+            
     available = np.array([
         os.path.exists(
                 os.path.join(
@@ -70,6 +65,45 @@ def check_files(subject, mydir, session, filenames, folder,
     available = 1*available
     
     return(available.tolist())
+
+def check_files(subject, mydir, session, filenames, folder, 
+                prefix = None, 
+                add_ses = True,
+                count = False):
+    
+    if add_ses:
+        ses_folder = 'ses-%d'%(session)
+    else:
+        ses_folder = ''
+        
+    if prefix:
+        filenames = [ prefix +  x for x in filenames ]
+
+    def count_vols(filename, count):
+        if os.path.exists(filename):
+            if count:
+                img = nib.load(filename)
+                return img.shape[3]
+            else:
+                return 1
+        else:
+            return 0
+        
+        
+    available = np.array([
+        count_vols(
+                os.path.join(
+                        mydir, 
+                        subject, 
+                        ses_folder, 
+                        folder, 
+                        filename.format(subject, session)),
+                count
+                ) 
+        for filename in filenames ])
+    
+    return(available.tolist())
+
 
 def check_fs_files(subject, mydir, session, filenames, folder):
         
@@ -135,6 +169,16 @@ func_invalid_files = [ 'task-sequence_run-0%d_bold_invalid.nii.gz'%(run) for run
 fs_files = [
    'lh.pial'
    ]
+# analysis
+volume_files = [ 'run%d/volume/tstat1.nii.gz'%(run) for run in runs ] 
+
+surf_files = [ 'run%d/surfR/tstat1.func.gii'%(run) for run in runs ] 
+
+effect_files = [ 'effects.nii.gz' ]
+
+fmriprep_surf_files = [ 'task-sequence_run-%d_space-fsaverage6_hemi-R_bold.func.gii'%(run) for run in runs ] 
+
+fmriprep_vol_files = [ 'task-sequence_run-%d_space-MNI152NLin2009cAsym_desc-preproc_bold.nii.gz'%(run) for run in runs ] 
 
 ## analysis
 
@@ -143,7 +187,7 @@ fs_files = [
 ###############################################################################    
 scans = []
 for f in scan_lists:    
-    scans.append(pd.read_csv(f))
+    scans.append(pd.read_csv(f, engine = 'python'))
     
 mycolumns = ['ID', 'SESSION', 'DIR', 'MP2RAGE', 'MP2RAGE_DelRec', 
              'MP2RAGE_DelRecImag', 'MP2RAGE_DelRecReal', 'B0SHIMMED', 
@@ -207,17 +251,18 @@ df['complete_fmap'] = sumpos(df[fmap_files])
 df['complete_func'] = sumpos(df[func_files])
 df['invalid_func'] = sumval(df[func_files], -1)
 df['missing_func'] = sumval(df[func_files], -2)
-df['complete_all'] = 1*np.logical_and(
+df['complete_BIDS'] = 1*np.logical_and(
         np.logical_and(df.complete_anat == len(anat_files), 
                        df.complete_fmap == len(fmap_files)),
                        df.complete_func == len(func_files))
-
-df.to_csv(os.path.join(QC_DIR, 'BIDS.csv'), index = False)
-df[ df.complete_all == False ].to_csv(os.path.join(QC_DIR, 
+df_BIDS = df
+df_BIDS.to_csv(os.path.join(QC_DIR, 'BIDS.csv'), index = False)
+df_BIDSincomplete = df[ df.complete_BIDS == 0 ]
+df_BIDSincomplete.to_csv(os.path.join(QC_DIR, 
   'BIDS_incomplete.csv'), index = False)
 
 ###############################################################################    
-# create BIDS table
+# create FS table
 ###############################################################################    
 
 results = []
@@ -243,3 +288,101 @@ df_sum.to_csv(os.path.join(QC_DIR, 'FS.sum.csv'), index = True)
 df_sum[ df_sum.missing > 0 ].to_csv(os.path.join(QC_DIR, 
       'FS.sum.incomplete.csv'), index = True)
 print(df_sum[ df_sum.missing > 0])
+
+
+###############################################################################    
+# create fmriprep table
+###############################################################################    
+results = []
+for subject, session, valid_runs in itertable(scans, runs):
+    result_fmriprep_surf = check_files(subject, FMRIPREP_DIR, session, fmriprep_surf_files, 'func', BIDS_prefix)
+    result_fmriprep_vol = check_files(subject, FMRIPREP_DIR, session, fmriprep_vol_files, 'func', BIDS_prefix)
+
+    results.append([subject, 
+                    session] + 
+                    result_fmriprep_surf + 
+                    result_fmriprep_vol
+                    )
+        
+df = pd.DataFrame(results, columns = ['Subject', 'Session'] +  fmriprep_surf_files + 
+                  fmriprep_vol_files)
+
+df['complete_fmriprep_surf'] = sumpos(df[fmriprep_surf_files])
+df['complete_fmriprep_vol'] = sumpos(df[fmriprep_vol_files])
+df['complete_FMRIPREP'] = 1*np.logical_and(
+    df.complete_fmriprep_surf == len(fmriprep_surf_files),  
+    df.complete_fmriprep_vol == len(fmriprep_vol_files)
+    )
+df = pd.merge(df, df_BIDS[['Subject', 'Session', 'complete_func']], 
+                     on = ['Subject', 'Session'])
+df['Valid_runs'] = df['complete_func']/2
+df['missing_surf'] = - df.complete_fmriprep_surf + df['Valid_runs']
+df['missing_vol'] = - df.complete_fmriprep_vol + df['Valid_runs']
+df.to_csv(os.path.join(QC_DIR, 'FMRIPREP.csv'), index = False)
+
+df_FMRIPREP = df
+
+df = df[['Subject', 
+         'Session', 
+         'Valid_runs',
+         'complete_fmriprep_surf', 
+         'complete_fmriprep_vol', 
+         'missing_surf',
+         'missing_vol',
+         'complete_FMRIPREP']]
+
+df_FMRIPREPincomplete = df[ df.complete_FMRIPREP == False ]
+#  np.logical_or(
+#    df.missing_surf != 0, 
+#    df.missing_vol != 0)
+#    ]
+
+df_FMRIPREPincomplete.to_csv(os.path.join(QC_DIR, 
+  'FMRIPREP_incomplete.csv'), index = False)
+
+###############################################################################    
+# create analysis table
+###############################################################################    
+
+results = []
+for subject, session, valid_runs in itertable(scans, runs):
+    result_effects = check_files(subject, ANALYSIS_DIR, session, effect_files, '', count = True)
+    result_volume = check_files(subject, ANALYSIS_DIR, session, volume_files, '')
+    result_surf = check_files(subject, ANALYSIS_DIR, session, surf_files, '')
+
+    results.append([subject, 
+                    session] + 
+                    result_effects + 
+                    result_volume + 
+                    result_surf)
+    
+    
+df = pd.DataFrame(results, columns = ['Subject', 'Session'] +  effect_files + 
+                  volume_files + surf_files)
+
+# add some summary columns
+df['complete_effects'] = sumpos(df[effect_files])
+df['complete_volume'] = sumpos(df[volume_files])
+df['complete_surf'] = sumpos(df[surf_files])
+
+df = pd.merge(df, df_FMRIPREP[['Subject', 'Session', 'complete_func',
+                           'complete_fmriprep_surf', 'complete_fmriprep_vol']], 
+                     on = ['Subject', 'Session'])
+
+df.to_csv(os.path.join(QC_DIR, 'Analysis.csv'), index = False)
+
+ntrials = 32
+df['complete_analysis'] = 1*np.logical_and(
+         np.logical_and(df.complete_effects == ntrials*df.complete_fmriprep_vol, 
+                        df.complete_volume == df.complete_fmriprep_vol),
+                        df.complete_surf == df.complete_fmriprep_surf)
+
+df = df[['Subject', 'Session', 'complete_analysis', 'complete_effects', 
+         'complete_volume', 'complete_surf',
+         'complete_fmriprep_surf', 'complete_fmriprep_vol']]
+
+
+df[ df.complete_analysis == False ].to_csv(os.path.join(QC_DIR, 
+  'Analysis_incomplete.csv'), index = False)
+
+# OK : 1201

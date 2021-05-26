@@ -9,7 +9,7 @@ Created on Thu Nov 12 11:31:00 2020
 
 # back to LSA and sync with pipeline
 MINACC = 1.0
-num_cores = 20
+num_cores = 40
 MINCORRECT = 3
 NTYPES = 4
 
@@ -66,8 +66,8 @@ if __name__ == "__main__":
                                          len(sequences.accuracy)))
         if len(valid_runs) < 2:
             continue
-        if subject == 'sub-lue5103': 
-            continue
+#        if subject == 'sub-lue5103': 
+#            continue
         effects_file = os.path.join(analysis_dir, subject, 
                                  'ses-%d'%session, 'effects.nii.gz')
 

@@ -212,18 +212,17 @@ if [ ! -e $HOMEDIR/fmriprep.simg ]; then
     ln -s ~/Data/fmriprepversions/fmriprep20.0.7.simg $HOMEDIR/fmriprep.simg 
 fi
 
-export SINGULARITY_BINDPATH="$BIDS_DIR"
+export SINGULARITY_BINDPATH="$BIDS_DIR,/data"
 
 rm -r $WORK
 mkdir $WORK
 
 # remove the first time
-if [ ]; then
 rm -r $HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}*
 rm -r $SUBJECTS_DIR/sub-${SUBJECT}*
 cp $FS_LICENSE $WD/
 
-PYTHONPATH="" singularity run --bind /data:/data \
+PYTHONPATH="" singularity run \
    --cleanenv $HOMEDIR/fmriprep.simg \
    $BIDS_DIR \
    $WD \
@@ -259,13 +258,11 @@ rm -r $WORK
 # remove surfaces so that they are recomputed
 rm $WD/fmriprep/sub-${SUBJECT}/anat/*.gii
 
-fi
-
 # redo functional 
 mkdir $WORK
-rm -r $HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-*/func
+rm -r $HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-*/func/*
 
-PYTHONPATH="" singularity run --bind /data:/data \
+PYTHONPATH="" singularity run \
    --cleanenv $HOMEDIR/fmriprep.simg \
    $BIDS_DIR \
    $WD \
@@ -360,7 +357,7 @@ fi
 # rm $HOMEDIR/fmriprep/analysis/sub-$SUBJECT/surf/*
 ########################################################################## 
 
-if []; then ####somatomotor mask
+if [ ]; then ####somatomotor mask
 for hemi in lh rh; do
 
   if [ ! -e $LABELSDIR/${hemi}.somatomotor-mask.label ]; then

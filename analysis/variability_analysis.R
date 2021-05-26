@@ -1,6 +1,6 @@
 rm(list = ls())
 
-sem = function(x) sd(x)/sqrt(length(x))
+sem = function(x) sd(x, na.rm = T)/sqrt(length(x))
 
 data_file = '/data/lv0/MotorSkill/fmriprep/analysis/surf/roi_scores.csv'
 #output_file = '/data/lv0/MotorSkill/fmriprep/analysis/surf/svm_acc.csv'
@@ -16,7 +16,7 @@ data$value = data$alpha_trained_PCM - data$alpha_untrained_PCM
 data = data %>% filter(!is.infinite(value))
 
 data.mean = data%>%
-  group_by(session, group, hemi, label)%>%summarise(val.mean = mean(value), 
+  group_by(session, group, hemi, label)%>%summarise(val.mean = mean(value, na.rm = T), 
                                        val.sem = sem(value))
 
 myplot = ggplot(data.mean%>% filter(hemi == 'rh'), aes(
@@ -67,7 +67,7 @@ abline(0, 1)
 alphas = dplyr::select(data, c(alpha_trained, alpha_untrained, alpha_trained_PCM, alpha_untrained_PCM))
 alphas = alphas[rowMeans(alphas) > -Inf, ]
 
-cor(alphas)
+cor(alphas[complete.cases(alphas), ])
 cor.test(data$alpha_trained, data$alpha_untrained)
 cor.test(data$alpha_trained[!is.infinite(data$alpha_trained_PCM)], data$alpha_trained_PCM[!is.infinite(data$alpha_trained_PCM)])
 cor.test(data$alpha_untrained[!is.infinite(data$alpha_untrained_PCM)], data$alpha_untrained_PCM[!is.infinite(data$alpha_untrained_PCM)])

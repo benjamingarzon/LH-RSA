@@ -28,7 +28,7 @@ from nilearn.plotting import plot_anat, plot_epi
     
 WD = '/data/lv0/MotorSkill/'
 analysis_dir = '/data/lv0/MotorSkill/fmriprep/fmriprep/'
-paths = glob(os.path.join(analysis_dir, 'sub-*', 'ses-*', 'func',
+paths = glob(os.path.join(analysis_dir, 'sub-lue*', 'ses-*', 'func',
                               '*T1w_desc-preproc_bold.nii.gz'))
     
 # iterate across paths
@@ -71,7 +71,7 @@ for path in paths:
     #sns.scatterplot(np.log(x), np.log(y))
     #plt.clf()
 results_df = pd.DataFrame(results, columns = ('subject','session','run', 'MI', 'cor'))
-sns.scatterplot(data = results_df, x = 'MI', y = 'cor')
+#sns.scatterplot(data = results_df, x = 'MI', y = 'cor')
 plt.hist(results_df.MI, 100)
 
 # compare with rejected bbregister from fmriprep
@@ -86,6 +86,10 @@ results_df = pd.merge(results_df,
                       how = "left", 
                       on = ['subject', 'session', 'run'])
 results_df['isrejected'] = results_df['isrejected'].isnull().apply(np.invert)
+results_df['wave'] = results_df['subject'].apply(lambda x: x[7])
 
+results_df.to_csv(os.path.join(WD, 'fmriprep/fmriprep/reg_stats.txt'))
 print(results_df.head())
 sns.boxplot(data = results_df, x = 'isrejected', y = 'MI')
+
+sns.boxplot(data = results_df, x = 'wave', y = 'MI')

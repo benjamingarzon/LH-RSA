@@ -52,9 +52,9 @@ peprefix = "/cope"
 #names(conditions) = c('Fixation', 'Stretch')
 #peprefix = "/pe"
 
-analysis_type = 'volume'  #volume, surfR/L 
+analysis_type = 'surfL'  #volume, surfR/L 
 
-NPROCS = 30
+NPROCS = 35
 # list files, adapt depending on type of analysis
 contrasts = NULL
 image.list = NULL
@@ -101,7 +101,7 @@ if (collect_data) {
      header = check_nifti_header(imgname)
      imgdims = header@dim_[2:4]
      
-     if (imgdims[1] != 108 | imgdims[2] != 128) print(paste("Removing", imgname))
+     if (imgdims[1] != 108 | imgdims[2] != 128 | imgdims[3] != 89) print(paste("Removing", imgname))
      else { 
        image.list.clean = c(image.list.clean, imgname)
        indices = c(indices, j)
@@ -113,7 +113,7 @@ if (collect_data) {
   for (imgname in masks.found){
     header = check_nifti_header(imgname)
     imgdims = header@dim_[2:4]
-    if (imgdims[1] != 108 | imgdims[2] != 128) print(paste("Removing", imgname))
+    if (imgdims[1] != 108 | imgdims[2] != 128 | imgdims[3] != 89) print(paste("Removing", imgname))
     else mask.list = c(mask.list, imgname)
   }
    image.list = image.list.clean
@@ -227,7 +227,7 @@ doit = function(WD, IMAGES, MYTEST, OD,
     DATA,
     MASK_FILE,
     MYTEST,
-    remove_outliers = T, 
+    remove_outliers = F, 
     to_gifti = to_gifti, excluded = excluded, 
     flip = flip
   )
@@ -242,33 +242,43 @@ doit = function(WD, IMAGES, MYTEST, OD,
 
 # check results: freeview -f /usr/local/freesurfer/subjects/fsaverage6/surf/lh.inflated:overlay=INTERCEPT_coef.func.gii
 
-results.average = doit(file.path(DATADIR, analysis_type),
-          image.list,
-          testaverage,
-          'tests/average',
-          MASK = mask,
-          IMAGES_NAME = 'image_list.txt',
-          IMAGING_NAME = 'images.nii.gz',
-          conditions = condition.list,
-          motion = motion, 
-          to_gifti = mysurf)
+# results.average = doit(file.path(DATADIR, analysis_type),
+#           image.list,
+#           testaverage_simple,
+#           'tests/average',
+#           MASK = mask,
+#           IMAGES_NAME = 'image_list.txt',
+#           IMAGING_NAME = 'images.nii.gz',
+#           conditions = condition.list,
+#           motion = motion, 
+#           to_gifti = mysurf)
  
 # tests for activation maps
-results.linear = doit(file.path(DATADIR, analysis_type), 
-                           image.list, 
-                           testlinearrun, 
-                           'tests/linear_noconf',
-                           MASK = mask,  
-                           IMAGES_NAME = 'image_list.txt',
-                           IMAGING_NAME = 'images.nii.gz',           
-                           conditions = condition.list, 
-                           motion = motion, 
-                           to_gifti = mysurf)
-stophere
+# results.linear = doit(file.path(DATADIR, analysis_type), 
+#                            image.list, 
+#                            testlinearrun, 
+#                            'tests/linear_noconf',
+#                            MASK = mask,  
+#                            IMAGES_NAME = 'image_list.txt',
+#                            IMAGING_NAME = 'images.nii.gz',           
+#                            conditions = condition.list, 
+#                            motion = motion, 
+#                            to_gifti = mysurf)
+results.quadratic = doit(file.path(DATADIR, analysis_type), 
+                      image.list, 
+                      testquadraticrun, 
+                      'tests/quadratic_noconf',
+                      MASK = mask,  
+                      IMAGES_NAME = 'image_list.txt',
+                      IMAGING_NAME = 'images.nii.gz',           
+                      conditions = condition.list, 
+                      motion = motion, 
+                      to_gifti = mysurf)
+
 results.comparison = doit(file.path(DATADIR, analysis_type),
                             image.list,
                             modelcomparisonrun,
-                            'tests/comparison',
+                            'tests/comparison_noconf',
                             MASK = mask,
                             IMAGES_NAME = 'image_list.txt',
                             IMAGING_NAME = 'images.nii.gz',
@@ -277,7 +287,7 @@ results.comparison = doit(file.path(DATADIR, analysis_type),
                             to_gifti = mysurf)
 
 stophere
-load('/data/lv0/MotorSkill/fmriprep/analysis/higherlevel/Trained_Untrained/surfR/tests/linear/results.RData')
+load('/data/lv0/MotorSkill/fmriprep/analysis/higherlevel/Trained_Untrained/surfR/tests/quadratic_noconf/results.RData')
 # add 1 to vertex number
 y = results$imaging.mat[, which.min(results$pvalues[, "GROUPExp_x_TRAINING_p"])]
 y = results$imaging.mat[, 25204]
