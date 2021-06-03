@@ -12,7 +12,7 @@ MINSIZE=50
 EXTREMA=$WD/extrema.nii.gz
 CLUSTERS=$WD/clusters.nii.gz
 
-#if [ ! -e $EXTREMA ]; then
+if [ ! -e $EXTREMA ]; then
 $HCPDIR/wb_command -volume-find-clusters \
       $METRIC \
       $THR \
@@ -23,7 +23,7 @@ $HCPDIR/wb_command -volume-extrema \
       $METRIC \
       $DISTANCE \
       $EXTREMA -only-maxima -threshold 0 $THR
-#fi
+fi
 
 fslmaths $EXTREMA -mas $CLUSTERS $EXTREMA
 

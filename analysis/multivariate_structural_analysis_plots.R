@@ -7,11 +7,17 @@ library(freesurfer)
 library(dplyr)
 library(ggplot2)
 source("./structural_analysis_funcs.R")
+source("./plot_funcs.R")
+
+#load behavioural parameters
+load('~/Data/LeftHand/Lund1/responses/MT_learning_parameters.RData')
 
 # redo label
+alphalevel = 0.05
 DPI = 1000
 FEAT.THR = 0.8 # prop of coefs of equal sign
-ISTHICKNESS = F
+ISTHICKNESS = T
+MYYLABEL = ifelse(ISTHICKNESS, "% increase in cortical thickness", "% increase in grey matter volume")
 USEVALIDFEATURES = F
 OUTPUTDIR='multivariate-tess'
 inflated.rh = freesurfer_read_surf('/usr/local/freesurfer/subjects/fsaverage/surf/rh.inflated')
@@ -21,8 +27,8 @@ inflated.lh = freesurfer_read_surf('/usr/local/freesurfer/subjects/fsaverage/sur
 if (ISTHICKNESS) {
   FIGS_DIR='/home/benjamin.garzon/Data/LeftHand/Lund1/figs/structure/multivar-thickness'
   
-  VOXELORVERTEX = VOXELORVERTEX
-  DATADIR='/home/benjamin.garzon/Data/LeftHand/Lund1/freesurfer/results'
+  VOXELORVERTEX = 'Vertex'
+  DATADIR='/home/benjamin.garzon/Data/LeftHand/Lund1/freesurfer/results_unsmoothed'
   load(file = file.path(DATADIR, 'tests', OUTPUTDIR, 'results.rds'))
   
   # collect and plot results
@@ -47,7 +53,7 @@ if (ISTHICKNESS) {
   FIGS_DIR='/home/benjamin.garzon/Data/LeftHand/Lund1/figs/structure/multivar-VBM'
   VOXELORVERTEX = 'Voxel'
   
-  DATADIR='/home/benjamin.garzon/Data/LeftHand/Lund1/cat12crossbias8_10/'
+  DATADIR='/home/benjamin.garzon/Data/LeftHand/Lund1/cat12/'
   load(file = file.path(DATADIR, 'tests', OUTPUTDIR, 'results.rds'))
   train_res_list = c(results.multivariate.vol$train_res_list)
   
@@ -70,23 +76,24 @@ maxs = apply(dplyr::select(accuracy, -c(label, hemi)), 2, max)
 
 pvals = apply(dplyr::select(accuracy, -c(label, hemi)), 1, function(x) mean(x[1] <= x))
 pvals.corr = sapply(accuracy$value, function (x) mean(x <= maxs)) 
-res = cbind(dplyr::select(accuracy, c(label, hemi, value)), pvals = pvals, pvals.corr = pvals.corr )%>% arrange(pvals.corr)
-print(means)
-print(maxs)
-res.significant = subset(res, pvals < 0.1)
-res.corr = subset(res, pvals.corr < 0.1)
+res = cbind(dplyr::select(accuracy, c(label, hemi, value)), pvals = pvals, pvals.corr = pvals.corr )%>% arrange(pvals.corr, pvals, desc(accuracy))
+#print(means)
+#print(maxs)
+res.significant = subset(res, pvals <= alphalevel)
+res.corr = subset(res, pvals.corr <= alphalevel)
+
 
 which.res = res.corr
 data.max = expand.grid(label = accuracy$label, m = maxs[-1]) %>% filter(label %in% which.res$label)
-data.max = merge(data.max, res.significant, by = 'label')
+data.max = merge(data.max, res.corr, by = 'label')
 data.max$full_label = paste(data.max$hemi, data.max$label, '.')
 which.res$full_label = paste(which.res$hemi, which.res$label, '.')
 
 myplot = ggplot() + 
-  geom_violin(data = data.max, aes (x = reorder(full_label, -value), y = m)) +  
-  geom_point(data = which.res, aes(x = full_label, y = value, col = hemi), size = 2) + 
-  ylim(0.5, 0.8) + 
-  theme_classic() + 
+  geom_violin(data = data.max, aes (x = reorder(full_label, -value), y = m), alpha = 0.5) +  
+  geom_point(data = which.res, aes(x = reorder(full_label, -value), y = value, col = hemi), size = 2) + 
+  ylim(0.5, 0.7) + 
+  scale_colour_manual(values = myPalette) + theme_lh + 
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), legend.position = 'none') + 
   xlab('Region') + ylab('Accuracy') #+ facet_grid(. ~ hemi)
 print(myplot)
@@ -101,7 +108,7 @@ write.table(dplyr::select(res.corr, c(hemi, label, value)), file.path(DATADIR, '
 
 maxs.binom = apply(dplyr::select(accuracy.binom, -c(label, hemi)), 2, max)
 
-breaks = seq(0.5, 0.7, 0.01)
+breaks = seq(0.4, 0.7, 0.01)
 hist(maxs[-1], breaks = breaks, col = 'red', ylim = c(0, 15)) # red
 hist(maxs.binom[-1], breaks = breaks, add = T, col = rgb(0, 1, 0, 0.4)) # green
 
@@ -124,6 +131,9 @@ hist(maxs.binom[-1], breaks = breaks, add = T, col = rgb(0, 1, 0, 0.4)) # green
 which.model = sapply(train_res_list, function(x) x$prepared_data$which.model)
 myperms = sapply(train_res_list, function(x) x$perm) == 0
 mylabels = as.character(sapply(train_res_list, function(x) x$label))[myperms]
+
+if (ISTHICKNESS) mylabels = paste(paste(accuracy$hemi, mylabels, sep = '.'))
+
 mypcadim = sapply(train_res_list, function(x) ncol(x$pca$x))[myperms]
 
 which.model = matrix(unlist(which.model[myperms]), ncol = length(mylabels))
@@ -147,7 +157,7 @@ for (model_type in model_types)
 
 
 # count most stable features
-myvalidfeatures = sapply(train_res_list[myperms], function(z) apply(sign(z$coefs.iter), 2, function(x) {y = x[x!=0]; max(table(y)/length(x), na.rm = T) > 0.9}))
+myvalidfeatures = sapply(train_res_list[myperms], function(z) apply(sign(z$coefs.iter), 2, function(x) {y = x[x!=0]; max(table(y)/length(x), na.rm = T) > FEAT.THR}))
 nfeatures = sapply(myvalidfeatures, function(x) sum(x))
 par(mfrow = c(1, 2))
 hist(nfeatures, 20)
@@ -178,11 +188,12 @@ for (j in seq(nrow(res.corr))){
   }
   
   print(label)
+  fulllabel = ifelse(ISTHICKNESS, paste(hemi, label, sep = '.'), label)
   # take not permutated instance (perm == 0)
   w = which(sapply(train_res_list, function(x) x$label == label & x$perm == 0))
   train_res = train_res_list[[w]]
   mask.indices = which(train_res$mask)
-  valid.features = unlist(myvalidfeatures[label])
+  valid.features = unlist(myvalidfeatures[fulllabel])
   scores = train_res$pca$x[, valid.features, drop = F]
   loadings = train_res$pca$rotation[, valid.features, drop = F]
   
@@ -253,12 +264,18 @@ for (j in seq(nrow(res.corr))){
   
 }
 
+if (ISTHICKNESS) {
+  data.proj.all = merge(data.proj.all, dplyr::select(accuracy, c(hemi, label, value))%>% dplyr::rename(ACCURACY = value, HEMI = hemi, LABEL = label), by = c("HEMI", "LABEL")) 
+} else {
+  data.proj.all = merge(data.proj.all, dplyr::select(accuracy, c(hemi, label, value))%>% dplyr::rename(ACCURACY = value) %>% 
+                          mutate(LABEL = paste(hemi, label, sep = '.')), by = c("LABEL")) 
+}
 data.proj.wide = reshape(data.proj.all, idvar = c("VERTEX", "LABEL", "HEMI", "GROUP"), timevar = "ORDER", direction = "wide")
 data.proj.all$ORDER = ifelse(data.proj.all$ORDER == 1, "Linear term", "Quadratic term")
 
 if (ISTHICKNESS) {
-  data.proj.all$FULL_LABEL = paste0(data.proj.all$HEMI, data.proj.all$LABEL, sep ='.')
-  data.proj.wide$FULL_LABEL = paste0(data.proj.wide$HEMI, data.proj.wide$LABEL, sep ='.')
+  data.proj.all$FULL_LABEL = paste(data.proj.all$HEMI, data.proj.all$LABEL, sep ='.')
+  data.proj.wide$FULL_LABEL = paste(data.proj.wide$HEMI, data.proj.wide$LABEL, sep ='.')
 } else {
   data.proj.all$FULL_LABEL = data.proj.all$LABEL
   data.proj.wide$FULL_LABEL = data.proj.wide$LABEL
@@ -282,7 +299,8 @@ myplot = ggplot(data.proj.all, aes ( x = FULL_LABEL,
   geom_violin() +
   xlab('Region') +
   ylab('Coefficient') + 
-  facet_grid(as.factor(ORDER) ~ .) + theme_classic() +  
+  facet_grid(as.factor(ORDER) ~ .) + 
+  scale_fill_manual(values = myPalette) + theme_lh +  
   theme(panel.border = element_rect(colour = "black", fill=NA, size=1), legend.title = element_blank(), legend.position = "bottom") 
 
 print(myplot)
@@ -299,8 +317,8 @@ myplot = ggplot(data.proj.all, aes ( x = rank,
                                      group = GROUP)) + 
   geom_line(size = 0.5) + 
   geom_ribbon(alpha = 0.5, size = 0) +
-  facet_grid( as.factor(ORDER) ~ FULL_LABEL) + xlab(VOXELORVERTEX) + ylab('Coefficient') + 
-  theme_classic() + 
+  facet_grid( as.factor(ORDER) ~ reorder(FULL_LABEL, -ACCURACY)) + xlab(VOXELORVERTEX) + ylab('Coefficient') + 
+  scale_colour_manual(values = myPalette) + theme_lh + 
   theme(panel.border = element_rect(colour = "black", fill = NA, size=1), legend.title = element_blank(), legend.position = "bottom")
 print(myplot)
 
@@ -312,7 +330,7 @@ myplot = ggplot(data.proj.wide, aes ( x = m.1,
                                       col = GROUP)) + 
   geom_point(size = 0.5) + 
   facet_wrap(FULL_LABEL ~ .) + xlab('Linear term') + ylab('Quadratic term') + 
-  theme_classic() + 
+  scale_colour_manual(values = myPalette) + theme_lh + 
   theme(panel.border = element_rect(colour = "black", fill=NA, size=1), legend.title = element_blank(), legend.position = "bottom") 
 print(myplot)
 
@@ -324,8 +342,8 @@ myplot = ggplot(data.proj.wide, aes ( x = m.1,
                                       col = FULL_LABEL)) + 
   geom_point(size = 0.5) + 
   xlab('Linear term') + ylab('Quadratic term') + 
-  facet_grid(GROUP ~.) + 
-  theme_classic() + 
+  facet_grid(GROUP ~ .) + 
+  theme_lh + 
   theme(panel.border = element_rect(colour = "black", fill=NA, size=1), legend.title = element_blank(), legend.position = "bottom") 
 print(myplot)
 
@@ -341,9 +359,161 @@ myplot = ggplot(data.proj.all, aes ( x = rank,
                                      group = GROUP)) + 
   geom_line(size = 0.5) + 
   geom_ribbon(alpha = 0.5, size = 0) +
-  facet_grid(as.factor(ORDER)~.) + xlab(VOXELORVERTEX) + ylab('Coefficient') + 
-  theme_classic() + 
+  facet_grid(as.factor(ORDER)~ HEMI) + xlab(VOXELORVERTEX) + ylab('Coefficient') + 
+  scale_colour_manual(values = myPalette) + theme_lh + 
   theme(panel.border = element_rect(colour = "black", fill=NA, size=1)) 
 print(myplot)
 
 
+######################################
+# Associations with behavioural learning curves and timecourse plots
+######################################
+#c("r0_norm", "e0_norm", "p0_norm", "kr_norm", "ke_norm", "kp_norm")
+parnames = c("kr_norm", "ke_norm", "kp_norm")
+par(mfrow = c(ceiling(nrow(res.corr)/2), length(parnames)))
+XX.all = NULL
+myplots = NULL
+j = 1
+for (j in seq(nrow(res.corr))){
+  label = res.corr$label[j]
+  hemi = res.corr$hemi[j]
+  if (ISTHICKNESS) {
+    if (hemi == "rh") {
+      train_res_list = results.multivariate.rh$train_res_list
+      coords = inflated.rh$vertices
+    } else {
+      train_res_list = results.multivariate.lh$train_res_list
+      coords = inflated.lh$vertices
+    }
+  } else {
+    train_res_list = results.multivariate.vol$train_res_list
+    label = paste(hemi, label, sep = '.')
+    if (hemi == "rh") {
+      coords = inflated.rh$vertices
+    } else {
+      coords = inflated.lh$vertices
+    }
+  }
+
+  # take not permutated instance (perm == 0)
+  w = which(sapply(train_res_list, function(x) x$label == label & x$perm == 0))
+  train_res = train_res_list[[w]]
+  fulllabel = ifelse(ISTHICKNESS, paste(hemi, label, sep = '.'), label)
+  valid.features = unlist(myvalidfeatures[fulllabel])
+  scores = train_res$pca$x[, valid.features, drop = F]
+  #loadings = train_res$pca$rotation[, valid.features, drop = F]
+  
+  ###################################### remove
+  myvars = c("SUBJECT",
+             "TP",
+             "FD", 
+             "SYSTEM",
+             "TRAINING",
+             "TRAINING.Q",
+             "TRAINING.C",
+             "GROUP.NUM", 
+             "GROUP")
+  XX = cbind(train_res$prepared_data$DATA[myvars], train_res$prepared_data$X) 
+  XX.melt = reshape::melt(XX, id.vars = myvars, variable_name = "VERTEX")
+  XX.init = unique(XX.melt[c("SUBJECT", "GROUP.NUM")])
+  XX.melt$FULL_LABEL = fulllabel
+  XX.mean = XX.melt %>% mutate(WAVE = substr(SUBJECT, 4, 4)) %>%group_by(SUBJECT, WAVE, TP, FD, SYSTEM, TRAINING, TRAINING.Q, GROUP, FULL_LABEL) %>% 
+    summarise(y = mean(value)) # average across vertices
+  myplots[[j]] = plot_data(XX.mean, MYYLABEL)
+  j = j + 1
+  # XX.all = rbind(XX.all, XX.mean %>%
+  #                  group_by(SUBJECT) %>% 
+  #                  mutate(TP.baseline = min(TP), n = sum(!is.na(value))) %>% 
+  #                  filter(TP.baseline == 1) %>% 
+  #                  mutate(value.dem = (value - value[TP.baseline])/ mean(value, na.rm = T) * 100) %>% 
+  #                  dplyr::select(-c(TP.baseline, n)) %>% ungroup())
+
+  ######################################
+  mycoefs = train_res$prepared_data$mycoefs
+  
+  common = intersect(mypars$subject, XX.init$SUBJECT)
+  
+  mypars.common = mypars%>% filter(subject %in% common)%>% arrange
+  mycoefs.common =  mycoefs[XX.init$SUBJECT %in% common, ]
+  #mycoefs.common =  scores[XX.init$SUBJECT %in% common, ]
+  
+# test for different parnames
+  for(parname in parnames){
+    
+  print(paste(parname, label))
+  
+  # select trainers
+  # compute correlations
+  intervention = mypars.common$group == "Intervention"
+  cors.intervention = apply(mycoefs.common[intervention, ], 2, function(x) cor.test(x, mypars.common[intervention, parname])$estimate)
+  cors.control = apply(mycoefs.common[!intervention, ], 2, function(x) cor.test(x, mypars.common[!intervention, parname])$estimate)
+  cors = apply(mycoefs.common, 2, function(x) cor.test(x, mypars.common[, parname])$estimate)
+#  plot(sort(cors), type = 'l', main = paste(fulllabel, parname), ylim = c(-1, 1))
+#  lines(sort(cors.intervention), type = 'l', col = 'red')
+#  lines(sort(cors.control), type = 'l', col = 'blue')
+#  abline(0.05, 0, col = 'red')
+  hist(cors.intervention, 50, main = paste(fulllabel, parname), xlim = c(-.5, .5))
+  #if (min(cors.intervention) < 0.05) print(cors.intervention)
+  
+  pred = scores %*% as.matrix(colMeans(train_res$coefs.iter[, valid.features]))
+  cor.pred = cor.test(pred[XX.init$SUBJECT %in% common][intervention], mypars.common[intervention, parname])
+  #if (cor.pred$p.value < 0.05) print(cor.pred)
+  
+}
+}
+
+# X.sem = XX.all %>% group_by(TP, GROUP, FULL_LABEL) %>% dplyr::summarise(y.mean = mean(value.dem, na.rm = T),
+#                                                        y.sem = se(value.dem)) %>% ungroup()
+
+# myplot =  ggplot(NULL) +
+#   geom_line(data = XX.all, aes(
+#     x = TP,
+#     group = SUBJECT,
+#     col = GROUP, 
+#     y = value.dem
+#   ), size = 0.1, alpha = 0.6) +
+#   geom_line(data = X.sem, aes(
+#     x = TP,
+#     group = GROUP,
+#     col = GROUP,
+#     y = y.mean
+#   )) +
+#   geom_point(data = X.sem, aes(
+#     x = TP,
+#     group = GROUP,
+#     col = GROUP,
+#     y = y.mean
+#   )) +
+#   geom_errorbar(data = X.sem,
+#                 aes(
+#                   x = TP,
+#                   ymax = y.mean + y.sem,
+#                   ymin = y.mean - y.sem,
+#                   group = GROUP,
+#                   col = GROUP
+#                 )) +
+#   scale_colour_manual(values = myPalette) + theme_lh + 
+#   theme(panel.border = element_rect(colour = "black", fill=NA, size=1), legend.title = element_blank(), legend.position = "bottom") +
+#   xlab('Scanning session') + 
+#   ylab(MYYLABEL) + 
+#   ylim(-10, 10) + 
+#   facet_grid(. ~ FULL_LABEL)
+# #+ 
+# #  scale_x_continuous(breaks = seq(7)) + 
+# #  ggtitle(title) + geom_hline(yintercept = 0, size = 0.2)
+# 
+# print(myplot)
+
+#ggsave(file.path(FIGS_DIR, 'Timecourse.png'), dpi = DPI)
+
+NCOL = 4
+ggsave(
+  filename = file.path(FIGS_DIR, 'Timecourse.png'),
+  plot = ggarrange(
+    plotlist = myplots,
+    nrow = ceiling(length(myplots) / NCOL),
+    ncol = min(NCOL, length(myplots))
+  ),
+  width = 21,
+  height = 13.2
+)

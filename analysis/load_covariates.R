@@ -7,6 +7,12 @@ NREPS = 10 # reps for inputation
 library(dplyr)
 library(missForest)
 library(ggplot2)
+
+motion = read.table(file.path('~/Data/LeftHand/Lund1/fmriprep/motion.csv'))
+motion = motion %>% dplyr::rename(SUBJECT = subject, TP = session, RUN = run, GROUP = group) %>% 
+  group_by(SUBJECT, TP) %>% summarise(FD = mean(FD), DVARS = mean(DVARS))
+motion$SUBJECT = as.character(sapply(motion$SUBJECT, function (x) substring(x , 5, 12)))
+                              
 trials.table = read.table(file.path(RESPONSES_DIR, "complete_trials_table.csv"), header = T, sep = ";")
 demo.data = read.table(file.path(RESPONSES_DIR, "SubjectData.csv"), header = T, sep = ",")
 system.table = read.table(file.path(RESPONSES_DIR, "ClassicMTX8.csv"), header = T, sep = ";") %>% 
@@ -105,6 +111,9 @@ covars.table$TRAINING.A = training.asymptotic[covars.table$TP]
 covars.table$TRAINING_x_GROUP = covars.table$TRAINING*covars.table$GROUP.NUM 
 covars.table$TRAINING.Q_x_GROUP = covars.table$TRAINING.Q*covars.table$GROUP.NUM 
 
+# add motion parameters
+covars.table = merge(covars.table, motion, by = c("SUBJECT", "TP"))
+
 # get an estimate of trial by trial variability and check how it changes
 NTRIALS = 10
 
@@ -136,3 +145,4 @@ theme_lh <- function () {
 # untrained variance > trained variance
 #plot.sdMT.diff = ggplot(last_trials.diff, aes(x = TP, y = sdMT.log.untrained_trained, col = GROUP, group = GROUP)) + geom_smooth(lwd=1) + geom_point(size = 3) + theme_lh()
 #print(plot.sdMT.diff)
+

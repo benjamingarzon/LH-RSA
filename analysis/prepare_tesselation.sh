@@ -43,9 +43,14 @@ SUBJECTS_DIR=/usr/local/freesurfer/subjects/
 MASK_R=/home/benjamin.garzon/Data/LeftHand/Lund1/labels/fsaverage/rh.somatomotor-mask.func.gii
 MASK_L=/home/benjamin.garzon/Data/LeftHand/Lund1/labels/fsaverage/lh.somatomotor-mask.func.gii
 mri_segstats --annot fsaverage rh ./${TARGET_FILE}.fsaverage.R.label.gii --i $MASK_R --sum rh.somatomotor.labels
-mri_segstats --annot fsaverage rh ./${TARGET_FILE}.fsaverage.L.label.gii --i $MASK_R --sum lh.somatomotor.labels
-echo `awk '{if ($9 == 1.0000) print $5}' rh.somatomotor.labels` > rh.tessellation162.txt
-echo `awk '{if ($9 == 1.0000) print $5}' lh.somatomotor.labels` > lh.tessellation162.txt
+mri_segstats --annot fsaverage lh ./${TARGET_FILE}.fsaverage.L.label.gii --i $MASK_L --sum lh.somatomotor.labels
+echo `awk '{if ($8 == 1.0000) print $5}' rh.somatomotor.labels` > rh.tessellation162.txt
+echo `awk '{if ($8 == 1.0000) print $5}' lh.somatomotor.labels` > lh.tessellation162.txt
+
+cat rh.tessellation162.txt | sed 's/label/rh.label/g' > MNI.tessellation162.txt
+cat lh.tessellation162.txt | sed 's/label/lh.label/g' >> MNI.tessellation162.txt
+
+cp *.tessellation.txt ~/Software/LeftHand/masks
 
 TARGET_FILE=Icosahedron-162
 freeview -f /usr/local/freesurfer/subjects/fsaverage/surf/rh.inflated:annot=${TARGET_FILE}.fsaverage.R.annot \

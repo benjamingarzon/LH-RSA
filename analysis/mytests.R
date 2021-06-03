@@ -12,15 +12,15 @@
 
 testquadratic = function(y, X, ALTERNATIVE = 'greater')
 {
-  var.names = c("INTERCEPT", "SYSTEM", "GROUP" , "TRAINING", "TRAINING.Q", "GROUP_x_TRAINING", "GROUP_x_TRAINING.Q")
+  var.names = c("INTERCEPT", "FD", "SYSTEM", "GROUP" , "TRAINING", "TRAINING.Q", "GROUP_x_TRAINING", "GROUP_x_TRAINING.Q")
   
   contrast.names = c(
     "GROUP_x_TRAINING+", 
     "GROUP_x_TRAINING.Q+" 
   )
   
-  c.1        = c(0, 0, 0, 0, 0,  1,  0)
-  c.3        = c(0, 0, 0, 0,  0,  0,  1)
+  c.1        = c(0, 0, 0, 0, 0, 0,  1,  0)
+  c.3        = c(0, 0, 0, 0, 0,  0,  0,  1)
 
   cont.mat = rbind(c.1, c.3)
   colnames(cont.mat) = var.names
@@ -35,14 +35,14 @@ testquadratic = function(y, X, ALTERNATIVE = 'greater')
   
   X$y = y
   tryCatch({ 
-    model = lmer(y ~ 1 + SYSTEM + GROUP*(TRAINING + TRAINING.Q) + (1 + TRAINING + TRAINING.Q|SUBJECT), data = X)
+    model = lmer(y ~ 1 + FD + SYSTEM + GROUP*(TRAINING + TRAINING.Q) + (1 + TRAINING + TRAINING.Q|SUBJECT), data = X)
     model_type = 3
     if (isSingular(model)) {
-      model = lmer(y ~ 1 + SYSTEM + GROUP*(TRAINING + TRAINING.Q) + (1 + TRAINING |SUBJECT), data = X)
+      model = lmer(y ~ 1 + FD + SYSTEM + GROUP*(TRAINING + TRAINING.Q) + (1 + TRAINING |SUBJECT), data = X)
       model_type = 2
     }
     if (isSingular(model)) {
-      model = lmer(y ~ 1 + SYSTEM + GROUP*(TRAINING + TRAINING.Q) + (1 |SUBJECT), data = X)
+      model = lmer(y ~ 1 + FD + SYSTEM + GROUP*(TRAINING + TRAINING.Q) + (1 |SUBJECT), data = X)
       model_type = 1
     }
     coefs = fixef(model)
@@ -86,9 +86,9 @@ modelcomparison = function(y, X)
   X$y = y
   
   tryCatch({ 
-    model.l = lmer(y ~ 1 + SYSTEM + GROUP*TRAINING + TRAINING.Q  + (1 |SUBJECT), data = X)
-    model.a = lmer(y ~ 1 + SYSTEM + GROUP*(TRAINING + TRAINING.A) + (1 |SUBJECT), data = X)
-    model.q = lmer(y ~ 1 + SYSTEM + GROUP*(TRAINING + TRAINING.Q) + (1 |SUBJECT), data = X)
+    model.l = lmer(y ~ 1 + FD + SYSTEM + GROUP*TRAINING + TRAINING.Q  + (1 |SUBJECT), data = X)
+    model.a = lmer(y ~ 1 + FD + SYSTEM + GROUP*(TRAINING + TRAINING.A) + (1 |SUBJECT), data = X)
+    model.q = lmer(y ~ 1 + FD + SYSTEM + GROUP*(TRAINING + TRAINING.Q) + (1 |SUBJECT), data = X)
     
     BIC.val = BIC(model.q, model.a, model.l)
     

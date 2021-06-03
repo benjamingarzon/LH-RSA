@@ -70,7 +70,7 @@ remove_outliers = F
 
 DATADIR = '/home/benjamin.garzon/Data/LeftHand/Lund1/cat12'
 
-if (F){
+if (T){
 #results.reliability.cat =
 doit(
   DATADIR,
@@ -83,7 +83,22 @@ doit(
   NPERMS = NPERMS,
   shuffle_by = shuffle_by
 )
-
+  
+# compute only within the mask and plot histograms
+doit(
+    DATADIR,
+    reliability,
+    'tests/reliability-mask',
+    MASK = vbm.mask,
+    IMAGES_LIST = 'image_list.txt',
+    IMAGING_NAME = vbm.data,
+    upsample = upsample,
+    NPERMS = NPERMS,
+    shuffle_by = shuffle_by
+  )
+  
+# make a histogram of reliability
+  
 #results.quadratic.cat =
 doit(
   DATADIR,
@@ -96,7 +111,6 @@ doit(
   NPERMS = NPERMS,
   shuffle_by = shuffle_by
 )
-stophere
 #results.comparison.cat =
 doit(
   DATADIR,
@@ -145,6 +159,34 @@ doit(
   shuffle_by = shuffle_by
 )
 
+#results.thickness.reliability.rh =
+doit(
+  DATADIR,
+  reliability,
+  'tests/thickness/reliability-mask.rh',
+  MASK = rh.mask,
+  IMAGES_LIST = 'rh.thickness.txt',
+  IMAGING_NAME = 'rh.thickness.nii.gz',
+  to_gifti = rh.gii,
+  alpha = alphavertex,
+  NPERMS = NPERMS,
+  shuffle_by = shuffle_by
+)
+
+#results.thickness.reliability.lh =
+doit(
+  DATADIR,
+  reliability,
+  'tests/thickness/reliability-mask.lh',
+  MASK = lh.mask,
+  IMAGES_LIST = 'lh.thickness.txt',
+  IMAGING_NAME = 'lh.thickness.nii.gz',
+  to_gifti = lh.gii,
+  alpha = alphavertex,
+  NPERMS = NPERMS,
+  shuffle_by = shuffle_by
+)
+
 #results.thickness.quadratic.rh =
 doit(
   DATADIR,
@@ -172,7 +214,7 @@ doit(
   NPERMS = NPERMS,
   shuffle_by = shuffle_by
 )
-stophere
+
 #results.thickness.comparison.rh =
 doit(
   DATADIR,
@@ -201,6 +243,7 @@ doit(
   shuffle_by = shuffle_by
 )
 
+stophere
 
 #####################
 # T1 values

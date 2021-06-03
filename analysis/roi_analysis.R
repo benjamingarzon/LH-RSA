@@ -3,6 +3,10 @@ rm(list = ls())
 cat("\014")
 
 # plot data
+#ROIS: 
+#VBM: 1 hand motor, 2: PCC, 3: visual
+#thickness: rh: 1 hand motor, 2: PCC, 3: visual, lh : 1 visual, 2 parietal
+# only hand motor coincides for thickness and VBM
 
 setwd("~/Software/LeftHand/analysis")
 source("./plot_funcs.R")
@@ -12,17 +16,20 @@ NCOL = 4
 FIGS_DIR = '~/Data/LeftHand/Lund1/figs/structure'
 dir.create(FIGS_DIR)
 
+GMV_LABEL = '% increase in GMV'
+THICKNESS_LABEL = '% increase in cortical thickness'
 #################################################################################
 # VBM
-radius = 5
-DISTANCE = 50
+radius = 4
+DISTANCE = 10
 DATADIR = '~/Data/LeftHand/Lund1/cat12/'
 TESTDIR = 'tests/quadratic'
 MASK_NAME = 'mask.nii.gz'
 TESTNAME = 'Omni_p'
-THR=0.95
+THR=0.99
+REDRAW = F
 
-myplots.VBM = create_vol_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, 'GMV')
+myplots.VBM = create_vol_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, GMV_LABEL, redraw = REDRAW)
 
 #################################################################################
 # thickness
@@ -37,7 +44,7 @@ inflated.rh='/home/benjamin.garzon/Data/LeftHand/Lund1/labels/subject/fsaverage/
 inflated.lh='/home/benjamin.garzon/Data/LeftHand/Lund1/labels/subject/fsaverage/surf/lh.inflated'
 
 DISTANCE=20
-radius=10
+radius=5
 DATADIR = '/home/share/MotorSkill/freesurfer/results/'
 
 MASK_NAME = 'mask.nii.gz'
@@ -46,11 +53,7 @@ THR = 0.95
 # thickness linear
 TESTDIR = 'tests/thickness/quadratic'
 TESTNAME = 'Omni_p'
-myplots.thickness.Omni_p = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, 'Thickness')
-
-#TESTNAME = 'GROUP_x_TRAINING.Q_p'
-#myplots.thickness.quadratic.groupxtraining = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR)
-
+myplots.thickness.Omni_p = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, THICKNESS_LABEL, redraw = REDRAW)
 
 stophere
 #################################################################################

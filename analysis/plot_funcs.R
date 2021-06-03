@@ -17,18 +17,37 @@ sem = function(x)
 plot_data = function(X, title, YLABEL = 'GMV', wDEPTH = F) {
   if (!wDEPTH) {
     
-    model = lmer(y ~ 1 + SYSTEM + GROUP*(TRAINING + TRAINING.Q) + (1 + TRAINING + TRAINING.Q|SUBJECT), data = X)
+    model = lmer(y ~ 1 + FD + SYSTEM + GROUP*(TRAINING + TRAINING.Q) + (1 + TRAINING + TRAINING.Q|SUBJECT), data = X)
     model_type = 0 
     if (isSingular(model)) {
-      model = lmer(y ~ 1 + SYSTEM + GROUP*(TRAINING + TRAINING.Q) + (1 + TRAINING |SUBJECT), data = X)
+      model = lmer(y ~ 1 + FD  + SYSTEM + GROUP*(TRAINING + TRAINING.Q) + (1 + TRAINING |SUBJECT), data = X)
       model_type = 1
     }
     if (isSingular(model)) {
-      model = lmer(y ~ 1 + SYSTEM + GROUP*(TRAINING + TRAINING.Q) + (1 |SUBJECT), data = X)
+      model = lmer(y ~ 1 + FD + SYSTEM + GROUP*(TRAINING + TRAINING.Q) + (1 |SUBJECT), data = X)
       model_type = 2
     }
     
-  
+    #browser()
+    XX = X
+    intercept = fixef(model)[1]
+    XX$FD = 0
+    XX$SYSTEM = levels(X$SYSTEM)[1]
+    XX$y = predict(model, XX) + resid(model) # remove effect of motion and system
+    XX$y.baseline = predict(model, XX %>% mutate(TRAINING = min(X$TRAINING), TRAINING.Q =  min(X$TRAINING.Q)))
+    XX$y.dem = XX$y #100*(XX$y - XX$y.baseline)/XX$y.baseline
+    #XX$y.pred = predict(model, XX)
+    #XX$y.orig = X$y
+    #print(ggplot(XX, aes(x = TP, col = GROUP, group = SUBJECT)) + 
+    #         geom_line(aes(y = y.orig), linetype = "dotted") + 
+    #         geom_line(aes(y = y), linetype = "longdash") + 
+    #         geom_line(aes(y = y.pred), linetype = "solid") + 
+    #         geom_line(aes(y = y.baseline), linetype = "solid") + 
+    #         facet_wrap(. ~ SUBJECT) +
+    #         theme(legend.position = "none")
+    # )
+    #XX$y.dem = 100*XX$y/intercept # normalize by average thickness of the group
+    #plot(X$y, XX$y.dem, pch = 20)
   }
   else {
     model = lmer(y ~ 1 + SYSTEM + GROUP * DEPTH * (TRAINING + TRAINING.Q)  + (1 |
@@ -40,29 +59,32 @@ plot_data = function(X, title, YLABEL = 'GMV', wDEPTH = F) {
   
   #X = X %>% filter(SYSTEM=='Classic')
   #browser()
+  #browser()
   K = ifelse(wDEPTH, 20, 5)
-  X = X %>% group_by(SUBJECT) %>% dplyr::mutate(TP.baseline = min(TP), n = sum(!is.na(y))) %>% filter(TP.baseline == 1) %>%
-    dplyr::mutate(y.dem = (y - y[TP.baseline]) / mean(y, na.rm = T) *
-                    100)
+  X = XX
+  # X = XX %>% group_by(SUBJECT) %>% dplyr::mutate(TP.baseline = min(TP), n = sum(!is.na(y))) %>% filter(TP.baseline == 1) %>%
+  #   dplyr::mutate(y.dem = (y - y[TP.baseline]) / mean(y, na.rm = T) *
+  #                   100)
   print(table(paste(X$GROUP, X$TP)))
   
   if (!wDEPTH) {
     YMIN = min(X$y.dem, na.rm = T)
     YMAX = max(X$y.dem, na.rm = T)
-    YMIN = YMIN + .1 * (YMAX - YMIN)
-    YMAX = YMAX - .1 * (YMAX - YMIN)
-    
-    X.sem = X %>% group_by(TP, GROUP) %>% dplyr::summarise(y.mean = mean(y.dem, na.rm = T),
+    YMIN = YMIN + 0.3 * (YMAX - YMIN)
+    YMAX = YMAX - 0.3 * (YMAX - YMIN)
+    #YMIN = -10
+    #YMAX = 10
+    X.sem = X %>% group_by(TP, WAVE, GROUP) %>% dplyr::summarise(y.mean = mean(y.dem, na.rm = T),
                                                            y.sem = sem(y.dem))
-    # myplot = ggplot(NULL) +  geom_line(data = X,
-    #                                    aes(
-    #                                      x = TP,
-    #                                      group = SUBJECT,
-    #                                      col = GROUP,
-    #                                      y = y.dem
-    #                                    ),
-    #                                    alpha = 0.2) + geom_point(alpha = 0.2)
-    myplot =  ggplot(NULL) + #myplot +
+    myplot = ggplot(NULL) +  geom_line(data = X,
+                                         aes(
+                                           x = TP,
+                                           group = SUBJECT,
+                                           col = GROUP,
+                                           y = y.dem
+                                         ),
+                                         alpha = 0.2) + geom_point(alpha = 0.2)
+    myplot =  myplot + 
       geom_line(data = X.sem, aes(
         x = TP,
         group = GROUP,
@@ -84,12 +106,11 @@ plot_data = function(X, title, YLABEL = 'GMV', wDEPTH = F) {
                       col = GROUP
                     )) +
       scale_colour_manual(values = myPalette) + theme_lh + 
-      theme(legend.position = "bottom", legend.title = element_blank()) + 
+      theme(legend.position = "bottom", legend.title = element_blank()) + facet_grid(WAVE ~ .) + 
       xlab('Scanning session') + 
       ylab(YLABEL) + 
       scale_x_continuous(breaks = seq(7)) + 
-      ggtitle(title) + geom_hline(yintercept = 0, size = 0.2)
-    #+ ylim(YMIN, YMAX)
+      ggtitle(title) + geom_hline(yintercept = 0, size = 0.2) + ylim(YMIN, YMAX) 
     
   } else {
     YMIN = min(X$y, na.rm = T)
@@ -137,7 +158,8 @@ create_vol_rois = function(DATADIR,
                            radius,
                            MASK_NAME,
                            THR, 
-                           YLABEL) {
+                           YLABEL,
+                           redraw = T) {
   tests = NULL
   rois = NULL
   myplots = NULL
@@ -158,7 +180,7 @@ create_vol_rois = function(DATADIR,
     THR
   )
   print(command)
-  system(command)
+  if (redraw) system(command)
 
   # plot data
   load(file.path(DATADIR, TESTDIR, 'results.rda'))
@@ -213,6 +235,7 @@ create_surf_rois = function(DATADIR,
                             THR,
                             YLABEL,
                             PRECOMP_ROI = NULL,
+                            redraw = T,
                             wDEPTH = F) {
   tests = NULL
   rois = NULL
@@ -238,7 +261,7 @@ create_surf_rois = function(DATADIR,
         THR
       )
       print(command)
-      system(command)
+      if (redraw) system(command)
     } else {
       ROI_FILE = PRECOMP_ROI
       if (length(grep(hemi, ROI_FILE)) == 0)

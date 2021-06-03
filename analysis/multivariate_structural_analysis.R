@@ -51,7 +51,7 @@ source('./structural_analysis_funcs.R')
 SUBJECTS_DIR = '~/Data/LeftHand/Lund1/freesurfer/'
 
 OUTPUTDIR = 'multivariate-tess'
-NPROCS = 25
+NPROCS = 38
 NINDS = NPROCS * 5 # how often to dump the data
 
 source('./load_covariates.R')
@@ -73,7 +73,7 @@ shuffle_by = c('BETWEEN', 'WITHIN')
 alphavoxel = 0.05
 alphavertex = 0.025
 
-NPERMS = 30 
+NPERMS = 200 
 
 #####################
 # VBM
@@ -87,6 +87,7 @@ annotation.MNI = c('/home/benjamin.garzon/Data/LeftHand/Lund1/labels/cvs_avg35_i
                    
 labels.MNI = '/home/benjamin.garzon/Software/LeftHand/masks/MNI.tessellation162.txt'
 
+if (F){
 results.multivariate.vol = doit(
   DATADIR,
   MASK = vol.mask,
@@ -104,8 +105,8 @@ save(
   results.multivariate.vol,
   file = file.path(DATADIR, 'tests', OUTPUTDIR, 'results.rds')
 )
+}
 
-stophere
 #####################
 # thickness
 #####################
