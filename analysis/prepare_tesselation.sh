@@ -1,16 +1,22 @@
 #!/bin/sh
+
+SUBJECT=fsaverage6
 WB=/home/share/Software/HCP/workbench/bin_rh_linux64/wb_command
 TEMPLATES_DIR=/home/share/Software/HCP/global/templates2/standard_mesh_atlases/resample_fsaverage
 
 SOURCE_R=$TEMPLATES_DIR/fs_LR-deformed_to-fsaverage.R.sphere.32k_fs_LR.surf.gii
-TARGET_R=$TEMPLATES_DIR/fsaverage_std_sphere.R.164k_fsavg_R.surf.gii
+#TARGET_R=$TEMPLATES_DIR/fsaverage_std_sphere.R.164k_fsavg_R.surf.gii
+TARGET_R=$TEMPLATES_DIR/fsaverage6_std_sphere.R.41k_fsavg_R.surf.gii
 SOURCE_AREA_R=$TEMPLATES_DIR/fs_LR.R.midthickness_va_avg.32k_fs_LR.shape.gii
-TARGET_AREA_R=$TEMPLATES_DIR/fsaverage.R.midthickness_va_avg.164k_fsavg_R.shape.gii
+#TARGET_AREA_R=$TEMPLATES_DIR/fsaverage.R.midthickness_va_avg.164k_fsavg_R.shape.gii
+TARGET_AREA_R=$TEMPLATES_DIR/fsaverage6.R.midthickness_va_avg.41k_fsavg_R.shape.gii
 
 SOURCE_L=$TEMPLATES_DIR/fs_LR-deformed_to-fsaverage.L.sphere.32k_fs_LR.surf.gii
-TARGET_L=$TEMPLATES_DIR/fsaverage_std_sphere.L.164k_fsavg_L.surf.gii
+#TARGET_L=$TEMPLATES_DIR/fsaverage_std_sphere.L.164k_fsavg_L.surf.gii
+TARGET_L=$TEMPLATES_DIR/fsaverage6_std_sphere.L.41k_fsavg_L.surf.gii
 SOURCE_AREA_L=$TEMPLATES_DIR/fs_LR.L.midthickness_va_avg.32k_fs_LR.shape.gii
-TARGET_AREA_L=$TEMPLATES_DIR/fsaverage.L.midthickness_va_avg.164k_fsavg_L.shape.gii
+#TARGET_AREA_L=$TEMPLATES_DIR/fsaverage.L.midthickness_va_avg.164k_fsavg_L.shape.gii
+TARGET_AREA_L=$TEMPLATES_DIR/fsaverage6.L.midthickness_va_avg.41k_fsavg_L.shape.gii
 
 #SOURCE_L= /home/share/Software/HCP/global/templates/standard_mesh_atlases/fs_L/fsaverage.L.sphere.164k_fs_L.surf.gii #fs_LR.32k.L.white.surf.gii
 #TARGET_L=/usr/local/freesurfer/subjects/fsaverage/surf/lh.white
@@ -23,7 +29,7 @@ $WB -label-resample \
       $SOURCE_R \
       $TARGET_R \
       ADAP_BARY_AREA \
-      ${TARGET_FILE}.fsaverage.R.label.gii \
+      ${TARGET_FILE}.${SUBJECT}.R.label.gii \
       -area-metrics $SOURCE_AREA_R $TARGET_AREA_R 
      
 $WB -label-resample \
@@ -31,12 +37,12 @@ $WB -label-resample \
       $SOURCE_L \
       $TARGET_L \
       ADAP_BARY_AREA \
-      ${TARGET_FILE}.fsaverage.L.label.gii \
+      ${TARGET_FILE}.${SUBJECT}.L.label.gii \
       -area-metrics $SOURCE_AREA_L $TARGET_AREA_L 
 
 # convert to annotfile
-mris_convert --annot ${TARGET_FILE}.fsaverage.R.label.gii /usr/local/freesurfer/subjects/fsaverage/surf/rh.white ./${TARGET_FILE}.fsaverage.R.annot
-mris_convert --annot ${TARGET_FILE}.fsaverage.L.label.gii /usr/local/freesurfer/subjects/fsaverage/surf/lh.white ./${TARGET_FILE}.fsaverage.L.annot
+mris_convert --annot ${TARGET_FILE}.${SUBJECT}.R.label.gii /usr/local/freesurfer/subjects/${SUBJECT}/surf/rh.white ./${TARGET_FILE}.${SUBJECT}.R.annot
+mris_convert --annot ${TARGET_FILE}.${SUBJECT}.L.label.gii /usr/local/freesurfer/subjects/${SUBJECT}/surf/lh.white ./${TARGET_FILE}.${SUBJECT}.L.annot
 
 # find the parcels that fall within the mask
 SUBJECTS_DIR=/usr/local/freesurfer/subjects/
@@ -53,18 +59,18 @@ cat lh.tessellation162.txt | sed 's/label/lh.label/g' >> MNI.tessellation162.txt
 cp *.tessellation.txt ~/Software/LeftHand/masks
 
 TARGET_FILE=Icosahedron-162
-freeview -f /usr/local/freesurfer/subjects/fsaverage/surf/rh.inflated:annot=${TARGET_FILE}.fsaverage.R.annot \
-	    /usr/local/freesurfer/subjects/fsaverage/surf/lh.inflated:annot=${TARGET_FILE}.fsaverage.L.annot
+freeview -f /usr/local/freesurfer/subjects/fsaverage/surf/rh.inflated:annot=${TARGET_FILE}.${SUBJECT}.R.annot \
+	    /usr/local/freesurfer/subjects/fsaverage/surf/lh.inflated:annot=${TARGET_FILE}.${SUBJECT}.L.annot
 	    
 # MNI space
-
 
 SUBJECTS_DIR=/home/benjamin.garzon/Data/LeftHand/Lund1/labels/subject
 TARGET_FILE=Icosahedron-162
 SUBJECTS_DIR=/home/benjamin.garzon/Data/LeftHand/Lund1/labels/subject/
 LABELDIR=$SUBJECTS_DIR/fsaverage/label
 PARCDIR=/home/benjamin.garzon/Data/LeftHand/Lund1/parcellations/fs_LR_32
-OUTPUTDIR=/home/benjamin.garzon/Data/LeftHand/Lund1/labels/fsaverage/$TARGET_FILE
+#OUTPUTDIR=/home/benjamin.garzon/Data/LeftHand/Lund1/labels/fsaverage/$TARGET_FILE
+OUTPUTDIR=/home/benjamin.garzon/Data/LeftHand/Lund1/labels/fsaverage6/$TARGET_FILE
 OUTPUTDIR2=/home/benjamin.garzon/Data/LeftHand/Lund1/labels/cvs_avg35_inMNI152/$TARGET_FILE
 mkdir $OUTPUTDIR
 mkdir $OUTPUTDIR2
@@ -72,11 +78,11 @@ mkdir $OUTPUTDIR2
 ln -s $PARCDIR/${TARGET_FILE}.fsaverage.R.annot $LABELDIR/rh.${TARGET_FILE}.annot
 ln -s $PARCDIR/${TARGET_FILE}.fsaverage.L.annot $LABELDIR/lh.${TARGET_FILE}.annot
 
-mri_annotation2label --subject fsaverage  --hemi rh --labelbase $OUTPUTDIR/rh.label --annotation ${TARGET_FILE} --ctab $OUTPUTDIR/rh.LUT.txt
-mri_annotation2label --subject fsaverage  --hemi lh --labelbase $OUTPUTDIR/lh.label --annotation ${TARGET_FILE} --ctab $OUTPUTDIR/lh.LUT.txt
+mri_annotation2label --subject $SUBJECT  --hemi rh --labelbase $OUTPUTDIR/rh.label --annotation ${TARGET_FILE} --ctab $OUTPUTDIR/rh.LUT.txt
+mri_annotation2label --subject $SUBJECT  --hemi lh --labelbase $OUTPUTDIR/lh.label --annotation ${TARGET_FILE} --ctab $OUTPUTDIR/lh.LUT.txt
 
 for hemi in rh lh; do
-for i in  $(seq -f "%03g" 1 152); do
+for i in  $(seq -f "%03g" 1 162); do
 echo $i
 if [ -f "$OUTPUTDIR2/${hemi}.label-${i}.label" ]; then 
   echo Label exists
