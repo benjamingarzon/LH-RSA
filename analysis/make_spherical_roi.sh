@@ -1,18 +1,21 @@
 #!/bin/sh
-HCPDIR=/home/share/Software/HCP/workbench/bin_rh_linux64/
+#HCPDIR=/home/share/Software/HCP/workbench/bin_rh_linux64/
+HCPDIR=/home/xgarzb@GU.GU.SE/Software/workbench/bin_rh_linux64/
 
 WD=$1
 METRIC=$2
 DISTANCE=$3
 RADIUS=$4
 OUTPUT=$5
-THR=0.999
+THR=$6
 
 EXTREMA=$WD/extrema.nii.gz
 
+fslmaths $METRIC -bin -kernel boxv 5 -ero -mul $METRIC ${OUTPUT}.aux.nii.gz
+
 #if [ ! -e $EXTREMA ]; then
 $HCPDIR/wb_command -volume-extrema \
-      $METRIC \
+      ${OUTPUT}.aux.nii.gz \
       $DISTANCE \
       $EXTREMA -only-maxima -threshold 0 $THR
 #fi
@@ -30,7 +33,8 @@ $HCPDIR/wb_command -volume-rois-from-extrema \
       $RADIUS \
       ${OUTPUT}.nii.gz
 #fi
-
+# mask it 
+fslmaths $METRIC -bin -mul ${OUTPUT}.nii.gz ${OUTPUT}.nii.gz
 #cp $EXTREMA ${OUTPUT}.nii.gz
 
 $HCPDIR/wb_command -volume-reduce \

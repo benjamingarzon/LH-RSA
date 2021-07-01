@@ -24,8 +24,11 @@ BIDS_DIR = '/mnt/share/MotorSkill/data_BIDS/'
 FS_DIR = '/data/lv0/MotorSkill/freesurfer/'
 SCAN_LIST_DIR = '/data/lv0/MotorSkill/QC/scan_lists'
 QC_DIR = '/data/lv0/MotorSkill/QC/'
-ANALYSIS_DIR = '/mnt/share/MotorSkill/analysis/' #'/data/lv0/MotorSkill/fmriprep/analysis'
+ANALYSIS_DIR = '/data/lv0/MotorSkill/fmriprep/analysis'
 FMRIPREP_DIR = '/data/lv0/MotorSkill/fmriprep/fmriprep'
+
+skipped_file = '/data/lv0/MotorSkill/QC/skipped.csv'
+
 # check complete data
 scan_lists = glob.glob(os.path.join(SCAN_LIST_DIR, 'Scan_list_wave?.csv'))
 BIDS_list = [os.path.basename(x) 
@@ -170,15 +173,17 @@ fs_files = [
    'lh.pial'
    ]
 # analysis
-volume_files = [ 'run%d/volume/tstat1.nii.gz'%(run) for run in runs ] 
+volume_files = [ 'run%d/volume/cope1.nii.gz'%(run) for run in runs ] 
 
-surf_files = [ 'run%d/surfR/tstat1.func.gii'%(run) for run in runs ] 
+surf_files = [ 'run%d/surfR/cope1.func.gii'%(run) for run in runs ] 
 
 effect_files = [ 'effects.nii.gz' ]
 
 fmriprep_surf_files = [ 'task-sequence_run-%d_space-fsaverage6_hemi-R_bold.func.gii'%(run) for run in runs ] 
 
 fmriprep_vol_files = [ 'task-sequence_run-%d_space-MNI152NLin2009cAsym_desc-preproc_bold.nii.gz'%(run) for run in runs ] 
+
+roi_score_files = [ 'surf/roi_scores.csv' ] 
 
 ## analysis
 
@@ -346,21 +351,26 @@ df_FMRIPREPincomplete.to_csv(os.path.join(QC_DIR,
 
 results = []
 for subject, session, valid_runs in itertable(scans, runs):
-    result_effects = check_files(subject, ANALYSIS_DIR, session, effect_files, '', count = True)
-    result_volume = check_files(subject, ANALYSIS_DIR, session, volume_files, '')
+    result_scores = check_files(subject, ANALYSIS_DIR, session, roi_score_files, 
+                                '')
+    result_effects = check_files(subject, ANALYSIS_DIR, session, effect_files, 
+                                '', count = True)
+    result_volume = check_files(subject, ANALYSIS_DIR, session, volume_files, 
+                                '')
     result_surf = check_files(subject, ANALYSIS_DIR, session, surf_files, '')
 
     results.append([subject, 
                     session] + 
+                    result_scores + 
                     result_effects + 
                     result_volume + 
                     result_surf)
-    
-    
-df = pd.DataFrame(results, columns = ['Subject', 'Session'] +  effect_files + 
-                  volume_files + surf_files)
+  
+df = pd.DataFrame(results, columns = ['Subject', 'Session'] + roi_score_files + 
+                  effect_files + volume_files + surf_files)
 
 # add some summary columns
+df['complete_scores'] = sumpos(df[roi_score_files])
 df['complete_effects'] = sumpos(df[effect_files])
 df['complete_volume'] = sumpos(df[volume_files])
 df['complete_surf'] = sumpos(df[surf_files])
@@ -371,18 +381,27 @@ df = pd.merge(df, df_FMRIPREP[['Subject', 'Session', 'complete_func',
 
 df.to_csv(os.path.join(QC_DIR, 'Analysis.csv'), index = False)
 
-ntrials = 32
-df['complete_analysis'] = 1*np.logical_and(
-         np.logical_and(df.complete_effects == ntrials*df.complete_fmriprep_vol, 
-                        df.complete_volume == df.complete_fmriprep_vol),
-                        df.complete_surf == df.complete_fmriprep_surf)
+skipped_df = pd.read_csv(skipped_file)
 
-df = df[['Subject', 'Session', 'complete_analysis', 'complete_effects', 
+df = pd.merge(df, skipped_df, how = 'left', on = ['Subject', 'Session'])
+ntrials = 32
+df['enough_trials'] = df.valid_runs.apply(np.isnan)*1
+df['complete_analysis'] = 1*np.logical_and.reduce((
+                        df.enough_trials == 1,
+                        df.complete_scores == 1,
+                        df.complete_effects == ntrials*df.complete_fmriprep_vol, 
+                        df.complete_volume == df.complete_fmriprep_vol,
+                        df.complete_surf == df.complete_fmriprep_surf)
+    )
+
+df = df[['Subject', 'Session', 'complete_analysis', 
+         'complete_scores',
+         'complete_effects', 
          'complete_volume', 'complete_surf',
-         'complete_fmriprep_surf', 'complete_fmriprep_vol']]
+         'complete_fmriprep_surf', 'complete_fmriprep_vol', 'enough_trials']]
 
 
 df[ df.complete_analysis == False ].to_csv(os.path.join(QC_DIR, 
   'Analysis_incomplete.csv'), index = False)
+# OK : 1201, 3106
 
-# OK : 1201

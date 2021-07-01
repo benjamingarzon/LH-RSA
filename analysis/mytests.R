@@ -7,6 +7,7 @@
 
 testaverage_simple = function(y, X, ALTERNATIVE = 'greater')
 {
+  X = subset(X)
   val = mean(y)
   names(val) = 'mean'
   return(val)

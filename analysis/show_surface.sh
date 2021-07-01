@@ -32,5 +32,5 @@ freeview -f $SURF_R:overlay=$OVERLAY_R:overlay_threshold=$THR_L,$THR_H:overlay_c
 pngappend ${FIG}_L_medial.png + ${FIG}_R_medial.png ${FIG}_medial.png
 pngappend ${FIG}_L_lateral.png + ${FIG}_R_lateral.png ${FIG}_lateral.png
 pngappend ${FIG}_medial.png - ${FIG}_lateral.png ${FIG}.png
-rm ${FIG}*lateral* ${FIG}*medial*
 
+rm ${FIG}_medial.png ${FIG}_lateral.png

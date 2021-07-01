@@ -13,58 +13,68 @@ cat("\014")
 setwd("~/Software/LeftHand/analysis")
 source("./plot_funcs.R")
 
-NCOL = 4
+NCOL = 3
 
 FIGS_DIR = '~/Data/LeftHand/Lund1/figs'
 dir.create(FIGS_DIR)
 #unlink(file.path(FIGS_DIR, 'figs','*.png'))
 
-THR = 0.95
-
-
+THR = 0.99
 
 #################################################################################
-radius = 10
+radius = 3
 
-
-surface.rh = '~/Data/LeftHand/Lund1/labels/subject/fsaverage6/surf/rh.pial.gii'
-surface.lh = '~/Data/LeftHand/Lund1/labels/subject/fsaverage6/surf/lh.pial.gii'
+surface.rh = '/data/lv0/MotorSkill/labels/subject/fsaverage6/surf/rh.pial.shape.gii'
+surface.lh = '/data/lv0/MotorSkill/labels/subject/fsaverage6/surf/lh.pial.shape.gii'
 SURFACE_FILES = c(surface.lh, surface.rh)
 names(SURFACE_FILES) = c("lh", "rh")
 
-inflated.rh = '~/Data/LeftHand/Lund1/labels/subject/fsaverage6/surf/rh.inflated'
-inflated.lh = '~/Data/LeftHand/Lund1/labels/subject/fsaverage6/surf/lh.inflated'
-
+inflated.rh = '/data/lv0/MotorSkill/labels/subject/fsaverage6/surf/rh.inflated.shape.gii'
+inflated.lh = '/data/lv0/MotorSkill/labels/subject/fsaverage6/surf/lh.inflated.shape.gii'
 
 DISTANCE = 20
-DATADIR = '/data/lv0/MotorSkill/fmriprep/analysis/higherlevel/Trained_Untrained/surfR/'
+
+WD = '/data/lv0/MotorSkill/fmriprep/analysis/higherlevel/TrainedCorrect_TrainedIncorrect/'
+
+DATADIR = file.path(WD, 'volume/')
 
 MASK_NAME = 'mask.nii.gz'
-# thickness linear
 TESTDIR = 'tests/linear'
-TESTNAME = 'GROUP_x_TRAINING.Q-_p'
-myplots.thickness.linear.groupxtraining = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR)
+TESTNAME = 'GROUPExp_x_CONDITIONUnt_x_TRAINING_p' #'TRAINING_p_fdr'
+myplots.vol.training = create_vol_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, 
+                                       plot_function = plot_activation_data)
+MASK_NAME = 'mask.nii.gz'
+TESTDIR = 'tests/linear'
+TESTNAME = 'CONDITIONUnt_p' #'TRAINING_p_fdr'
+myplots.vol.training = create_vol_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, 
+                                       plot_function = plot_activation_data)
 
-#stophere
-#TESTNAME = 'GROUP_x_TRAINING.Q_p'
-#myplots.thickness.quadratic.groupxtraining = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR)
+stophere
+WD = '/data/lv0/MotorSkill/fmriprep/analysis/higherlevel/Trained_Untrained/'
 
-TESTDIR = 'tests/thickness/quadratic'
-TESTNAME = 'Omni_p'
-#THR = 0.95
-#myplots.thickness.quadratic.omni = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR)
+DATADIR = file.path(WD, 'volume/')
 
-TESTDIR = 'tests/T1/quadratic'
-TESTNAME = 'thickness_GROUP_x_TRAINING-_p'
-myplots.T1.quadratic.groupxtraining = create_surf_rois(
-  DATADIR,
-  TESTDIR,
-  TESTNAME,
-  DISTANCE,
-  radius,
-  MASK_NAME,
-  THR,
-  myplots.thickness.linear.groupxtraining$ROI_FILE,
-  wDEPTH = T
-)
+MASK_NAME = 'mask.nii.gz'
+TESTDIR = 'tests/linear'
+TESTNAME = 'GROUPExp_x_CONDITIONUnt_x_TRAINING_p' #'TRAINING_p_fdr'
+myplots.vol.training = create_vol_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, 
+                                    plot_function = plot_activation_data)
+
+stophere
+radius = 5
+
+DATADIR = file.path(WD, 'surf/')
+
+TESTDIR = 'tests/quadratic'
+TESTNAME = 'TRAINING_p_fdr'
+THR = 0.95
+#myplots.surf.training = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, 
+#                                       plot_function = plot_activation_data)
+
+
+TESTDIR = 'tests/quadratic'
+TESTNAME = 'INTERCEPT_p_fdr'
+THR = 0.95
+myplots.surf.intercept = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, 
+                                         plot_function = plot_activation_data)
 

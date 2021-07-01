@@ -1,13 +1,15 @@
 # hypothesis HF2
 testlinearrun = function(y, X, ALTERNATIVE = 'greater')
 { 
-  
-  var.names = c("INTERCEPT", "FD", "SYSTEMMTx8", "GROUPExp", "CONDITIONUnt", "TRAINING", 
+  var.names = c("INTERCEPT", "FD", #"SYSTEMMTx8", 
+                "CONFIGURATION2", "CONFIGURATION3", "CONFIGURATION4",
+                "GROUPExp", "CONDITIONUnt", "TRAINING", 
                 "GROUPExp_x_CONDITIONUnt", "GROUPExp_x_TRAINING", "CONDITIONUnt_x_TRAINING", "GROUPExp_x_CONDITIONUnt_x_TRAINING")
+  
   contrast.names = c("GROUPExp_x_TRAINING-", "GROUPExp_x_CONDITIONUnt_x_TRAINING+")
   
-  c.1        = c(rep(0, 8), -1, 0)
-  c.2        = c(rep(0, 9), 1)
+  c.1        = c(rep(0, 10), -1, 0)
+  c.2        = c(rep(0, 11), 1)
   
   cont.mat = rbind(c.1, c.2)
   colnames(cont.mat) = var.names
@@ -21,9 +23,10 @@ testlinearrun = function(y, X, ALTERNATIVE = 'greater')
            paste0(contrast.names, '_p'))
   
   X$y = y
-  model = lmer(y ~ 1 + FD + SYSTEM  + GROUP*CONDITION*TRAINING +
-                 + (1 + TRAINING|SUBJECT), data = X)
-  
+  #model = lmer(y ~ 1 + FD + SYSTEM + CONFIGURATION + GROUP*CONDITION*TRAINING + 
+  model = lmer(y ~ 1 + FD + CONFIGURATION + GROUP*CONDITION*TRAINING + 
+                 + (1 + TRAINING|SUBJECT), data = subset(X, TP < 5))
+
   tryCatch({
     coefs = fixef(model)
     pvalues = summary(model)$coefficients[ , "Pr(>|t|)"]
@@ -56,7 +59,8 @@ testlinearrun = function(y, X, ALTERNATIVE = 'greater')
 
 testquadraticrun = function(y, X, ALTERNATIVE = 'greater')
 { 
-  var.names = c("INTERCEPT", "FD", "SYSTEMMTx8", "GROUPExp", "CONDITIONUnt", 
+  var.names = c("INTERCEPT", "FD", "SYSTEMMTx8", "CONFIGURATION2", "CONFIGURATION3", "CONFIGURATION4",
+                "GROUPExp", "CONDITIONUnt", 
                 "TRAINING", "TRAINING.Q",
                 "GROUPExp_x_CONDITIONUnt", "GROUPExp_x_TRAINING", "GROUPExp_x_TRAINING.Q",
                 "CONDITIONUnt_x_TRAINING", "CONDITIONUnt_x_TRAINING.Q", 
@@ -64,8 +68,8 @@ testquadraticrun = function(y, X, ALTERNATIVE = 'greater')
   
   contrast.names = c("GROUPExp_x_TRAINING-", "GROUPExp_x_CONDITIONUnt_x_TRAINING+")
   
-  c.1        = c(rep(0, 8), -1, rep(0, 5))
-  c.2        = c(rep(0, 12), 1, 0)
+  c.1        = c(rep(0, 11), -1, rep(0, 5))
+  c.2        = c(rep(0, 15), 1, 0)
   
   cont.mat = rbind(c.1, c.2)
   colnames(cont.mat) = var.names
@@ -80,7 +84,7 @@ testquadraticrun = function(y, X, ALTERNATIVE = 'greater')
   
   X$y = y
   # SYSTEM
-  model = lmer(y ~ 1 + FD + SYSTEM + GROUP*CONDITION*(TRAINING + TRAINING.Q) + 
+  model = lmer(y ~ 1 + FD + SYSTEM + CONFIGURATION + GROUP*CONDITION*(TRAINING + TRAINING.Q) + 
                  + (1 + TRAINING + TRAINING.Q|SUBJECT), data = X)
   
   tryCatch({
@@ -121,14 +125,14 @@ modelcomparisonrun = function(y, X)
   
   tryCatch({ 
 # not including condition CONFIGURATION
-    model.l = lmer(y ~ 1 + FD + SYSTEM  + GROUP*TRAINING + TRAINING.Q +
-                     (1 + TRAINING|SUBJECT), data = X)
+    model.l = lmer(y ~ 1 + FD + SYSTEM + CONFIGURATION + GROUP*TRAINING + TRAINING.Q +
+                     (1 + TRAINING + TRAINING.Q|SUBJECT), data = X)
 
-    model.a = lmer(y ~ 1 + FD + SYSTEM  + GROUP*(TRAINING + TRAINING.A) +
-                     (1 + TRAINING |SUBJECT), data = X)
+    model.a = lmer(y ~ 1 + FD + SYSTEM  + CONFIGURATION + GROUP*(TRAINING + TRAINING.A) +
+                     (1 + TRAINING + TRAINING.Q|SUBJECT), data = X)
     
-    model.q = lmer(y ~ 1 + FD + SYSTEM + GROUP*(TRAINING + TRAINING.Q) +
-                     (1 + TRAINING|SUBJECT), data = X)
+    model.q = lmer(y ~ 1 + FD + SYSTEM + CONFIGURATION + GROUP*(TRAINING + TRAINING.Q) +
+                     (1 + TRAINING + TRAINING.Q|SUBJECT), data = X)
 
     BIC.val = BIC(model.q, model.a, model.l)
     

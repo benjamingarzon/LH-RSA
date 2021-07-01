@@ -37,6 +37,12 @@ WD=$HOMEDIR/fmriprep
 SUBJECTS_DIR=$WD/freesurfer
 SUBJECTS_DIR_AUX=$HOMEDIR/freesurfer
 WORK=$HOMEDIR/work_sub-${SUBJECT}_ses-${SESSION}
+EFFECTS_FILE=effects #_extended
+DERIVATIVES_FILE=derivatives
+VOLUME_DIR=volume
+SURFR_DIR=surfR
+SURFL_DIR=surfL
+
 export FS_LICENSE=/usr/local/freesurfer/license.txt
 
 # fMRI design files
@@ -479,18 +485,41 @@ for run in $RUNS;
 do
   RUN_DIR=$SUBDIR/run$run
 
-  if [ -e "$RUN_DIR/volume" ] && \
-  [ ! -e "$RUN_DIR/volume/cope1.nii.gz" ] ; then
-     rm -r $RUN_DIR/volume $RUN_DIR/surf*
+  if [ -e "$RUN_DIR/${VOLUME_DIR}" ] && \
+  [ ! -e "$RUN_DIR/${VOLUME_DIR}/cope0.nii.gz" ] ; then
+     rm -r $RUN_DIR/${VOLUME_DIR} $RUN_DIR/surf*
   fi 
-  if [ ! -e "$RUN_DIR/volume" ]; then
+  if [ ! -e "$RUN_DIR/${VOLUME_DIR}" ]; then
 
       FUNCVOL=$HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-${run}_space-MNI152NLin2009cAsym_desc-preproc_bold.nii.gz
       FUNCREF=$HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-${run}_space-T1w_desc-preproc_bold.nii.gz #_space-T1w_boldref.nii.gz
       FUNCMASK=$HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-${run}_space-T1w_desc-brain_mask.nii.gz
-      FUNCSURFL=$HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-${run}_space-fsaverage6_hemi-L_bold.func.gii # corresponds to fsaverage6 space
-      FUNCSURFR=$HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-${run}_space-fsaverage6_hemi-R_bold.func.gii
+      FUNCSURFL=$HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-${run}_space-fsaverage6_hemi-lh_bold.func.gii #-L_bold.func.gii 
+      FUNCSURFR=$HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-${run}_space-fsaverage6_hemi-rh_bold.func.gii #-R_bold.func.gii
 
+	# resample surfaces
+	for HEMI in rh lh; do
+	mri_vol2surf --mov $FUNCREF \
+	   --sd $SUBJECTS_DIR \
+	   --regheader sub-$SUBJECT \
+	   --trgsubject sub-$SUBJECT  \
+	   --hemi $HEMI \
+	   --surf white \
+	   --projfrac-avg 0.2 0.7 0.1 \
+	   --o $HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-${run}_space-individual_hemi-${HEMI}_bold.func.gii
+
+	mri_surf2surf --sd $SUBJECTS_DIR \
+	   --srcsubject sub-$SUBJECT \
+	   --srcsurfval $HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-${run}_space-individual_hemi-${HEMI}_bold.func.gii \
+	   --trgsubject fsaverage6\
+	   --srcsurfreg sphere.reg \
+	   --trgsurfval $HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-${run}_space-fsaverage6_hemi-${HEMI}_bold.func.gii \
+	   --hemi $HEMI \
+	   --cortex
+	
+	rm $HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-${run}_space-individual_hemi-${HEMI}_bold.func.gii
+
+	done
       mkdir $RUN_DIR
     
       #Smoothing       
@@ -501,16 +530,6 @@ do
       else
     	FUNCSURF=$FUNCSURFR
       fi
-
-#      mris_convert $SUBJECTS_DIR/fsaverage6/surf/${HEMI}.sphere.reg $SUBJECTS_DIR/fsaverage6/surf/${HEMI}.sphere.reg.gii
-
-#      $HCPDIR/wb_shortcuts -freesurfer-resample-prep $SUBJECTS_DIR/fsaverage6/surf/${HEMI}.white  \
-#      $SUBJECTS_DIR/fsaverage6/surf/${HEMI}.pial \
-#      $SUBJECTS_DIR/fsaverage6/surf/${HEMI}.sphere.reg \
-#      $SUBJECTS_DIR/fsaverage6/surf/${HEMI}.sphere.reg.gii \
-#      $SUBJECTS_DIR/fsaverage6/surf/${HEMI}.midthickness.surf.gii \
-#      $SUBJECTS_DIR/fsaverage6/surf/${HEMI}.midthickness.2.surf.gii \
-#      $SUBJECTS_DIR/fsaverage6/surf/${HEMI}.sphere.reg.surf.gii
 
       # smoothing
       $HCPDIR/wb_command -metric-smoothing $SUBJECTS_DIR/fsaverage6/surf/${HEMI}.midthickness.surf.gii $FUNCSURF $SIGMA_SURF $RUN_DIR/${HEMI}.smoothed.func.gii -fix-zeros
@@ -536,8 +555,10 @@ do
 
       done
     
-      cut -d$'\t' -f $CONFOUND_INDICES $HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-${run}_desc-confounds_regressors.tsv | tail -n +2 > $RUN_DIR/mc_run-0${run}.csv
-    
+      #cut -d$'\t' -f $CONFOUND_INDICES $HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-${run}_desc-confounds_regressors.tsv | tail -n +2 > $RUN_DIR/mc_run-0${run}.csv
+      python ~/Software/LeftHand/process/extract_confounds.py $HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-${run}_desc-confounds_regressors.tsv $RUN_DIR/mc_run-0${run}.csv simple
+      python ~/Software/LeftHand/process/extract_confounds.py $HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-${run}_desc-confounds_regressors.tsv $RUN_DIR/mc_run-0${run}_extended.csv extended
+  
       FSF_FILE=$RUN_DIR/fMRI.fsf
       
       cp $HOMEDIR/responses/sub-${SUBJECT}/ses-${SESSION}/run$run/*.csv $MODEL_DIR/$RUN_DIR/
@@ -559,31 +580,33 @@ do
            sed -i "s%set fmri(shape${k}) 3%set fmri(shape${k}) 10%" $FSF_FILE 
           fi
       done
-      
+      CONFOUNDS=$RUN_DIR/mc_run-0${run}.csv #$RUN_DIR/mc_run-0${run}_extended.csv
       NVOLS=`fslnvols $FUNCVOL`
       sed -i "s%@NVOLS%$NVOLS%" $FSF_FILE
       sed -i "s%@fMRI%$RUN_DIR/data_smooth.nii.gz%" $FSF_FILE
       sed -i "s%@STRUCTURAL_BRAIN%$STRUCT%" $FSF_FILE
-      sed -i "s%@ANALYSIS%$RUN_DIR/volume/analysis.feat%" $FSF_FILE  
-      sed -i "s%@CONFOUNDS%$RUN_DIR/mc_run-0${run}.csv%" $FSF_FILE        
+      sed -i "s%@ANALYSIS%$RUN_DIR/${VOLUME_DIR}/analysis.feat%" $FSF_FILE  
+      sed -i "s%@CONFOUNDS%$CONFOUNDS%" $FSF_FILE        
       #sed -i "s%@FWHM%$FWHM%" $FSF_FILE        
       
       # now run it
-      feat_model fMRI
-      rm -r $RUN_DIR/surfL $RUN_DIR/surfR $RUN_DIR/volume 
+      feat_model fMRI $CONFOUNDS
+      rm -r $RUN_DIR/${SURFL_DIR} $RUN_DIR/${SURFR_DIR} $RUN_DIR/${VOLUME_DIR} 
 
       # surface	
-      film_gls --rn=$RUN_DIR/surfL --sa --ms=15 --epith=5 --in=$RUN_DIR/lh.dilated.func.gii --in2=$SUBJECTS_DIR/fsaverage6/surf/lh.midthickness.surf.gii --pd=fMRI.mat --con=fMRI.con --mode=surface  
-      film_gls --rn=$RUN_DIR/surfR --sa --ms=15 --epith=5 --in=$RUN_DIR/rh.dilated.func.gii --in2=$SUBJECTS_DIR/fsaverage6/surf/rh.midthickness.surf.gii --pd=fMRI.mat --con=fMRI.con --mode=surface  
+      film_gls --rn=$RUN_DIR/${SURFL_DIR} --sa --ms=15 --epith=5 --in=$RUN_DIR/lh.dilated.func.gii --in2=$SUBJECTS_DIR/fsaverage6/surf/lh.midthickness.surf.gii --pd=fMRI.mat --con=fMRI.con --mode=surface  
+      film_gls --rn=$RUN_DIR/${SURFR_DIR} --sa --ms=15 --epith=5 --in=$RUN_DIR/rh.dilated.func.gii --in2=$SUBJECTS_DIR/fsaverage6/surf/rh.midthickness.surf.gii --pd=fMRI.mat --con=fMRI.con --mode=surface  
 
       # volume, smooth and run
-      fslmaths $FUNCVOL -s $SIGMA $RUN_DIR/data_smooth.nii.gz
-      feat fMRI.fsf
-      #film_gls --rn=$RUN_DIR/volume --sa --ms=$FWHM --in=$FUNCVOL--thr=1000 --pd=fMRI.mat --con=fMRI.con --mode=volume 
+      #fslmaths $FUNCVOL -s $SIGMA $RUN_DIR/data_smooth.nii.gz
+      #feat fMRI.fsf
+      #film_gls --rn=$RUN_DIR/${VOLUME_DIR} --sa --ms=$FWHM --in=$FUNCVOL--thr=1000 --pd=fMRI.mat --con=fMRI.con --mode=volume 
 
-      mv $RUN_DIR/volume/analysis.feat/stats/*nii.gz $RUN_DIR/volume
+      mv $RUN_DIR/${VOLUME_DIR}/analysis.feat/stats/*nii.gz $RUN_DIR/${VOLUME_DIR}
       
-      rm -r $RUN_DIR/volume/analysis.feat $RUN_DIR/*.dilated.func.gii $RUN_DIR/*.filtered.func.gii $RUN_DIR/*.smoothed.func.gii $RUN_DIR/data_smooth.nii.gz
+      rm -r $RUN_DIR/${VOLUME_DIR}/analysis.feat $RUN_DIR/*.dilated.func.gii $RUN_DIR/*.filtered.func.gii $RUN_DIR/*.smoothed.func.gii $RUN_DIR/data_smooth.nii.gz  
+      rm $RUN_DIR/${VOLUME_DIR}/zstat* $RUN_DIR/${VOLUME_DIR}/var*  $RUN_DIR/${VOLUME_DIR}/res* $RUN_DIR/${VOLUME_DIR}/s* $RUN_DIR/${VOLUME_DIR}/thres* #$RUN_DIR/${VOLUME_DIR}/ts*
+      rm $RUN_DIR/surf?/zstat* $RUN_DIR/surf?/var* $RUN_DIR/surf?/res* $RUN_DIR/surf?/s* $RUN_DIR/surf?/thres* #$RUN_DIR/surf?/ts*
   fi # volume exists
 done 
 
@@ -598,7 +621,7 @@ if [ $PHASE == 0 ] || [ "$PHASE" = "5.1" ]; then
 for run in $RUNS; 
 do
   RUN_DIR=$SUBDIR/run$run
-  if [ ! -e "$RUN_DIR/volume" ]; then 
+  if [ ! -e "$RUN_DIR/${VOLUME_DIR}" ]; then 
         cd $RUN_DIR
 
 	FUNCVOL=$HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-${run}_space-MNI152NLin2009cAsym_desc-preproc_bold.nii.gz
@@ -608,8 +631,8 @@ do
 	#fi
         fslmaths $FUNCVOL -s $SIGMA $RUN_DIR/data_smooth.nii.gz
         feat fMRI.fsf
-        mv $RUN_DIR/volume/analysis.feat/stats/*nii.gz $RUN_DIR/volume
-        rm -r $RUN_DIR/volume/analysis.feat $RUN_DIR/data_smooth.nii.gz
+        mv $RUN_DIR/${VOLUME_DIR}/analysis.feat/stats/*nii.gz $RUN_DIR/${VOLUME_DIR}
+        rm -r $RUN_DIR/${VOLUME_DIR}/analysis.feat $RUN_DIR/data_smooth.nii.gz
 
   fi
 
@@ -623,7 +646,7 @@ fi # end 5.1
 if [ $PHASE == 0 ] || [ $PHASE == 6 ]; then
 
 # LEAST SQUARES ALL
-if [ ! -e "$HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/effects.nii.gz" ]; then
+if [ ! -e "$HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/${EFFECTS_FILE}0.nii.gz" ]; then
 
 for run in $RUNS; 
 do
@@ -653,6 +676,9 @@ do
   NVOLS=`fslnvols $FUNC`
   NVOXELS=`echo \`fslinfo $FUNC | awk 'NR>=3 && NR <= 6 {print $2F}' \` | awk '{ for(j=i=1; i<=NF; i++) j*=$i; print j; j=0 }'`
 
+  #extract confounds
+  python ~/Software/LeftHand/process/extract_confounds.py $HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-${run}_desc-confounds_regressors.tsv $RUN_DIR/mc_run-0${run}.csv simple
+  python ~/Software/LeftHand/process/extract_confounds.py $HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-${run}_desc-confounds_regressors.tsv $RUN_DIR/mc_run-0${run}_extended.csv extended
   sed -i "s%@NEVS_ORIG%$NEVS_ORIG%" $FSF_FILE
   sed -i "s%@NEVS_REAL%$NEVS_REAL%" $FSF_FILE
   sed -i "s%@NCONS_ORIG%$NCONS_ORIG%" $FSF_FILE
@@ -661,15 +687,17 @@ do
   sed -i "s%@NVOXELS%$NVOXELS%" $FSF_FILE
   sed -i "s%@fMRI%$FUNC%" $FSF_FILE
   sed -i "s%@ANALYSIS%$MODEL_DIR/analysis%" $FSF_FILE 
-
   sed -i "s%@EV$(($NTRIALS + 1))%$MODEL_DIR/FIXATION%" $FSF_FILE        
-  sed -i "s%@EV$(($NTRIALS + 2))%$MODEL_DIR/STRETCH%" $FSF_FILE        
-  sed -i "s%@CONFOUNDS%$RUN_DIR/mc_run-0${run}.csv%" $FSF_FILE        
-
+  sed -i "s%@EV$(($NTRIALS + 2))%$MODEL_DIR/STRETCH%" $FSF_FILE   
+  sed -i "s%@CONFOUNDS%$RUN_DIR/mc_run-0${run}.csv%" $FSF_FILE     
+ # sed -i "s%@CONFOUNDS%$RUN_DIR/mc_run-0${run}_extended.csv%" $FSF_FILE        
+       
   for EV in `seq $(($NTRIALS))`; 
   do  
      sed -i "s%@EV$EV%$MODEL_DIR/TRIAL${EV}%" $FSF_FILE        
   done
+pwd
+  echo $FSF_FILE
 
   feat $FSF_FILE
   
@@ -702,9 +730,9 @@ do
 
 done
 
-# LEAST SQUARES SINGLE
+# LEAST SQUARES SINGLE extra computation
 if [ ]; then
-#if [ ! -e "$HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/effects.nii.gz" ]; then
+#if [ ! -e "$HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/${EFFECTS_FILE}.nii.gz" ]; then
 
 for run in $RUNS; 
 do
@@ -771,19 +799,19 @@ fi # LSS extra computation
 # Merge parameters
 cd $HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/
 
-  fslmerge -t effects `ls -v run*/effects_LSA_?.nii.gz` 
-  fslmerge -t derivatives `ls -v run*/derivatives_LSA_?.nii.gz` 
+  fslmerge -t ${EFFECTS_FILE} `ls -v run*/effects_LSA_?.nii.gz` 
+  fslmerge -t ${DERIVATIVES_FILE} `ls -v run*/derivatives_LSA_?.nii.gz` 
   #fslmerge -t res4d `ls -v run*/res4d_LSA_?.nii.gz` 
   #rm `ls -v run*/res4d_LSA_?.nii.gz`
 #  fslmerge -t effects `ls -v run*/effects_LSS_?.nii.gz` 
 #  fslmerge -t derivatives `ls -v run*/derivatives_LSS_?.nii.gz` 
 
-  fslmaths effects -nan effects
-  fslmaths effects -Tmean -s 3 effects_mean
-  fslmaths derivatives -nan derivatives
-  fslmaths derivatives -Tmean -s 3 derivatives_mean
+  fslmaths ${EFFECTS_FILE} -nan ${EFFECTS_FILE}
+  fslmaths ${EFFECTS_FILE} -Tmean -s 3 ${EFFECTS_FILE}_mean
+  fslmaths ${DERIVATIVES_FILE} -nan ${DERIVATIVES_FILE}
+  fslmaths ${DERIVATIVES_FILE} -Tmean -s 3 ${DERIVATIVES_FILE}_mean
   
-  echo "Total volumes : " `fslnvols effects.nii.gz`
+  echo "Total volumes : " `fslnvols ${EFFECTS_FILE}`
   rm -r run*/model*
   rm run*/effects* run*/derivatives*
 
@@ -798,7 +826,7 @@ exit 1
 
 # Find available fMRI runs, based on the data that are valid
 cd $HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/
-RUNS=`ls run*/volume/cope1.nii.gz  | cut -d'/' -f1 | cut -d'n' -f2`
+RUNS=`ls run*/${VOLUME_DIR}/cope1.nii.gz  | cut -d'/' -f1 | cut -d'n' -f2`
 RUNS=`echo $RUNS`
 echo "Found following runs for searchlight: $RUNS"
 
@@ -807,7 +835,7 @@ if [ $PHASE == 0 ] || [ $PHASE == 7 ]; then
 # Prepare engine
 for hemi in rh lh; do
 #    if [ ! -e "$HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/surf/${hemi}-${RADIUS}-qe.gzipped.hdf5" ] && \
-#    [ -e "$HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/effects.nii.gz" ]; then
+#    [ -e "$HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/${EFFECTS_FILE}" ]; then
     python $PROGDIR/prepare_queryengine.py \
     $SUBDIR \
     $HOMEDIR/responses/sub-${SUBJECT}/ses-${SESSION}/sequences.csv \

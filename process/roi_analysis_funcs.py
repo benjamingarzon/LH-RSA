@@ -13,15 +13,19 @@ from glob import glob
 from nilearn.input_data import NiftiMasker
 from nilearn.image import resample_to_img
 from sklearn.svm import SVC
-from sklearn.feature_selection import SelectKBest, f_classif
+from sklearn.feature_selection import SelectKBest, f_classif, VarianceThreshold
 from sklearn.multiclass import OneVsOneClassifier, OneVsRestClassifier
 from sklearn.pipeline import Pipeline
-from sklearn.model_selection import cross_val_score, PredefinedSplit
+from sklearn.model_selection import cross_val_score, PredefinedSplit, \
+    GridSearchCV, KFold
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import balanced_accuracy_score, make_scorer
 from sklearn.covariance import ledoit_wolf
 from scipy.optimize import nnls
 from scipy.linalg import svd
+from sklearn.metrics import confusion_matrix
+from sklearn.model_selection import cross_validate, cross_val_predict
+
 sys.path.append('/home/xgarzb@GU.GU.SE/Software/')
 import PcmPy as pcm
 
@@ -31,7 +35,7 @@ MINCORRECT = 3
 NTYPES = 4
 
 def project_label(label, hemi, subject, subjects_dir, analysis_dir, labels_dir, 
-                  overwrite = False):
+                  overwrite = True):
     
     ribbon_mask = os.path.join(analysis_dir, subject, 'label', 
                                'ribbon_mask.nii.gz')
@@ -173,26 +177,79 @@ def second_moment_PCM(sequences_sub, data):
     return(T_ind, theta[0].ravel(), xnobis_trained, xnobis_untrained)
 
 
-svc_ovo = OneVsOneClassifier(Pipeline([
+param_grid = {
+    "estimator__svc__C": [np.exp(i) for i in np.arange(-12, -1, 0.5)]#,
+#    "estimator__svc__gamma": [np.exp(i) for i in np.arange(-3, 1, 0.5)]
+    }  
+
+#inner_cv = KFold(n_splits=10, shuffle=True)
+  
+balanced_scorer = make_scorer(balanced_accuracy_score)
+
+svc0 = Pipeline([
+        ('variancethreshold', VarianceThreshold()),
         ('standardscaler', StandardScaler()),
         ('anova', SelectKBest(f_classif, k = MINFEATURES)),
         ('svc', SVC(kernel='linear'))
+    ])
+
+svc_ova = OneVsRestClassifier(svc0)
+
+svc_ovo = OneVsOneClassifier(svc0)
+
+svc_ovo_nl = OneVsOneClassifier(Pipeline([
+        ('standardscaler', StandardScaler()),
+        ('anova', SelectKBest(f_classif, k = MINFEATURES)),
+        ('svc', SVC(kernel='rbf'))
     ]))
-    
-svc_ova = OneVsRestClassifier(Pipeline([
-    ('standardscaler', StandardScaler()),
-    ('anova', SelectKBest(f_classif, k = MINFEATURES)),
-    ('svc', SVC(kernel='linear'))
-]))
 
 balanced_scorer = make_scorer(balanced_accuracy_score)
 
-def fit_svm(X, y, runs):
-    cv_scores = cross_val_score(svc_ovo, X, y, cv = PredefinedSplit(runs), 
+def fit_svm(X, y, runs, cl = svc_ovo):
+    
+    # cl_cv = GridSearchCV(estimator = cl, 
+    #                       param_grid=param_grid, 
+    #                       cv=PredefinedSplit(runs), verbose = 0, 
+    #                       scoring = balanced_scorer)
+    
+    cv_scores = cross_val_score(cl, X, y, cv = PredefinedSplit(runs), 
                                 verbose = 0, 
                                 scoring = balanced_scorer)
+    #cl_cv.fit(X,y)
+    #print(cl)
+    #print(cl.cv_results_)
+    #print(cl.best_params_)
+    #print(cv_scores)
+    # plt.plot(param_grid['estimator__svc__C'], 
+    #          cl_cv.cv_results_['mean_test_score'])
+    # plt.show()
     return(cv_scores.mean())
-    #print('OvO:', cv_scores_ovo.mean())
+
+
+def fit_svm_confusion(X, y, runs, df, cl = svc_ovo):
+    mapping = pd.Series(df.seq_train.values, index=df.seq_type) 
+ 
+    # cl_cv = GridSearchCV(estimator = cl, 
+    #                   param_grid=param_grid, 
+    #                   cv=PredefinedSplit(runs), verbose = 0, 
+    #                   scoring = balanced_scorer)
+    
+    y_pred = cross_val_predict(cl, X, y, cv = PredefinedSplit(runs),
+                                verbose = 0)
+    
+    conf_mat = confusion_matrix(y, y_pred)
+    accuracies = conf_mat.diagonal()/np.sum(conf_mat, axis = 1)
+    accuracy_trained = np.mean(accuracies[mapping == 'trained'])
+    accuracy_untrained = np.mean(accuracies[mapping == 'untrained'])
+    
+#    cv_results = cross_validate(cl, X, y, cv = PredefinedSplit(runs),
+#                                verbose = 1,
+#                                scoring = confusion_matrix_scorer)
+#    cv_scores = cross_val_score(cl, X, y, cv = PredefinedSplit(runs), 
+#                                verbose = 0, 
+#                                scoring = balanced_scorer)
+
+    return(accuracies.mean(), accuracy_trained, accuracy_untrained)   
     
 def prewhiten(betas, residuals):
     cov_ledoit, _ = ledoit_wolf(residuals)    
@@ -207,15 +264,17 @@ def prewhiten(betas, residuals):
     return(betas_prewhitened, prewhiten_ok)
 
 def process(label, subject, session, subjects_dir, analysis_dir, labels_dir, 
-            sequences, effects_file, do_prewhitening = False, 
+            sequences, effects_file, roi_data_file, do_prewhitening = False, 
+            overwrite_extract = False,
             permutate = False):
             
     hemi = 'rh' if label.startswith('R_') else 'lh'
     mylabel = project_label(label, hemi, subject, 
                                     subjects_dir, 
                                     analysis_dir, 
-                                    labels_dir)
-
+                                    labels_dir, 
+                                    overwrite = overwrite_extract)
+    
     #print("Opening data for label %s"%mylabel)
     resampled_mask = resample_to_img(mylabel, effects_file, 
                                      interpolation = 'nearest')
@@ -226,17 +285,6 @@ def process(label, subject, session, subjects_dir, analysis_dir, labels_dir,
         effects = nifti_masker.fit_transform(effects_file)
     except ValueError:
         print("Could no open data for %s. Input data: %s"%(mylabel, effects_file))
-   
-    if do_prewhitening:
-        # prewhiten the data
-        for run in np.unique(sequences.run):
-            residuals_file = os.path.join(analysis_dir, subject, 
-                                     'ses-%d'%session, 
-                                     'run%d'%run,
-                                     'res4d_LSA_%d.nii.gz'%run)
-            residuals = nifti_masker.fit_transform(residuals_file)    
-            effects[sequences.run == run, :], prewhiten_ok = prewhiten(
-                effects[sequences.run == run, :], residuals)
 
     sequences.loc[:, 'iscorrect'] = sequences.accuracy >= MINACC
     # to accept the data of a run, there have to be at least 2 correct instances
@@ -246,33 +294,97 @@ def process(label, subject, session, subjects_dir, analysis_dir, labels_dir,
     valid_runs = valid_runs.index[valid_runs]
     valid = np.logical_and(sequences.run.isin(valid_runs),
                            sequences.iscorrect)
+
+    # write everything out
+    nn = len(valid)
+    colnames = ['subject',
+                'hemi',
+                'label',
+                'session',
+                'run',
+                'seq_train',
+                'seq_type',
+                'iscorrect', 
+                'valid'] + \
+        ['feature_%0.4d'%(x) for x in range(effects.shape[1])]
+                
+    alldata = pd.concat([pd.Series(nn*subject), 
+                         pd.Series(nn*hemi), 
+                         pd.Series(nn*label), 
+                         pd.Series(nn*session), 
+                         sequences.run, 
+                         sequences.seq_train,
+                         sequences.seq_type, 
+                         sequences.iscorrect,
+                         valid,
+                         pd.DataFrame(effects)], axis = 1)
     
+    alldata.columns = colnames
+    if roi_data_file != None:
+        alldata.to_csv(roi_data_file, index = False, float_format = '%.4f')
+    allsequences = sequences
     sequences = sequences.loc[ valid, : ]
-    
+
     targets = sequences.seq_type.array.copy()
     runs = sequences.run
     effects = effects[valid, :]
-    
+    # remove constant columns
+    constant_columns = np.all(effects[1:] == effects[:-1], axis=0)
+    effects = effects[:, ~constant_columns]
     if permutate:
         for run in np.unique(runs):
             targets[runs == run] = np.random.permutation(targets[runs == run])
     # second moment
     # print("Computing second moment matrix for label %s"%label)
-    XG = second_moment(sequences)
-    theta, resnorm = fit_second_moment(effects, XG)
-    T_ind, theta_PCM, xnobis_trained, xnobis_untrained = \
+
+    try:
+        # print("Computing SVM classification for label %s"%label)    
+        # SVM
+        svm_acc = fit_svm(effects, targets, runs)
+        df = sequences[['seq_type', 'seq_train']].drop_duplicates()
+        svm_cm_acc, svm_acc_trained, svm_acc_untrained = \
+            fit_svm_confusion(effects, targets, runs, df)
+
+        mean_signal_trained = \
+            np.mean(
+                np.mean(effects[sequences.seq_train.to_numpy() == 'trained' , :], 
+                        axis = 0))
+        mean_signal_untrained = \
+            np.mean(
+                np.mean(effects[sequences.seq_train.to_numpy() == 'untrained' , :], 
+                axis = 0))
+
+    except:  
+        svm_acc, svm_cm_acc, svm_acc_trained, svm_acc_untrained, \
+            mean_signal_trained, mean_signal_untrained = [np.nan]*6
+
+    # prewhiten the data
+    if do_prewhitening:
+        # prewhiten the data
+        for run in np.unique(sequences.run):
+            residuals_file = os.path.join(analysis_dir, subject, 
+                                     'ses-%d'%session, 
+                                     'run%d'%run,
+                                     'res4d_LSA_%d.nii.gz'%run)
+            residuals = nifti_masker.fit_transform(residuals_file)    
+            effects[sequences.run == run, :], prewhiten_ok = prewhiten(
+                effects[sequences.run == run, :], residuals[:, ~constant_columns])        
+    try: 
+        # compute the different indices
+        XG = second_moment(sequences)
+        theta, resnorm = fit_second_moment(effects, XG)
+        T_ind, theta_PCM, xnobis_trained, xnobis_untrained = \
         second_moment_PCM(sequences, effects)
 
-    alpha_trained = np.log(theta[6])
-    alpha_untrained = np.log(theta[7])
+        alpha_trained = np.log(theta[6])
+        alpha_untrained = np.log(theta[7])
 
-    alpha_trained_PCM = np.log(theta_PCM[5])
-    alpha_untrained_PCM = np.log(theta_PCM[6])
+        alpha_trained_PCM = theta_PCM[5]
+        alpha_untrained_PCM = theta_PCM[6]
+    except:
+        alpha_trained, alpha_untrained, alpha_trained_PCM,\
+            alpha_untrained_PCM, xnobis_trained, xnobis_untrained = [np.nan]*6
     
-    # PCM
-    # print("Computing SVM classification for label %s"%label)    
-    # SVM
-    cv_scores = fit_svm(effects[sequences.iscorrect, :], targets, runs)
     return((subject, session, hemi, label, resnorm,
             alpha_trained, 
             alpha_untrained, 
@@ -280,11 +392,17 @@ def process(label, subject, session, subjects_dir, analysis_dir, labels_dir,
             alpha_untrained_PCM, 
             xnobis_trained,
             xnobis_untrained,
-            cv_scores, effects.shape[1]))
+            svm_acc, 
+            svm_cm_acc, 
+            svm_acc_trained, 
+            svm_acc_untrained,
+            mean_signal_trained, 
+            mean_signal_untrained,
+            effects.shape[1]))
 
-def gather_results(analysis_dir):
+def gather_results(analysis_dir, suffix):
     files = glob(os.path.join(analysis_dir, 'sub-*', 'ses-*', 
-                                   'surf', 'roi_scores.csv')
+                                   'surf', 'roi_scores_%s.csv'%(suffix))
                       )
     results = []
     for file in files:

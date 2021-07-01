@@ -7,21 +7,19 @@ export NPROC=20
 export MAXFEATPROCS=20
 export FMRIPREPPROCS=20
 #PHASES="1 2 3";NSESSIONS=6
-PHASES="4 5"
+#PHASES="4 5"
+PHASES="5"
 NSESSIONS=7
 
 SESSIONS=`seq $NSESSIONS`
-# echo lue2102 lue2105 lue2106 lue3104 lue3106 lue3205 lue4205 lue5104 lue5201 lue5202 lue5203 | xargs -n 1 -P 15 ./run_pipeline.sh
 
-#echo lue1101 lue1103 lue1104 lue1105 lue1106 lue1107 lue1201 lue1202 lue1203 lue1204 lue1205 lue1206 lue1207 | xargs -n 1 -P 15 ./run_pipeline.sh
-#echo lue4101 lue4102 lue4103 lue4104 lue4105 lue4106 lue4107 lue4201 lue4202 lue4203 lue4204 lue4205 lue4206 lue4207| xargs -n 1 -P 13 ./run_pipeline.sh
+#echo lue1101 lue1103 lue1104 lue1105 lue1106 lue1107 lue1201 lue1202 lue1203 lue1204 lue1205 lue1206 lue1207 lue2101 lue2102 lue2103 lue2104 lue2105 lue2106 lue2107 lue2201 lue2202 lue2203 lue2205 lue2206 lue2207 lue3101 lue3102 lue3103 lue3104 lue3105 lue3106 lue3107 lue3201 lue3202 lue3203 lue3204 lue3205 lue3206 lue3207 lue5101 lue5102 lue5103 lue5104 lue5105 lue5106 lue5107 lue5201 lue5202 lue5203 lue5204 lue5205 lue5206 lue5207 | xargs -n 1 -P 30 ./run_pipeline.sh
+
+#echo lue1101 lue1103 lue1104 lue1105 lue1106 lue1107 lue1201 lue1202 lue1203 lue1204 lue1205 lue1206 lue1207 | xargs -n 1 -P 13 ./run_pipeline.sh
 #echo lue2101 lue2102 lue2103 lue2104 lue2105 lue2106 lue2107 lue2201 lue2202 lue2203 lue2205 lue2206 lue2207 | xargs -n 1 -P 13 ./run_pipeline.sh
-
-#echo lue3101 lue3102 lue3103 lue3104 lue3105 lue3106 lue3107 lue3201 lue3202 lue3203 lue3204 lue3205 lue3206 lue3207 | xargs -n 1 -P 7 ./run_pipeline.sh
-#echo lue2101 lue2102 lue2103 lue2104 lue2105 lue2106 lue2107 lue2201 lue2202 lue2203 lue2205 lue2206 lue2207 
-#echo lue5103 lue5104 lue5105 lue5106 lue5107 lue5204 lue5205 lue5206 lue5207 lue1101 lue1103 lue1104 lue1105 lue1106 lue1107 lue1201 lue1202 lue1203 lue1204 lue1205 lue1206 lue1207 | xargs -n 1 -P 5 ./run_pipeline.sh
-#echo lue5101 lue5102 lue5104 lue5105 lue5106 lue5107 lue5201 lue5202 lue5203 lue5204 lue5205 lue5206 lue5207 | xargs -n 1 -P 13 ./run_pipeline.sh
-#echo lue4101 lue4102 lue4103 lue4104 lue4105 lue4106 lue4107 lue4201 lue4202 lue4203 lue4204 lue4205 lue4206 lue4207 | xargs -n 1 -P 3 ./run_pipeline.sh
+#echo lue3101 lue3102 lue3103 lue3104 lue3105 lue3106 lue3107 lue3201 lue3202 lue3203 lue3204 lue3205 lue3206 lue3207 | xargs -n 1 -P 14 ./run_pipeline.sh
+#echo lue4101 lue4102 lue4103 lue4104 lue4105 lue4106 lue4107 lue4201 lue4202 lue4203 lue4204 lue4205 lue4206 lue4207| xargs -n 1 -P 14 ./run_pipeline.sh
+#echo lue5101 lue5102 lue5103 lue5104 lue5105 lue5106 lue5107 lue5201 lue5202 lue5203 lue5204 lue5205 lue5206 lue5207 | xargs -n 1 -P 14 ./run_pipeline.sh
 
 SUBJECTS=$1
 CWD=`pwd`
@@ -61,11 +59,11 @@ conda activate lhenv2
 for SUBJECT in $SUBJECTS; do
 # ln -s $HOMEDIR/freesurfer/sub-${SUBJECT}.base $HOMEDIR/fmriprep/freesurfer/sub-$SUBJECT
 
-#if [ `ls $HOMEDIR/data_BIDS/sub-$SUBJECT/*/anat/sub-${SUBJECT}_ses-?_MP2RAGE.nii.gz | wc -l` -eq $NSESSIONS ]; then 
+if [ `ls $HOMEDIR/data_BIDS/sub-$SUBJECT/*/anat/sub-${SUBJECT}_ses-?_MP2RAGE.nii.gz | wc -l` -eq $NSESSIONS ]; then 
 
      for PHASE in $PHASES; do
        for SESSION in $SESSIONS; do
-         if [ `ls $BIDS_DIR/sub-$SUBJECT/ses-$SESSION/anat/sub-${SUBJECT}_ses-?_MP2RAGE.nii.gz | wc -l` -eq 1 ]; then 
+        if [ `ls $BIDS_DIR/sub-$SUBJECT/ses-$SESSION/anat/sub-${SUBJECT}_ses-?_MP2RAGE.nii.gz | wc -l` -eq 1 ]; then 
            echo  ./pipeline.sh $SUBJECT $SESSION $RESPONSES_FILE $NTRIALS $PHASE "$RUNS" "$RESPONSES_OPTIONS" "$CONFOUND_INDICES" $HOMEDIR $BIDS_DIR
            echo "Log file: $HOMEDIR/logs/${SUBJECT}.${SESSION}.phase${PHASE}.log"
             nice ./pipeline.sh $SUBJECT $SESSION $RESPONSES_FILE $NTRIALS $PHASE $RUNS "$RESPONSES_OPTIONS" "$CONFOUND_INDICES" $HOMEDIR $BIDS_DIR > $HOMEDIR/logs/${SUBJECT}.${SESSION}.phase${PHASE}.log 
@@ -76,5 +74,5 @@ for SUBJECT in $SUBJECTS; do
          fi 
        done #session
      done #phase
-#fi
+fi
 done

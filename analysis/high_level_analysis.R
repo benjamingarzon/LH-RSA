@@ -18,20 +18,40 @@ collect_data = T
 # cope : TrainedCorrect (1), UntrainedCorrect (2), TrainedIncorrect (3), UntrainedIncorrect (4)
 
 # remove zero
-# why a few runs are empty??
 
+# 21/6 continue writing
+
+###############
+# change back : exclude, select first session
+###############
+
+# run on prereg mask
+# check again places for quadratic effects
+# redo pipeline resampling surfaces again?
+# check variability results
+
+# separate score, train vs untrained
+
+# runs that are empty have no correct trials 
+# try with and without aroma
+# prediction: separate train an untrained
+
+
+# check removing last
+# understand crossnobis and svm_acc
+# try whole cortex parcellation
+
+# check trained correct vs incorrect
+# check only 4 waves
 # robust to outliers?
-# correct/incorrect
 # other covariates?
 # both hemispheres
 # model comparison
-# random effects, higher oreder
+# random effects, higher order
 
 # take run into account
 # define vars
 # add variability contrast 
-
-
 
 WD = '/data/lv0/MotorSkill/fmriprep/analysis'
 
@@ -41,6 +61,14 @@ lh.gii = '/data/lv0/MotorSkill/fmriprep/freesurfer/fsaverage6/surf/lh.white.surf
 mask.rh = '/data/lv0/MotorSkill/labels/fsaverage6/rh.motor.rois.nii.gz'
 mask.lh = '/data/lv0/MotorSkill/labels/fsaverage6/lh.motor.rois.nii.gz'
 mask = 'mask_whole.nii.gz'   
+
+#analysis_name = 'UntrainedCorrect_UntrainedIncorrect'
+#conditions = c(2, 4)
+#names(conditions) = c('UntrainedCorrect', 'UntrainedIncorrect')
+
+#analysis_name = 'TrainedCorrect_TrainedIncorrect'
+#conditions = c(1, 3)
+#names(conditions) = c('TrainedCorrect', 'TrainedIncorrect')
 
 analysis_name = 'Trained_Untrained'
 conditions = c(1, 2)
@@ -54,7 +82,7 @@ peprefix = "/cope"
 
 analysis_type = 'surfL'  #volume, surfR/L 
 
-NPROCS = 35
+NPROCS = 10
 # list files, adapt depending on type of analysis
 contrasts = NULL
 image.list = NULL
@@ -65,7 +93,7 @@ contrast = switch(which(analysis_type == c('volume', 'surfR', 'surfL')),
                   paste0(peprefix, contrastnum, ".func.gii"),
                   paste0(peprefix, contrastnum, ".func.gii"))
 contrasts = c(contrasts, contrast)
-images.found = system(sprintf("find %s/* | grep %s", WD, contrast), intern = TRUE)
+images.found = system(sprintf("find %s/* | grep %s%s", WD, analysis_type, contrast), intern = TRUE)
 image.list = c(image.list, 
                images.found)
 condition.list = c(condition.list, 
@@ -81,7 +109,6 @@ if (analysis_type %in% c('volume', 'surfR', 'surfL')) {
   condition.list = condition.list[sel]}
     
 print(image.list)
-
 # output files for analysis
 DATADIR = file.path(WD, "higherlevel", analysis_name)
 dir.create(DATADIR)
@@ -89,26 +116,46 @@ dir.create(file.path(DATADIR, analysis_type))
 dir.create(file.path(DATADIR, analysis_type, "tests"))
 
 setwd(DATADIR)
-
-if (collect_data) {
-  if (analysis_type == 'volume') {
+if (analysis_type == 'volume') {
   setwd(WD)
-    
+  
   print("Checking dimensions")
   image.list.clean = mask.list = indices = NULL
   j = 1
   for (imgname in image.list){
-     header = check_nifti_header(imgname)
-     imgdims = header@dim_[2:4]
-     
-     if (imgdims[1] != 108 | imgdims[2] != 128 | imgdims[3] != 89) print(paste("Removing", imgname))
-     else { 
-       image.list.clean = c(image.list.clean, imgname)
-       indices = c(indices, j)
-       j = j + 1
-     }
-     condition.list = condition.list[indices]
+    header = check_nifti_header(imgname)
+    imgdims = header@dim_[2:4]
+    
+    if (imgdims[1] != 108 | imgdims[2] != 128 | imgdims[3] != 89) print(paste("Removing", imgname))
+    else { 
+      image.list.clean = c(image.list.clean, imgname)
+      indices = c(indices, j)
+      j = j + 1
     }
+  }
+  condition.list = condition.list[indices]
+}
+
+#browser()
+if (collect_data) {
+  if (analysis_type == 'volume') {
+  # setwd(WD)
+  #   
+  # print("Checking dimensions")
+  # image.list.clean = mask.list = indices = NULL
+  # j = 1
+  # for (imgname in image.list){
+  #    header = check_nifti_header(imgname)
+  #    imgdims = header@dim_[2:4]
+  #    
+  #    if (imgdims[1] != 108 | imgdims[2] != 128 | imgdims[3] != 89) print(paste("Removing", imgname))
+  #    else { 
+  #      image.list.clean = c(image.list.clean, imgname)
+  #      indices = c(indices, j)
+  #      j = j + 1
+  #    }
+  #   }
+  # condition.list = condition.list[indices]
   masks.found = system("find ../fmriprep/sub-lue*/ses*/func/sub-lue*_space-MNI152NLin2009cAsym_desc-brain_mask.nii.gz", intern = TRUE)
   for (imgname in masks.found){
     header = check_nifti_header(imgname)
@@ -120,7 +167,7 @@ if (collect_data) {
    image_list_file = file.path(analysis_type, "image_list.txt")
    write.table(image.list, file = file.path(DATADIR, image_list_file), row.names = F, quote = F, col.names = F)
    
-   print("Converting and merging files")
+   print("Converting and merging mask files")
 
    system(sprintf("fslmerge -t all_masks %s", mask.list))
    system("fslmaths all_masks -Tmean -mul `fslnvols all_masks` higherlevel/mask_sum") #`fslnvols      higherlevel/mask_mean all_masks`
@@ -129,7 +176,8 @@ if (collect_data) {
    system(sprintf("fslmaths higherlevel/GMprob -thr 0.1 -bin -mul higherlevel/mask_min higherlevel/mask_min; mv higherlevel/mask_min.nii.gz higherlevel/%s/volume/", analysis_name))
    system(sprintf("fslmaths higherlevel/GMprob -thr 0.1 -bin -mul higherlevel/mask_sum higherlevel/mask_sum; mv higherlevel/mask_sum.nii.gz higherlevel/%s/volume/", analysis_name))
    system("rm all_masks.nii.gz higherlevel/GMprob.nii.gz")
-  
+
+   print("Converting and merging signal files")
    setwd(file.path(DATADIR, "volume"))
    system("rm mask.nii.gz; ln -s mask_min.nii.gz mask.nii.gz")
    system("rm mask_whole.nii.gz; ln -s mask_min.nii.gz mask_whole.nii.gz")
@@ -184,13 +232,20 @@ extract_substr = function(x, pattern, start, stop){
   
 } 
 
+check_empty_data = function(IMAGING_FILE){
+  
+  x = system(paste("fslstats -t", IMAGING_FILE, "-a -m"), intern = T)
+  notempty = as.numeric(x) != 0
+  return(notempty)
+}
+  
+
 doit = function(WD, IMAGES, MYTEST, OD, 
                 MASK = '', 
                 IMAGES_NAME = '',
                 IMAGING_NAME = '',
                 conditions = NULL, motion = NULL, 
                 to_gifti = '', flip = F){
-  
   setwd(WD)
   IMAGING_FILE = file.path(WD, IMAGING_NAME)
   MASK_FILE = file.path(WD, MASK)
@@ -203,22 +258,25 @@ doit = function(WD, IMAGES, MYTEST, OD,
                     TP = as.numeric(sess_num), 
                     RUN = as.numeric(run), CONDITION = conditions) 
   DATA$SUBJECT.NUM = as.numeric(as.factor(DATA$SUBJECT))
-  
   #write.table(data, file = file.path(DATADIR, "image_list.txt"), row.names = F, quote = F, col.names = F)
   DATA = left_join(DATA, covars.table, by = c("SUBJECT", "TP"))
   DATA = left_join(DATA, motion, by = c("SUBJECT", "TP", "RUN"))  
   DATA$CONFIGURATION = as.factor(DATA$CONFIGURATION)
+  DATA$WAVE = as.numeric(substring(DATA$SUBJECT, 4, 4))
   DATA$FD.clean = markoutliersIQR(DATA$FD)
-  DATA.GROUPED = DATA %>% filter(!is.na(FD.clean)) %>% 
+  notempty = check_empty_data(IMAGING_FILE)
+  #browser()
+  DATA$notempty = notempty
+  DATA.GROUPED = DATA %>% filter(!is.na(FD.clean) & notempty ) %>% 
     group_by(SUBJECT, TP) %>% 
     sample_n(1) %>% 
     group_by(SUBJECT) %>% 
     summarise(COUNT = n()) %>%filter(COUNT<4)
   
-  excluded = which(DATA$SUBJECT %in% DATA.GROUPED$SUBJECT) #| !complete.cases(DATA))
-  print(paste("Excluding ", DATA.GROUPED$SUBJECT))
+  excluded = which(DATA$SUBJECT %in% DATA.GROUPED$SUBJECT | is.na(DATA$FD.clean) | !DATA$notempty) #| !complete.cases(DATA))
+  print(paste("Excluding ", length(excluded), "observations, with these complete subjects:"))
+  print(DATA.GROUPED$SUBJECT)
   View(DATA)  
-  #browser()
   # replicate DATA for each condition
   results = list()
   results = vbanalysis(
@@ -228,10 +286,10 @@ doit = function(WD, IMAGES, MYTEST, OD,
     MASK_FILE,
     MYTEST,
     remove_outliers = F, 
-    to_gifti = to_gifti, excluded = excluded, 
+    to_gifti = to_gifti, excluded = NULL, #excluded, 
     flip = flip
   )
-  results$data = DATA
+  results$complete_data = DATA
   save(results, file = file.path(OUTPUT_DIR, "results.RData"))
   print(paste("Saving results to ", file.path(OUTPUT_DIR, "results.RData")))
   for (f in list.files(OUTPUT_DIR, pattern = '*.gii', full.names = T)){
@@ -240,19 +298,20 @@ doit = function(WD, IMAGES, MYTEST, OD,
   return(results)
 }
 
-# check results: freeview -f /usr/local/freesurfer/subjects/fsaverage6/surf/lh.inflated:overlay=INTERCEPT_coef.func.gii
+# check results: freeview -f /usr/local/freesurfer/7.1.1/subjects/fsaverage6/surf/lh.inflated:overlay=INTERCEPT_coef.func.gii
 
-# results.average = doit(file.path(DATADIR, analysis_type),
-#           image.list,
-#           testaverage_simple,
-#           'tests/average',
-#           MASK = mask,
-#           IMAGES_NAME = 'image_list.txt',
-#           IMAGING_NAME = 'images.nii.gz',
-#           conditions = condition.list,
-#           motion = motion, 
-#           to_gifti = mysurf)
- 
+results.average = doit(file.path(DATADIR, analysis_type),
+           image.list,
+           testaverage_simple,
+           'tests/average',
+           MASK = mask,
+           IMAGES_NAME = 'image_list.txt',
+           IMAGING_NAME = 'images.nii.gz',
+           conditions = condition.list,
+           motion = motion,
+           to_gifti = mysurf)
+
+stophere 
 # tests for activation maps
 # results.linear = doit(file.path(DATADIR, analysis_type), 
 #                            image.list, 
@@ -264,10 +323,22 @@ doit = function(WD, IMAGES, MYTEST, OD,
 #                            conditions = condition.list, 
 #                            motion = motion, 
 #                            to_gifti = mysurf)
+
+# results.linear = doit(file.path(DATADIR, analysis_type), 
+#                          image.list, 
+#                          testlinearrun, 
+#                          'tests/linear',
+#                          MASK = mask,  
+#                          IMAGES_NAME = 'image_list.txt',
+#                          IMAGING_NAME = 'images.nii.gz',           
+#                          conditions = condition.list, 
+#                          motion = motion, 
+#                          to_gifti = mysurf)
+
 results.quadratic = doit(file.path(DATADIR, analysis_type), 
                       image.list, 
                       testquadraticrun, 
-                      'tests/quadratic_noconf',
+                      'tests/quadratic',
                       MASK = mask,  
                       IMAGES_NAME = 'image_list.txt',
                       IMAGING_NAME = 'images.nii.gz',           
@@ -278,7 +349,7 @@ results.quadratic = doit(file.path(DATADIR, analysis_type),
 results.comparison = doit(file.path(DATADIR, analysis_type),
                             image.list,
                             modelcomparisonrun,
-                            'tests/comparison_noconf',
+                            'tests/comparison',
                             MASK = mask,
                             IMAGES_NAME = 'image_list.txt',
                             IMAGING_NAME = 'images.nii.gz',
@@ -286,65 +357,4 @@ results.comparison = doit(file.path(DATADIR, analysis_type),
                             motion = motion,
                             to_gifti = mysurf)
 
-stophere
-load('/data/lv0/MotorSkill/fmriprep/analysis/higherlevel/Trained_Untrained/surfR/tests/quadratic_noconf/results.RData')
-# add 1 to vertex number
-y = results$imaging.mat[, which.min(results$pvalues[, "GROUPExp_x_TRAINING_p"])]
-y = results$imaging.mat[, 25204]
-X = results$data[-results$excluded, ]
-X$y = y
 
-
-theme_lh = function () { 
-  theme_bw(base_size=20)
-}
-
-#modelcomparisonrun(X, y)
-#model = lmer(y ~ 1 + GROUP*(TRAINING + TRAINING.Q) + (1 + TRAINING + TRAINING.Q|SUBJECT) + (1|CONFIGURATION), data = X)
-model = lmer(y ~ 1 + SYSTEM  + GROUP*CONDITION*TRAINING +
-               + (1 + TRAINING|SUBJECT), data = X)
-
-summary(model)
-plot(X$TRAINING, X$y, col = ifelse(X$GROUP == "Experimental", 'red', 'blue') )
-
-se = function(x) sd(x, na.rm = T)/sqrt(length(x))
-
-X.mean = X %>% group_by(GROUP, TP, CONDITION) %>% summarise(sem = se(y), y = mean(y, na.rm = T))
-myplot = ggplot(X.mean, aes(x = TP, col = GROUP, linetype = as.factor(CONDITION), y = y, ymin  = y - sem, ymax = y + sem)) + 
-  geom_line() +  geom_errorbar() +  theme_lh() + facet_grid(. ~ CONDITION)
-print(myplot)
-
-#myplot = ggplot(X.mean, aes(x = TP, group = GROUP, col = GROUP, y = y)) + geom_line() 
-#print(myplot)
-
-
-coords = c(75, 59, 65) # somatosensory
-coords = c(54, 36, 50) # PCC
-coords = c(27, 48, 59) # parietal
-
-setwd(DATADIR)
-
-images = readNIfTI('images.nii.gz')
-
-radius = 5
-get_ts = function(coords, radius, images){
-  
-  system(paste('fslmaths mask -roi', 
-               coords[1], '1', 
-               coords[2], '1',
-               coords[3], '1', '0 1 point_mask'))
-  
-  system(paste('fslmaths point_mask -kernel sphere', radius, '-fmean -bin sphere_mask'))           
-  system('rm point_mask.nii.gz')           
-  
-  mask =  readNIfTI('sphere_mask.nii.gz')
-  
-  ts = NULL
-  for (i in seq(dim(images)[4])) {
-    ts[i] <- images[, , , i][mask > 0]
-  }
-  
-  return(ts)
-}
-
-y = get_ts(coords, radius, images)

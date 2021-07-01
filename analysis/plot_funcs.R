@@ -10,8 +10,91 @@ library(multcomp)
 theme_lh = theme_classic(base_size = 13, base_family = "Arial")
 myPalette = c("red", "blue")
 
+
+markoutliersIQR = function(x){
+  y = ifelse(x %in% boxplot(x, plot = F)$out, NA, x)
+  return(y)
+}
 sem = function(x)
   sd(x, na.rm = T) / sqrt(length(x))
+
+plot_activation_data = function(X, title, regressout = T, YMIN = -50, YMAX = 350) {
+  X = X %>% mutate(WAVE = as.numeric(substring(SUBJECT, 4, 4)))# %>% filter (WAVE> 1)
+  model = lmer(y ~ 1 + FD + SYSTEM + CONFIGURATION + 
+                 GROUP*CONDITION*(TRAINING + TRAINING.Q) +
+                 (1 + TRAINING + TRAINING.Q|SUBJECT), data = X)
+
+  print(summary(model))
+  
+  
+  model.exp = lmer(y ~ 1 + FD + CONFIGURATION + #  #+ SYSTEM + #
+                 GROUP*(TRAINING) + 
+                 + (1 + TRAINING|SUBJECT), data = subset(X, CONDITION == "UntrainedCorrect" & TP < 5))
+  print(summary(model.exp))
+  
+  print(sum(!is.na(X$y)))
+  
+  # regress out movement and system
+  if (regressout) X$y = predict(model, X %>% mutate(FD = 0, 
+                                                    SYSTEM = 'Classic',
+                                                    CONFIGURATION = '1')) + resid(model) 
+  
+#  X = X %>% group_by(SUBJECT) %>% dplyr::mutate(TP.baseline = min(TP), n = sum(!is.na(y))) %>% filter(TP.baseline == 1) %>%
+#    dplyr::mutate(y.dem = (y - y[TP.baseline]) / mean(y, na.rm = T) *                     100)
+  print(table(paste(X$GROUP, X$TP)))
+  
+
+  
+  X = X %>% group_by(TP) %>% mutate(y = markoutliersIQR(y)) %>% filter(!is.na(y)) 
+    
+  
+  X.subject = X %>% group_by(SUBJECT, TP, GROUP, CONDITION) %>% 
+    summarise( y = mean(y, na.rm = T)) %>% 
+    mutate(SUBJCON = paste(SUBJECT, CONDITION)) %>% 
+    group_by(SUBJECT, GROUP, CONDITION) %>% mutate(y.dem = y - mean(y)) %>% ungroup()
+  
+  X.sem = X %>% group_by(GROUP, TP, CONDITION) %>% summarise(y.sem = sem(y), y.mean = mean(y, na.rm = T))
+  
+  #YMIN = min(X.sem$y.mean, na.rm = T)
+  #YMAX = max(X.sem$y.mean, na.rm = T)
+  #YMIN = YMIN - .3 * (YMAX - YMIN)
+  #YMAX = YMAX + .3 * (YMAX - YMIN)
+  # myplot = ggplot() +  geom_line(data = X.subject,
+  #                                  aes(
+  #                                    x = TP,
+  #                                    group = SUBJCON,
+  #                                    col = CONDITION,
+  #                                    y = y.dem
+  #                                  ),
+  #                                  alpha = 0.2) + geom_point(alpha = 0.2) 
+    myplot =  ggplot() + 
+    geom_line(data = X.sem, aes(
+      x = TP,
+      group = CONDITION, #GROUP
+      col = CONDITION,
+      y = y.mean
+    )) +
+    geom_point(data = X.sem, aes(
+      x = TP,
+      group = CONDITION,
+      col = CONDITION,
+      y = y.mean
+    )) +
+    geom_errorbar(data = X.sem,
+                  aes(
+                    x = TP,
+                    ymax = y.mean + y.sem,
+                    ymin = y.mean - y.sem,
+                    group = CONDITION,
+                    col = CONDITION
+                  )) +
+    facet_grid(. ~ GROUP) +
+    scale_colour_manual(values = myPalette) + theme_lh + 
+    theme(legend.position = "bottom") + 
+    ggtitle(title) + geom_hline(yintercept = 0, size = 0.2)  + ylim(YMIN, YMAX)
+    
+  return(myplot)
+}
 
 
 plot_data = function(X, title, wDEPTH = F) {
@@ -131,7 +214,8 @@ create_vol_rois = function(DATADIR,
                            DISTANCE,
                            radius,
                            MASK_NAME,
-                           THR) {
+                           THR,
+                           plot_function = plot_data) {
   tests = NULL
   rois = NULL
   myplots = NULL
@@ -142,6 +226,7 @@ create_vol_rois = function(DATADIR,
   ROI_FILE = file.path(DATADIR,
                        TESTDIR,
                        paste(TESTNAME, 'mask_sphere', paste0(radius * 2, 'mm') , sep = '-'))
+
   command = paste(
     "./make_spherical_roi.sh",
     file.path(DATADIR, TESTDIR),
@@ -155,7 +240,9 @@ create_vol_rois = function(DATADIR,
   system(command)
   
   # plot data
-  load(file.path(DATADIR, TESTDIR, 'results.rda'))
+  myfile = file.path(DATADIR, TESTDIR, 'results.rda')
+  if (!exists(myfile)) myfile = file.path(DATADIR, TESTDIR, 'results.RData')
+  load(myfile)
   mask <- fast_readnii(MASK_FILE)
   roimask <- readNIfTI(ROI_FILE)
   if (sum(roimask) == 0)
@@ -173,10 +260,13 @@ create_vol_rois = function(DATADIR,
     roi = roimask[, , , myroi]
     roi_indices = which(roi[mask > 0] > 0)
     imaging.mat = results$imaging.mat[, roi_indices, drop = F]
-    #browser()
-    X = results$data[-results$excluded,]
+    if (is.null(results$complete_data)) {
+      X = results$data[-results$excluded,] }
+    else {
+      X = results$data
+    }
     X$y = rowMeans(imaging.mat)
-    myplots[[j]] = plot_data(X, title)
+    myplots[[j]] = plot_function(X, title)
     j = j + 1
     
   }
@@ -206,7 +296,8 @@ create_surf_rois = function(DATADIR,
                             MASK_NAME,
                             THR,
                             PRECOMP_ROI = NULL,
-                            wDEPTH = F) {
+                            wDEPTH = F, 
+                            plot_function = plot_data) {
   tests = NULL
   rois = NULL
   myplots = NULL
@@ -239,9 +330,12 @@ create_surf_rois = function(DATADIR,
     }
     rois[hemi] = paste0(ROI_FILE, '.all.func.gii')
     tests[hemi] = TEST
-    # plot data
-    if (file.exists(file.path(DATADIR, DEST, 'results.rda'))) {
-      load(file.path(DATADIR, DEST, 'results.rda'))
+    # plot data 
+    myfile = file.path(DATADIR, DEST, 'results.rda')
+    if (!exists(myfile)) myfile = file.path(DATADIR, DEST, 'results.RData')
+    
+    if (file.exists(myfile)) {
+      load(myfile)
     }
     else {
       print("No results file found.") 
@@ -264,10 +358,14 @@ create_surf_rois = function(DATADIR,
       roi = roimask[, , , myroi]
       roi_indices = which(roi[mask > 0] > 0)
       imaging.mat = results$imaging.mat[, roi_indices, drop = F]
+      if (is.null(results$complete_data)) {
+        X = results$data[-results$excluded,] }
+      else {
+        X = results$data
+      }
       
-      X = results$data[-results$excluded,]
       X$y = rowMeans(imaging.mat)
-      myplots[[j]] = plot_data(X, title, wDEPTH)
+      myplots[[j]] = plot_function(X, title)
       j = j + 1
     }
   }

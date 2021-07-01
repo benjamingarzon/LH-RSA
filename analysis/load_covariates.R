@@ -3,10 +3,11 @@
 ###############################################################
 RESPONSES_DIR= '~/Data/LeftHand/Lund1/responses/'
 MOTION_FILE= '~/Data/LeftHand/Lund1/fmriprep/motion.csv'
-NREPS = 10 # reps for inputation
+NREPS = 10 # reps for imputation
 
 library(dplyr)
 library(missForest)
+library(pracma)
 library(ggplot2)
 trials.table = read.table(file.path(RESPONSES_DIR, "complete_trials_table.csv"), header = T, sep = ";")
 demo.data = read.table(file.path(RESPONSES_DIR, "SubjectData.csv"), header = T, sep = ",")
@@ -66,7 +67,7 @@ covars.table = merge(mysubsets %>% group_by(SUBJECT, TP) %>% dplyr::summarise_if
                             by = c("SUBJECT", "TP"))  %>% dplyr::select(-REP)
                      
 covars.table[covars.table < 0] = 0
-View(covars.table[incomplete, ])
+#View(covars.table[incomplete, ])
 
 covars.table = covars.table %>% rename_all(.funs = toupper)
 
@@ -94,9 +95,9 @@ plot(training, training.quadratic, type = "b", xlim = c(-2, 2))
 points(training, training, type = "b", col = "green")
 points(training, training.asymptotic, type = "b", col = "red")
 
-covars.table$GROUP = "Experimental"
+covars.table$GROUP = "Intervention"
 covars.table$GROUP[grep("lue.2", covars.table$SUBJECT)] = "Control"
-covars.table$GROUP.NUM = ifelse(covars.table$GROUP == "Experimental", 1, 0)  
+covars.table$GROUP.NUM = ifelse(covars.table$GROUP == "Intervention", 1, 0)  
 covars.table = covars.table %>%  mutate(GROUP = as.factor(GROUP))
 
 covars.table$TRAINING = training[covars.table$TP]
@@ -107,6 +108,7 @@ covars.table$TRAINING.A = training.asymptotic[covars.table$TP]
 covars.table$TRAINING_x_GROUP = covars.table$TRAINING*covars.table$GROUP.NUM 
 covars.table$TRAINING.Q_x_GROUP = covars.table$TRAINING.Q*covars.table$GROUP.NUM 
 
+covars.table$WAVE = as.numeric(substring(covars.table$SUBJECT, 4, 4))
 # get an estimate of trial by trial variability and check how it changes
 NTRIALS = 10
 

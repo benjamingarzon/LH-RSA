@@ -1,5 +1,6 @@
 #!/bin/sh
-HCPDIR=/home/share/Software/HCP/workbench/bin_rh_linux64/
+#HCPDIR=/home/share/Software/HCP/workbench/bin_rh_linux64/
+HCPDIR=/home/xgarzb@GU.GU.SE/Software/workbench/bin_rh_linux64/
 
 WD=$1
 SURFACE=$2
@@ -54,4 +55,6 @@ $HCPDIR/wb_command -metric-stats \
       
 $HCPDIR/wb_command -metric-convert -to-nifti ${OUTPUT}.func.gii ${OUTPUT}.nii.gz
 
+mri_convert ${OUTPUT}.func.gii ${OUTPUT}.func.gii
+mri_convert ${OUTPUT}.all.func.gii ${OUTPUT}.all.func.gii
 rm $EXTREMA
