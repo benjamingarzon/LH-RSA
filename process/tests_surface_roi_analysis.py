@@ -13,7 +13,8 @@ from nilearn.image import resample_to_img
 import numpy as np
 import pandas as pd
 from roi_analysis_funcs import prewhiten, project_label, \
-    second_moment_PCM, fit_svm, fit_svm_confusion
+    second_moment_PCM, fit_clf, fit_clf_confusion, compute_distance, \
+        get_cov_ledoit, fit_clf_separate
 from scipy.stats import pearsonr
 import seaborn as sns
 from nilearn.image import index_img
@@ -25,8 +26,10 @@ from nilearn.plotting import plot_roi
 from nilearn.image import new_img_like, load_img, get_data
 from sklearn.model_selection import cross_val_score, PredefinedSplit, \
 GridSearchCV
+from sklearn.decomposition import PCA
 from roi_analysis_funcs import svc_ovo, balanced_scorer
-
+from sklearn import manifold
+    
 sns.set_theme(style="white")
 cmap = sns.color_palette("coolwarm", as_cmap = True)
 
@@ -34,10 +37,11 @@ WD = '/data/lv0/MotorSkill/'
 analysis_dir = '/data/lv0/MotorSkill/fmriprep/analysis/'
 subjects_dir = os.path.join(WD, 'fmriprep', 'freesurfer')
 labels_dir = '/data/lv0/MotorSkill/labels/fsaverage'
-
-subject = 'sub-lue1101'
-session = 2
-label = 'R_C1'
+effects_filename = 'effects.nii.gz'
+derivatives_filename = 'derivatives.nii.gz'
+subject = 'sub-lue1105'
+session = 5
+#label = 'R_C1'
 label = 'R_SPL'
 MINACC = 1.0
 MINCORRECT = 2
@@ -52,7 +56,9 @@ def test_prewhiten():
                                     analysis_dir, 
                                     labels_dir, overwrite = False)
     effects_file = os.path.join(analysis_dir, subject, 
-                                     'ses-%d'%session, 'effects.nii.gz')
+                                     'ses-%d'%session, effects_filename) 
+    derivatives_file = os.path.join(analysis_dir, subject, 
+                                     'ses-%d'%session, derivatives_filename) 
 
     resampled_mask = resample_to_img(mylabel, effects_file)
 
@@ -60,7 +66,6 @@ def test_prewhiten():
                                memory = os.path.join(analysis_dir, "nilearn_cache"), 
                                memory_level = 1)
 
-    
     sequences_file = os.path.join(WD, 'responses', subject, 
                           'ses-%d'%session, 'sequences.csv')
 
@@ -73,7 +78,7 @@ def test_prewhiten():
     iscorrect = sequences.accuracy >= MINACC
     ncorrect = np.sum(iscorrect)
     effects = nifti_masker.fit_transform(effects_file)
-    print(effects.shape)    
+    derivatives = nifti_masker.fit_transform(derivatives_file)
 
     run = 1
     effects_prewhitened = effects.copy()
@@ -139,7 +144,7 @@ def test_PCM():
                                     analysis_dir, 
                                     labels_dir, overwrite = False)
     effects_file = os.path.join(analysis_dir, subject, 
-                                     'ses-%d'%session, 'effects.nii.gz')
+                                     'ses-%d'%session, effects_filename)
 
     resampled_mask = resample_to_img(mylabel, effects_file)
 
@@ -175,11 +180,11 @@ def test_PCM():
     runs = sequences.run[iscorrect]
     
     # PCM
-    T_ind, theta, xnobis_trained, xnobis_untrained = second_moment_PCM(sequences.loc[iscorrect, :], effects[iscorrect, :])
+    T_ind, theta, G_hat_trained, G_hat_untrained = second_moment_PCM(sequences.loc[iscorrect, :], effects[iscorrect, :])
     
-    return T_ind, theta, xnobis_trained, xnobis_untrained
+    return T_ind, theta, G_hat_trained, G_hat_untrained
 
-def test_svm(permutate = True, do_prewhitening = True):
+def test_clf(permutate = False, do_prewhitening = None):
     hemi = 'rh' if label.startswith('R_') else 'lh'
     mylabel = project_label(label, hemi, subject, 
                                     subjects_dir, 
@@ -188,7 +193,9 @@ def test_svm(permutate = True, do_prewhitening = True):
                                     overwrite = False)
     
     effects_file = os.path.join(analysis_dir, subject, 
-                                     'ses-%d'%session, 'effects.nii.gz')
+                                     'ses-%d'%session, effects_filename)
+    derivatives_file = os.path.join(analysis_dir, subject, 
+                                     'ses-%d'%session, derivatives_filename)
 
     searchlight_file = os.path.join(analysis_dir, subject, 
                                      'ses-%d'%session, 'searchlight.nii.gz')
@@ -208,25 +215,43 @@ def test_svm(permutate = True, do_prewhitening = True):
     runs = np.array([int(r[-1]) for r in run_paths])
     # find runs
     allsequences = pd.read_csv(sequences_file, sep = ' ')
-    
     # reorder in time to sync with data!
-    allsequences = allsequences.sort_values(by=['run', 'onset'])
+    allsequences = allsequences.sort_values(by=['run', 'seq_type'])
     
     sequences = allsequences.loc[ allsequences.run.isin(runs), : ]
     iscorrect = sequences.accuracy >= MINACC
     ncorrect = np.sum(iscorrect)
     effects = nifti_masker.fit_transform(effects_file)
+    derivatives = nifti_masker.fit_transform(derivatives_file)
 
-    if do_prewhitening:
+    constant_columns = np.all(effects[1:] == effects[:-1], axis=0)
+    effects = effects[:, ~constant_columns]
+
+    if do_prewhitening == 'session':
+        # prewhiten the data
+        residual_file_list = [os.path.join(analysis_dir, subject, 
+                             'ses-%d'%session, 
+                             'run%d'%run,
+                             'res4d_LSA_%d.nii.gz'%run) \
+                      for run in np.unique(sequences.run)]
+        cov_ledoit_sqrt = get_cov_ledoit(residual_file_list, nifti_masker, 
+                                         constant_columns)
+        for run in np.unique(sequences.run):
+            effects[sequences.run == run, :], prewhiten_ok = prewhiten(
+                effects[sequences.run == run, :], cov_ledoit_sqrt)        
+
+    if do_prewhitening == 'run':
         # prewhiten the data
         for run in np.unique(sequences.run):
-            residuals_file = os.path.join(analysis_dir, subject, 
-                                     'ses-%d'%session, 
-                                     'run%d'%run,
-                                     'res4d_LSA_%d.nii.gz'%run)
-            residuals = nifti_masker.fit_transform(residuals_file)    
+            residual_file = os.path.join(analysis_dir, subject, 
+                                         'ses-%d'%session, 
+                                         'run%d'%run,
+                                         'res4d_LSA_%d.nii.gz'%run)
+            cov_ledoit_sqrt = get_cov_ledoit([residual_file], nifti_masker, 
+                                             constant_columns)
             effects[sequences.run == run, :], prewhiten_ok = prewhiten(
-                effects[sequences.run == run, :], residuals)
+                effects[sequences.run == run, :], cov_ledoit_sqrt)        
+
 
     sequences.loc[:, 'iscorrect'] = sequences.accuracy >= MINACC
     # to accept the data of a run, there have to be at least 2 correct instances
@@ -237,15 +262,16 @@ def test_svm(permutate = True, do_prewhitening = True):
     valid = np.logical_and(sequences.run.isin(valid_runs),
                            sequences.iscorrect)
 
-    for i in range(4):
-        fmri_img = index_img(effects_file, np.logical_and(sequences.seq_type == (i + 1), valid))
-        mean_img(fmri_img).to_filename(os.path.join(analysis_dir, subject, 
-                                     'ses-%d'%session, 'target-%d.nii.gz'%(i + 1)))
+    #for i in range(4):
+    #    fmri_img = index_img(effects_file, np.logical_and(sequences.seq_type == (i + 1), valid))
+    #    mean_img(fmri_img).to_filename(os.path.join(analysis_dir, subject, 
+    #                                 'ses-%d'%session, 'target-%d.nii.gz'%(i + 1)))
 
-    fmri_img = index_img(effects_file, np.logical_and(sequences.seq_type == (i + 1), valid))
-
-    # write everything out
+    nvalid = np.sum(valid)
     nn = len(valid)
+    nruns = len(valid_runs)
+    print("Runs: %d"%nruns)
+    # write everything out
     colnames = ['subject',
                 'hemi',
                 'label',
@@ -257,10 +283,10 @@ def test_svm(permutate = True, do_prewhitening = True):
                 'valid'] + \
         ['feature_%0.4d'%(x) for x in range(effects.shape[1])]
                 
-    alldata = pd.concat([pd.Series(nn*subject), 
-                         pd.Series(nn*hemi), 
-                         pd.Series(nn*label), 
-                         pd.Series(nn*session), 
+    alldata = pd.concat([pd.Series(nn*[subject]), 
+                         pd.Series(nn*[hemi]), 
+                         pd.Series(nn*[label]), 
+                         pd.Series(nn*[session]), 
                          sequences.run, 
                          sequences.seq_train, 
                          sequences.seq_type, 
@@ -270,19 +296,96 @@ def test_svm(permutate = True, do_prewhitening = True):
     alldata.columns = colnames
     sequences = sequences.loc[ valid, : ]
     
-    targets = sequences.seq_type.array.copy()
-    runs = sequences.run
+    targets = sequences.seq_type.to_numpy()
+    seq_train = sequences.seq_train.to_numpy()
+    runs = sequences.run.to_numpy()
     effects = effects[valid, :]
+    derivatives = derivatives[valid, :]
     
+    targets_perm = np.array(targets, copy = True)
+
+    for run in np.unique(runs):
+        targets_perm[runs == run] = \
+            np.random.permutation(targets[runs == run])    
+            
+    #print([ x for x in zip(runs, targets, targets_perm)])
+
     if permutate:
+        # targets and seq_train are pointing to df
         for run in np.unique(runs):
-            targets[runs == run] = np.random.permutation(targets[runs == run])
+            myperm = np.random.permutation(range(np.sum(runs == run)))
+            targets[runs == run] = targets[runs == run][myperm]
+            seq_train[runs == run] = seq_train[runs == run][myperm]
+            
     df = sequences[['seq_type', 'seq_train']].drop_duplicates()
-    cv_score, accuracy, accuracy_trained_accuracy_untrained = \
-        fit_svm_confusion(effects, targets, runs, df)
-    cv_scores = fit_svm(effects, targets, runs)
+    #X = np.hstack((effects, derivatives))
+    #pca = PCA(n_components = 10).fit(X)
+    #Z = pca.transform(X)
+    #plt.plot(pca.explained_variance_)
+    #plt.show()
+
+    #cv_scores = fit_clf(Z, targets, splits = runs)
+    #print(cv_scores)
+
+    cv_scores = fit_clf(effects, targets, splits = runs)
+    print(cv_scores)
+
+    cv_scores = fit_clf(derivatives, targets, splits = runs)
+    print(cv_scores)
+
+    xnobis, xnobis_same, xnobis_different, xnobis_trained_same, \
+    xnobis_trained_different, xnobis_untrained_same, \
+    xnobis_untrained_different, xnobis_trained_untrained, labels = \
+        compute_distance(effects, targets, df, splits = runs,  
+                         dist_type = 'xnobis')
+
+    print("xnobis: same %f, different %f"%(xnobis_same, xnobis_different))    
+        
+    cosine, cosine_same, cosine_different, cosine_trained_same, \
+    cosine_trained_different, cosine_untrained_same, \
+    cosine_untrained_different, cosine_trained_untrained, \
+    labels = compute_distance(effects, targets, df, splits = runs,
+                              dist_type = 'cosine')
+
     
-    from sklearn import manifold
+    print("cosine: same %f, different %f"%(cosine_same, cosine_different))    
+    #cv_score, accuracy, accuracy_trained, accuracy_untrained = \
+    #    fit_clf_confusion(effects, targets, runs, df)
+    clf_acc_trained, clf_acc_untrained,  clf_acc_trained_untrained = \
+        fit_clf_separate(effects, targets, runs, df)
+    # try grouping
+    indices = set([x for x in zip(targets, runs)])
+    targets_grouped, runs_grouped = zip(*indices)
+    targets_grouped = np.array(targets_grouped)
+    runs_grouped = np.array(runs_grouped)
+    effects_grouped = np.zeros((len(indices), effects.shape[1]))
+    for target, run in  indices:
+        effects_grouped[np.logical_and(targets_grouped == target, 
+                                       runs_grouped == run), :] = \
+            np.mean(effects[np.logical_and(targets == target, runs == run), :], axis = 0)
+
+    #cv_score, accuracy, accuracy_trained, accuracy_untrained = \
+    #    fit_clf_confusion(effects_grouped, targets_grouped, runs_grouped, df)
+    #cv_scores = fit_clf(effects_grouped, targets_grouped, runs_grouped)        
+    
+    # by run 
+#    cv_scores_list = []
+#    for run in np.unique(runs):
+#        seq_train[runs == run] = seq_train[runs == run][myperm]
+#        X = np.hstack((effects, derivatives))[runs == run, :]
+
+#        pca = PCA(n_components = 4).fit(X)
+#        Z = pca.transform(X)
+
+#        cv_scores_list.append(fit_clf(Z,
+#                              targets[runs == run], 
+#                              splits = sequences.block[runs == run]))
+        
+#    cv_scores_run = np.mean(np.array(cv_scores_list))
+#    print('Scores')
+#    print(cv_scores_list, cv_scores_run)  
+    
+#    stophere
     n_components = 2
     n_neighbors = 10
     methods = {}
@@ -290,16 +393,22 @@ def test_svm(permutate = True, do_prewhitening = True):
     #                                       n_neighbors=n_neighbors)
     methods['t-SNE'] = manifold.TSNE(n_components=n_components, init='pca',
                                  random_state=0)
-
+    #methods['PCA'] = PCA(n_components=n_components)
+    markers = {1:'o', 2:'v', 3:'s', 4:'P', 5: '*'}
 #    fig = plt.figure(figsize=(15, 8)) 
     # Plot results
-    for i, (labelx, method) in enumerate(methods.items()):
-        Y = method.fit_transform(effects)
-        plt.scatter(Y[:, 0], Y[:, 1], 
-                   c = targets,
-                   s = runs*20, 
-                   cmap = plt.cm.Spectral)
-
+    if False: 
+        for i, (labelx, method) in enumerate(methods.items()):
+            Y = method.fit_transform(effects)
+            plt.figure()
+            for run in runs:
+                plt.scatter(Y[runs== run, 0], Y[runs == run, 1], 
+                           c = targets[runs == run], 
+                           s = run*20,
+                           marker = markers[run],
+                           cmap = plt.cm.Spectral)
+            plt.title(labelx)
+    
     #print(runs.value_counts())
 #    cv_scores = cross_val_score(svc_ovo, X, targets, cv = PredefinedSplit(runs), 
 #                                verbose = 0, 
@@ -314,7 +423,7 @@ def test_svm(permutate = True, do_prewhitening = True):
             axis = 0))
     print(mean_signal_trained, mean_signal_untrained)
 
-    if True:    
+    if False:    
         # do searchlight analysis
             
         # Compute the mean EPI: we do the mean along the axis 3, which is time
@@ -328,14 +437,11 @@ def test_svm(permutate = True, do_prewhitening = True):
         process_mask = get_data(mask_img).astype(np.int)
         picked_slice = 52
     #    process_mask[..., (picked_slice + 3):] = 0
-        #process_mask[..., :picked_slice] = 0
+        process_mask[..., :picked_slice] = 0
         process_mask_img = new_img_like(mask_img, process_mask)
     
         fmri_img = index_img(effects_file, valid)
-    #    cv_scores = cross_val_score(cl, X, y, cv = PredefinedSplit(runs), 
-    #                            verbose = 0, 
-    #                            scoring = balanced_scorer)
-        # y, session = y[condition_mask], session[condition_mask]
+
         # # The radius is the one of the Searchlight sphere that will scan the volume
         searchlight = nilearn.decoding.SearchLight(
         mask_img,
@@ -348,10 +454,14 @@ def test_svm(permutate = True, do_prewhitening = True):
         searchlight.fit(fmri_img, targets)
         searchlight_img = new_img_like(mask_img, searchlight.scores_)
         searchlight_img.to_filename(searchlight_file)
-    return(cv_score, accuracy, accuracy_trained_accuracy_untrained)
+    return(cv_scores,            
+           ( clf_acc_trained, clf_acc_untrained,  clf_acc_trained_untrained))
 #test_prewhiten()
 #sequences = test_getcorrect()
-#T_ind, theta, xnobis_trained, xnobis_untrained = test_PCM()
+#T_ind, theta, G_hat_trained, G_hat_untrained = test_PCM()
 
-
-print(test_svm(permutate = False, do_prewhitening = False))
+#test_PCM()
+for elem in test_clf(permutate = False, do_prewhitening = 'session'):
+    print(elem)
+for elem in test_clf(permutate = True, do_prewhitening = 'session'):
+    print(elem)

@@ -484,12 +484,12 @@ cd $SUBDIR
 for run in $RUNS; 
 do
   RUN_DIR=$SUBDIR/run$run
-
-  if [ -e "$RUN_DIR/${VOLUME_DIR}" ] && \
-  [ ! -e "$RUN_DIR/${VOLUME_DIR}/cope0.nii.gz" ] ; then
+  
+  if [ -e "$RUN_DIR/${SURFR_DIR}" ] && [ ! -e "$RUN_DIR/${SURFR_DIR}/cope1.func.gii" ]; 
+  then #$RUN_DIR/${VOLUME_DIR}/cope1.nii.gz
      rm -r $RUN_DIR/${VOLUME_DIR} $RUN_DIR/surf*
   fi 
-  if [ ! -e "$RUN_DIR/${VOLUME_DIR}" ]; then
+  if [ ! -e "$RUN_DIR/${SURFR_DIR}" ]; then
 
       FUNCVOL=$HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-${run}_space-MNI152NLin2009cAsym_desc-preproc_bold.nii.gz
       FUNCREF=$HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-${run}_space-T1w_desc-preproc_bold.nii.gz #_space-T1w_boldref.nii.gz
@@ -646,7 +646,7 @@ fi # end 5.1
 if [ $PHASE == 0 ] || [ $PHASE == 6 ]; then
 
 # LEAST SQUARES ALL
-if [ ! -e "$HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/${EFFECTS_FILE}0.nii.gz" ]; then
+if [ ! -e "$HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/${EFFECTS_FILE}.nii.gz" ]; then
 
 for run in $RUNS; 
 do
@@ -799,6 +799,23 @@ fi # LSS extra computation
 # Merge parameters
 cd $HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/
 
+# hack to fix cases with slight differences in voxel size
+RUN1=1
+RUN2=2
+xval1=`fslval run${RUN1}/effects_LSA_${RUN1}.nii.gz dim1`
+xval2=`fslval run${RUN2}/effects_LSA_${RUN2}.nii.gz dim1`
+yval1=`fslval run${RUN1}/effects_LSA_${RUN1}.nii.gz dim2`
+yval2=`fslval run${RUN2}/effects_LSA_${RUN2}.nii.gz dim2`
+zval1=`fslval run${RUN1}/effects_LSA_${RUN1}.nii.gz dim3`
+zval2=`fslval run${RUN2}/effects_LSA_${RUN2}.nii.gz dim3`
+echo $xval1, $xval2 - $yval1, $yval2 - $zval1, $zval2  
+if [ $xval1 != $xval2 ] || [ $yval1 != $yval2 ] || [ $zval1 != $zval2 ]; then
+for fxname in effects derivatives; do 
+ mv run${RUN1}/${fxname}_LSA_${RUN1}.nii.gz run${RUN1}/${fxname}_LSA_${RUN1}_orig.nii.gz
+ mri_vol2vol --mov run${RUN1}/${fxname}_LSA_${RUN1}_orig.nii.gz --targ run${RUN2}/${fxname}_LSA_${RUN2}.nii.gz --o run${RUN1}/${fxname}_LSA_${RUN1}.nii.gz --regheader
+done
+fi
+
   fslmerge -t ${EFFECTS_FILE} `ls -v run*/effects_LSA_?.nii.gz` 
   fslmerge -t ${DERIVATIVES_FILE} `ls -v run*/derivatives_LSA_?.nii.gz` 
   #fslmerge -t res4d `ls -v run*/res4d_LSA_?.nii.gz` 
@@ -819,23 +836,129 @@ cd $HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/
 fi # check if effects already exist
 fi # PHASE 6
 
-exit 1
+# try with aggregated trials
+if [ $PHASE == 0 ] || [ $PHASE == 6.1 ]; then
+
+# LEAST SQUARES ALL
+#!!!
+if [ ! -e "$HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/${EFFECTS_FILE_AGG}.nii.gz" ]; then
+
+for run in $RUNS; 
+do
+  FUNC=$HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/func/sub-${SUBJECT}_ses-${SESSION}_task-sequence_run-${run}_space-T1w_desc-preproc_bold.nii.gz
+
+  RUN_DIR=$SUBDIR/run$run
+  MODEL_DIR=$RUN_DIR/model_agg
+  rm -r $MODEL_DIR
+  mkdir $MODEL_DIR
+
+    FSF_FILE=$RUN_DIR/fMRI_agg.fsf
+      
+      cp $HOMEDIR/responses/sub-${SUBJECT}/ses-${SESSION}/run$run/*.csv $MODEL_DIR/$RUN_DIR/
+      
+      cd $RUN_DIR
+    
+#!!!
+      cp $SIMPLE8_FSF_FILE $FSF_FILE
+      sed -i "s%@EV1%$RUN_DIR/EV1.csv%" $FSF_FILE        
+      sed -i "s%@EV2%$RUN_DIR/EV2.csv%" $FSF_FILE        
+      sed -i "s%@EV3%$RUN_DIR/EV3.csv%" $FSF_FILE        
+      sed -i "s%@EV4%$RUN_DIR/EV4.csv%" $FSF_FILE   
+      sed -i "s%@EV5%$RUN_DIR/EV5.csv%" $FSF_FILE        
+      sed -i "s%@EV6%$RUN_DIR/EV6.csv%" $FSF_FILE        
+      sed -i "s%@EV7%$RUN_DIR/EV7.csv%" $FSF_FILE        
+      sed -i "s%@EV8%$RUN_DIR/EV8.csv%" $FSF_FILE        
+
+      sed -i "s%@EV6%$RUN_DIR/EV6.csv%" $FSF_FILE        
+
+      # if there are empty regressors, set them to 0
+      for k in 1 2 3 4; do          
+          if [ `cat AEVcor${k}.csv | wc -l` == 0 ]; then
+           sed -i "s%set fmri(convolve${k}) 3%set fmri(convolve${k}) 0%" $FSF_FILE 
+           sed -i "s%set fmri(shape${k}) 3%set fmri(shape${k}) 10%" $FSF_FILE 
+          fi
+      done
+
+      CONFOUNDS=$RUN_DIR/mc_run-0${run}.csv 
+      NVOLS=`fslnvols $FUNCVOL`
+      sed -i "s%@NVOLS%$NVOLS%" $FSF_FILE
+      sed -i "s%@fMRI%$RUN_DIR/$FUNC%" $FSF_FILE
+      sed -i "s%@STRUCTURAL_BRAIN%$STRUCT%" $FSF_FILE
+      sed -i "s%@ANALYSIS%$RUN_DIR/${VOLUME_DIR}/analysis.feat%" $FSF_FILE  
+      sed -i "s%@CONFOUNDS%$CONFOUNDS%" $FSF_FILE        
+      
+      # now run it
+      feat_model fMRI $CONFOUNDS
+  
+  sed -i "s%@EV$(($NTRIALS + 1))%$MODEL_DIR/FIXATION%" $FSF_FILE        
+  sed -i "s%@EV$(($NTRIALS + 2))%$MODEL_DIR/STRETCH%" $FSF_FILE   
+  sed -i "s%@CONFOUNDS%$RUN_DIR/mc_run-0${run}.csv%" $FSF_FILE     
+ # sed -i "s%@CONFOUNDS%$RUN_DIR/mc_run-0${run}_extended.csv%" $FSF_FILE        
+
+
+  feat $FSF_FILE
+  
+  EFFECT_FILES=""
+  DERIVATIVE_FILES=""
+  for trial in `seq $NTRIALS`; do    
+    EFFECT_FILES="$EFFECT_FILES $MODEL_DIR/analysis.feat/stats/${FX_FILE}$(($trial * 2 - 1)).nii.gz"
+    DERIVATIVE_FILES="$DERIVATIVE_FILES $MODEL_DIR/analysis.feat/stats/${FX_FILE}$(($trial * 2)).nii.gz"
+  done
+  
+  fslmerge -t $RUN_DIR/effects_LSA_$run $EFFECT_FILES
+  fslmerge -t $RUN_DIR/derivatives_LSA_$run $DERIVATIVE_FILES 
+  cp $MODEL_DIR/analysis.feat/stats/res4d.nii.gz $RUN_DIR/res4d_LSA_${run}.nii.gz
+  
+  rm -r $MODEL_DIR
+
+done
+
 ###############################################################################
 # Prepare engine for searchlight analysis
 ###############################################################################
 
 # Find available fMRI runs, based on the data that are valid
 cd $HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/
-RUNS=`ls run*/${VOLUME_DIR}/cope1.nii.gz  | cut -d'/' -f1 | cut -d'n' -f2`
+RUNS=`ls run*/${SURFR_DIR}/cope1.func.gii  | cut -d'/' -f1 | cut -d'n' -f2`
 RUNS=`echo $RUNS`
 echo "Found following runs for searchlight: $RUNS"
 
 if [ $PHASE == 0 ] || [ $PHASE == 7 ]; then
+for hemi in rh lh; do
+    for surface in midthickness; do
+       mri_surf2surf --hemi $hemi --srcsubject sub-${SUBJECT} --sval-xyz $surface --trgsubject fsaverage6 --trgicoorder 6 --trgsurfval  $SUBDIR/surf/${hemi}.${surface}.ds.mgh --tval-xyz $SUBJECTS_DIR/sub-${SUBJECT}/mri/T1.mgz 
+       mris_convert $SUBDIR/surf/${hemi}.${surface}.ds.mgh $SUBDIR/surf/${hemi}.${surface}.ds.gii
+       rm $SUBDIR/surf/${hemi}.${surface}.ds.mgh
+    done
+    for surface in pial white; do
+       mri_surf2surf --hemi $hemi --srcsubject sub-${SUBJECT} --sval-xyz $surface --trgsubject fsaverage --trgsurfval $SUBDIR/surf/${hemi}.${surface}.mgh --tval-xyz $SUBJECTS_DIR/sub-${SUBJECT}/mri/T1.mgz 
+       mris_convert $SUBDIR/surf/${hemi}.${surface}.mgh $SUBDIR/surf/${hemi}.${surface}.gii
+       rm $SUBDIR/surf/${hemi}.${surface}.mgh
+    done
+done
+#rm $SUBDIR/surf/lh.pial.gii $SUBDIR/surf/rh.pial.gii $SUBDIR/surf/lh.white.gii $SUBDIR/surf/rh.white.gii
+FLAG1="--to-scanner"
+#mris_convert $FLAG1 $SUBJECTS_DIR/sub-${SUBJECT}/surf/lh.pial $SUBDIR/surf/lh.pial.gii
+#mris_convert $FLAG1 $SUBJECTS_DIR/sub-${SUBJECT}/surf/rh.pial $SUBDIR/surf/rh.pial.gii
+#mris_convert $FLAG1 $SUBJECTS_DIR/sub-${SUBJECT}/surf/lh.white $SUBDIR/surf/lh.white.gii
+#mris_convert $FLAG1 $SUBJECTS_DIR/sub-${SUBJECT}/surf/rh.white $SUBDIR/surf/rh.white.gii
+#ln -sf $WD/fmriprep/sub-${SUBJECT}/anat/sub-${SUBJECT}_hemi-L_pial.surf.gii $SUBDIR/surf/lh.pial.gii
+#ln -sf $WD/fmriprep/sub-${SUBJECT}/anat/sub-${SUBJECT}_hemi-R_pial.surf.gii $SUBDIR/surf/rh.pial.gii
+#ln -sf $WD/fmriprep/sub-${SUBJECT}/anat/sub-${SUBJECT}_hemi-L_smoothwm.surf.gii $SUBDIR/surf/lh.white.gii
+#ln -sf $WD/fmriprep/sub-${SUBJECT}/anat/sub-${SUBJECT}_hemi-R_smoothwm.surf.gii $SUBDIR/surf/rh.white.gii
 
+if [ -e $HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/anat/sub-${SUBJECT}_ses-${SESSION}_desc-brain_mask.nii.gz ]; then
+    mri_vol2vol --mov $HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/ses-${SESSION}/anat/sub-${SUBJECT}_ses-${SESSION}_desc-brain_mask.nii.gz --targ $HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/effects.nii.gz --regheader --o $HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/mask.nii.gz --nearest
+else 
+    mri_vol2vol --mov $HOMEDIR/fmriprep/fmriprep/sub-${SUBJECT}/anat/sub-${SUBJECT}_desc-brain_mask.nii.gz --targ $HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/effects.nii.gz --regheader --o $HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/mask.nii.gz --nearest
+fi
+## could constrain with ribbon and somatomotor mask
+
+conda activate lhenv2
 # Prepare engine
 for hemi in rh lh; do
 #    if [ ! -e "$HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/surf/${hemi}-${RADIUS}-qe.gzipped.hdf5" ] && \
-#    [ -e "$HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/${EFFECTS_FILE}" ]; then
+#    [ -e "$HOMEDIR/fmriprep/analysis/sub-${SUBJECT}/ses-${SESSION}/${EFFECTS_FILE}.nii.gz" ]; then
     python $PROGDIR/prepare_queryengine.py \
     $SUBDIR \
     $HOMEDIR/responses/sub-${SUBJECT}/ses-${SESSION}/sequences.csv \
@@ -846,6 +969,8 @@ for hemi in rh lh; do
 done
 
 fi #PHASE 7
+
+exit 1
 
 ###############################################################################
 # Searchlight analysis 

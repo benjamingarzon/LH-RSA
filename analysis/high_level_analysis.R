@@ -11,7 +11,7 @@ source('./load_covariates.R')
 
 nifti_convert = '/data/lv0/Software/workbench/bin_rh_linux64/wb_command -metric-convert -to-nifti'
 
-collect_data = T
+collect_data = F
 
 # pes : Fixation (1), Stretch (3), TrainedCorrect (5), UntrainedCorrect (7)
 # TrainedIncorrect (9), UntrainedIncorrect (11)
@@ -60,8 +60,8 @@ rh.gii = '/data/lv0/MotorSkill/fmriprep/freesurfer/fsaverage6/surf/rh.white.surf
 lh.gii = '/data/lv0/MotorSkill/fmriprep/freesurfer/fsaverage6/surf/lh.white.surf.gii'
 mask.rh = '/data/lv0/MotorSkill/labels/fsaverage6/rh.motor.rois.nii.gz'
 mask.lh = '/data/lv0/MotorSkill/labels/fsaverage6/lh.motor.rois.nii.gz'
-mask = 'mask_whole.nii.gz'   
-
+mask_whole = 'mask_whole.nii.gz'   
+mask_roi = 'mask.nii.gz'
 #analysis_name = 'UntrainedCorrect_UntrainedIncorrect'
 #conditions = c(2, 4)
 #names(conditions) = c('UntrainedCorrect', 'UntrainedIncorrect')
@@ -80,9 +80,9 @@ peprefix = "/cope"
 #names(conditions) = c('Fixation', 'Stretch')
 #peprefix = "/pe"
 
-analysis_type = 'surfL'  #volume, surfR/L 
+analysis_type = 'surfR'  #volume, surfR/L 
 
-NPROCS = 10
+NPROCS = 5
 # list files, adapt depending on type of analysis
 contrasts = NULL
 image.list = NULL
@@ -139,23 +139,7 @@ if (analysis_type == 'volume') {
 #browser()
 if (collect_data) {
   if (analysis_type == 'volume') {
-  # setwd(WD)
-  #   
-  # print("Checking dimensions")
-  # image.list.clean = mask.list = indices = NULL
-  # j = 1
-  # for (imgname in image.list){
-  #    header = check_nifti_header(imgname)
-  #    imgdims = header@dim_[2:4]
-  #    
-  #    if (imgdims[1] != 108 | imgdims[2] != 128 | imgdims[3] != 89) print(paste("Removing", imgname))
-  #    else { 
-  #      image.list.clean = c(image.list.clean, imgname)
-  #      indices = c(indices, j)
-  #      j = j + 1
-  #    }
-  #   }
-  # condition.list = condition.list[indices]
+
   masks.found = system("find ../fmriprep/sub-lue*/ses*/func/sub-lue*_space-MNI152NLin2009cAsym_desc-brain_mask.nii.gz", intern = TRUE)
   for (imgname in masks.found){
     header = check_nifti_header(imgname)
@@ -286,7 +270,7 @@ doit = function(WD, IMAGES, MYTEST, OD,
     MASK_FILE,
     MYTEST,
     remove_outliers = F, 
-    to_gifti = to_gifti, excluded = NULL, #excluded, 
+    to_gifti = to_gifti, excluded = excluded, 
     flip = flip
   )
   results$complete_data = DATA
@@ -300,30 +284,139 @@ doit = function(WD, IMAGES, MYTEST, OD,
 
 # check results: freeview -f /usr/local/freesurfer/7.1.1/subjects/fsaverage6/surf/lh.inflated:overlay=INTERCEPT_coef.func.gii
 
-results.average = doit(file.path(DATADIR, analysis_type),
-           image.list,
-           testaverage_simple,
-           'tests/average',
-           MASK = mask,
-           IMAGES_NAME = 'image_list.txt',
-           IMAGING_NAME = 'images.nii.gz',
-           conditions = condition.list,
-           motion = motion,
-           to_gifti = mysurf)
+# results.average = doit(file.path(DATADIR, analysis_type),
+#            image.list,
+#            testaverage_simple,
+#            'tests/average',
+#            MASK = mask,
+#            IMAGES_NAME = 'image_list.txt',
+#            IMAGING_NAME = 'images.nii.gz',
+#            conditions = condition.list,
+#            motion = motion,
+#            to_gifti = mysurf)
 
-stophere 
+
 # tests for activation maps
-# results.linear = doit(file.path(DATADIR, analysis_type), 
-#                            image.list, 
-#                            testlinearrun, 
-#                            'tests/linear_noconf',
-#                            MASK = mask,  
-#                            IMAGES_NAME = 'image_list.txt',
-#                            IMAGING_NAME = 'images.nii.gz',           
-#                            conditions = condition.list, 
-#                            motion = motion, 
-#                            to_gifti = mysurf)
+if (F) {
+results.quadratic_prereg_groupxtraining = doit(file.path(DATADIR, analysis_type),
+                                image.list,
+                                testquadraticrun_prereg_groupxtraining,
+                                'tests/quadratic_prereg_groupxtraining',
+                                MASK = mask_roi,
+                                IMAGES_NAME = 'image_list.txt',
+                                IMAGING_NAME = 'images.nii.gz',
+                                conditions = condition.list,
+                                motion = motion,
+                                to_gifti = mysurf)
 
+results.quadratic_prereg_groupxconditionxtraining = doit(file.path(DATADIR, analysis_type),
+                                               image.list,
+                                               testquadraticrun_prereg_groupxconditionxtraining,
+                                               'tests/quadratic_prereg_groupxconditionxtraining',
+                                               MASK = mask_roi,
+                                               IMAGES_NAME = 'image_list.txt',
+                                               IMAGING_NAME = 'images.nii.gz',
+                                               conditions = condition.list,
+                                               motion = motion,
+                                               to_gifti = mysurf)
+
+results.quadratic_whole_prereg = doit(file.path(DATADIR, analysis_type),
+                                image.list,
+                                testquadraticrun_prereg,
+                                'tests/quadratic_whole_prereg',
+                                MASK = mask_whole,
+                                IMAGES_NAME = 'image_list.txt',
+                                IMAGING_NAME = 'images.nii.gz',
+                                conditions = condition.list,
+                                motion = motion,
+                                to_gifti = mysurf)
+
+results.quadratic.prereg = doit(file.path(DATADIR, analysis_type),
+                                image.list,
+                                testquadraticrun_prereg,
+                                'tests/quadratic_prereg',
+                                MASK = mask_roi,
+                                IMAGES_NAME = 'image_list.txt',
+                                IMAGING_NAME = 'images.nii.gz',
+                                conditions = condition.list,
+                                motion = motion,
+                                to_gifti = mysurf)
+
+}
+results.linear = doit(file.path(DATADIR, analysis_type),
+                           image.list,
+                           testlinearrun,
+                           'tests/linear',
+                           MASK = mask_roi,
+                           IMAGES_NAME = 'image_list.txt',
+                           IMAGING_NAME = 'images.nii.gz',
+                           conditions = condition.list,
+                           motion = motion,
+                           to_gifti = mysurf)
+
+
+results.comparison_whole_prereg = doit(file.path(DATADIR, analysis_type),
+                          image.list,
+                          modelcomparisonrun,
+                          'tests/comparison_whole_prereg',
+                          MASK = mask_whole,
+                          IMAGES_NAME = 'image_list.txt',
+                          IMAGING_NAME = 'images.nii.gz',
+                          conditions = condition.list, 
+                          motion = motion,
+                          to_gifti = mysurf)
+
+results.comparison.prereg = doit(file.path(DATADIR, analysis_type),
+                                 image.list,
+                                 modelcomparisonrun,
+                                 'tests/comparison_prereg',
+                                 MASK = mask_roi,
+                                 IMAGES_NAME = 'image_list.txt',
+                                 IMAGING_NAME = 'images.nii.gz',
+                                 conditions = condition.list, 
+                                 motion = motion,
+                                 to_gifti = mysurf)
+
+results.linear_whole_prereg = doit(file.path(DATADIR, analysis_type),
+                                   image.list,
+                                   testlinearrun_prereg,
+                                   'tests/linear_whole_prereg',
+                                   MASK = mask_whole,
+                                   IMAGES_NAME = 'image_list.txt',
+                                   IMAGING_NAME = 'images.nii.gz',
+                                   conditions = condition.list,
+                                   motion = motion,
+                                   to_gifti = mysurf)
+
+results.linear.prereg = doit(file.path(DATADIR, analysis_type),
+                             image.list,
+                             testlinearrun_prereg,
+                             'tests/linear_prereg',
+                             MASK = mask_roi,
+                             IMAGES_NAME = 'image_list.txt',
+                             IMAGING_NAME = 'images.nii.gz',
+                             conditions = condition.list,
+                             motion = motion,
+                             to_gifti = mysurf)
+
+results.linear.prereg_half = doit(file.path(DATADIR, analysis_type),
+                                  image.list,
+                                  testlinearrun_prereg_half,
+                                  'tests/linear_prereg_half',
+                                  MASK = mask_roi,
+                                  IMAGES_NAME = 'image_list.txt',
+                                  IMAGING_NAME = 'images.nii.gz',
+                                  conditions = condition.list,
+                                  motion = motion,
+                                  to_gifti = mysurf)
+
+#mydir=TrainedCorrect_TrainedIncorrect
+#for name in comparison_prereg comparison_whole_prereg linear_prereg linear linear_whole_prereg linear_prereg_half quadratic_prereg quadratic_whole_prereg quadratic_prereg_groupxtraining quadratic_prereg_groupxconditionxtraining; 
+#do 
+#ln -s /data/lv0/MotorSkill/fmriprep/analysis/higherlevel/$mydir/surfL/tests/$name /data/lv0/MotorSkill/fmriprep/analysis/higherlevel/$mydir/surf/tests/${name}.lh
+#ln -s /data/lv0/MotorSkill/fmriprep/analysis/higherlevel/$mydir/surfR/tests/$name /data/lv0/MotorSkill/fmriprep/analysis/higherlevel/$mydir/surf/tests/${name}.rh
+#done
+stophere 
 # results.linear = doit(file.path(DATADIR, analysis_type), 
 #                          image.list, 
 #                          testlinearrun, 

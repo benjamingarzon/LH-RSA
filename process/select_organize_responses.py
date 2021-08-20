@@ -74,8 +74,9 @@ sequences = pd.DataFrame({
     'true_sequence': data['true_sequence'].str.replace(" ", "")
 
     }) 
+# make sure it is ordered in the same way as the trials
+sequences.sort_values(by=['run', 'seq_type']).to_csv("sequences.csv", header=True, index=False, sep = ' ', float_format='%.2f')
 
-sequences.to_csv("sequences.csv", header=True, index=False, sep = ' ', float_format='%.2f')
 print("#Total correct: %d of %d"%(np.sum(sequences.accuracy == 1.0), len(sequences.accuracy)))
 print("Type  Correct  Run")
 for i in runs:
@@ -164,9 +165,14 @@ for i in runs:
 
     mylabels = labels.values
     for l in np.unique(mylabels):        
-        correct = pd.DataFrame({'onset': onset[(accuracy==1.0) & (mylabels == l)], 
+        correct_label = pd.DataFrame({'onset': onset[(accuracy==1.0) & (mylabels == l)], 
                                        'duration': duration[(accuracy==1.0) & (mylabels == l)], 
                                        'value': 1}) 
+        output_ev(correct_label, i, AGG_OUTPUTNAME + 'cor%s'%(l))
 
-        output_ev(correct, i, AGG_OUTPUTNAME + 'cor%s'%(l))
-
+    mylabels = labels.values
+    for l in np.unique(mylabels):        
+        incorrect_label = pd.DataFrame({'onset': onset[(accuracy!=1.0) & (mylabels == l)], 
+                                       'duration': duration[(accuracy!=1.0) & (mylabels == l)], 
+                                       'value': 1})
+        output_ev(incorrect_label, i, AGG_OUTPUTNAME + 'incor%s'%(l))

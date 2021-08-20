@@ -5,13 +5,13 @@ WD=/data/lv0/MotorSkill
 HCPDIR=/data/lv0/Software/workbench/bin_rh_linux64/
 SUBJECTS_DIR=$WD/labels/subject
 FS_DIR=/usr/local/freesurfer/7.1.1-1
-MYSUBJECT=fsaverage
+MYSUBJECT=fsaverage 
 LABELSDIR=$WD/labels/$MYSUBJECT
 PARC_DIR=/home/xgarzb@GU.GU.SE/Data/LeftHand/Lund1/labels/GlasserParc
 RADIUS=25
 
-SURF_L_MAP=$WD/fmriprep/analysis/higherlevel/Trained_Untrained/surfL/tests/quadratic/INTERCEPT_p.func.gii
-SURF_R_MAP=$WD/fmriprep/analysis/higherlevel/Trained_Untrained/surfR/tests/quadratic/INTERCEPT_p.func.gii
+SURF_L_MAP=$WD/fmriprep/analysis/higherlevel/Trained_Untrained/surfL/tests/linear/INTERCEPT_p.func.gii
+SURF_R_MAP=$WD/fmriprep/analysis/higherlevel/Trained_Untrained/surfR/tests/linear/INTERCEPT_p.func.gii
 SURF_L_AVERAGE=`echo ${SURF_L_MAP} | cut -f 1 -d '.'`.fsaverage.func.gii
 SURF_R_AVERAGE=`echo ${SURF_R_MAP} | cut -f 1 -d '.'`.fsaverage.func.gii
 

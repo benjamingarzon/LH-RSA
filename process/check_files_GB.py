@@ -183,7 +183,7 @@ fmriprep_surf_files = [ 'task-sequence_run-%d_space-fsaverage6_hemi-R_bold.func.
 
 fmriprep_vol_files = [ 'task-sequence_run-%d_space-MNI152NLin2009cAsym_desc-preproc_bold.nii.gz'%(run) for run in runs ] 
 
-roi_score_files = [ 'surf/roi_scores.csv' ] 
+roi_score_files = [ 'surf/roi_scores_mask.csv' ] 
 
 ## analysis
 
@@ -385,12 +385,13 @@ skipped_df = pd.read_csv(skipped_file)
 
 df = pd.merge(df, skipped_df, how = 'left', on = ['Subject', 'Session'])
 ntrials = 32
-df['enough_trials'] = df.valid_runs.apply(np.isnan)*1
+# 1 if more than 1 run that with enough trials
+df['enough_trials'] = df.valid_runs.apply(np.isnan)*1 
 df['complete_analysis'] = 1*np.logical_and.reduce((
-                        df.enough_trials == 1,
-                        df.complete_scores == 1,
+                        #df.enough_trials == 1,
+                        #df.complete_scores == 1,
                         df.complete_effects == ntrials*df.complete_fmriprep_vol, 
-                        df.complete_volume == df.complete_fmriprep_vol,
+                        #df.complete_volume == df.complete_fmriprep_vol,
                         df.complete_surf == df.complete_fmriprep_surf)
     )
 
@@ -405,3 +406,12 @@ df[ df.complete_analysis == False ].to_csv(os.path.join(QC_DIR,
   'Analysis_incomplete.csv'), index = False)
 # OK : 1201, 3106
 
+for row in df[ df.complete_analysis == False ].iterrows():
+    #print("rm %s/ses-%d/effects.nii.gz"%(row[1].Subject, row[1].Session))
+    print("fslval %s/ses-%d/effects.nii.gz dim4"%(row[1].Subject, row[1].Session))
+
+sublist = []
+for row in df[ df.complete_analysis == False ].iterrows():
+    sublist.append(row[1].Subject.split('-')[1])
+print(' '.join(sorted(set(sublist))))
+#    print("fslval %s/ses-%d/effects.nii.gz dim4"%(row[1].Subject, row[1].Session))

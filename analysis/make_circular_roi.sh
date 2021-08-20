@@ -9,15 +9,25 @@ DISTANCE=$4
 RADIUS=$5
 OUTPUT=$6
 THR=$7
+HEMI=$8
+MINCLUSSIZE=100.0
 
 EXTREMA=$WD/extrema.func.gii
 #if [ ! -e $EXTREMA ]; then
+
+      
 $HCPDIR/wb_command -metric-extrema \
       $SURFACE \
       $METRIC \
       $DISTANCE \
-      $EXTREMA -only-maxima -threshold 0 $THR
+      $EXTREMA -only-maxima -threshold 0 $THR # -consolidate-mode
 #fi
+
+$HCPDIR/wb_command -metric-extrema \
+      $SURFACE \
+      $METRIC \
+      $DISTANCE \
+      $EXTREMA -only-maxima -threshold 0 $THR # -consolidate-mode
 
 if [ `$HCPDIR/wb_command -metric-stats $EXTREMA -reduce MAX` -eq '0' ]; then 
 echo "No clusters!"
@@ -48,13 +58,26 @@ $HCPDIR/wb_command -metric-math \
       -var y ${OUTPUT}.func.gii -column 1
 
 rm ${OUTPUT}.aux.func.gii
-
-$HCPDIR/wb_command -metric-stats \
+ 
+NCLUS=`$HCPDIR/wb_command -metric-stats \
       ${OUTPUT}.all.func.gii \
-      -reduce MAX
-      
+      -reduce MAX`
+echo $NCLUS
+#for i in `seq $NCLUS`; do      
+#   CLUSINDEX=`$HCPDIR/wb_command -metric-stats \
+#         $EXTREMA \
+#         -reduce INDEXMAX -column $i`
+#         echo $i $CLUSINDEX
+#done
+
 $HCPDIR/wb_command -metric-convert -to-nifti ${OUTPUT}.func.gii ${OUTPUT}.nii.gz
 
 mri_convert ${OUTPUT}.func.gii ${OUTPUT}.func.gii
 mri_convert ${OUTPUT}.all.func.gii ${OUTPUT}.all.func.gii
 rm $EXTREMA
+
+mri_surfcluster --in $METRIC --thmin $THR --minarea $MINCLUSSIZE --hemi $HEMI \
+--sum ${OUTPUT}.clusters.sum --subject fsaverage6 --ocn ${OUTPUT}.clusters.func.gii
+cat ${OUTPUT}.clusters.sum
+#system('if [ `cat clusters.sum | wc -l` -eq 34 ]; then rm clusters.sum; fi') # no clusters
+  

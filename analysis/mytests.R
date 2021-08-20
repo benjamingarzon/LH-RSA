@@ -385,8 +385,8 @@ testquadratic = function(y, X, ALTERNATIVE = 'greater')
     contrast.pvalues = rep(2, length(contrast.names))
     contrast.coefs = rep(0, length(contrast.names))
     val = c(coefs, contrast.coefs, pvalues, contrast.pvalues)
-    val = c(val, 0, 0)
-    names(val) = c(tags, 'Omni_F', 'Omni_p')
+    val = c(val, 0, 0, 0)
+    names(val) = c(tags, 'OmniF_tstat', 'Omni_coef', 'Omni_p')
     return(val)
     
   }

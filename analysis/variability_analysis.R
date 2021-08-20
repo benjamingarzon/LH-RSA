@@ -8,7 +8,7 @@ library(reshape2)
 # difference alpha  trained > untrained increases with time and then goes to 0. More for intervention group
 # check that not explained by noise!!
 # use aroma to denoise??
-# why is svm accuracy so high everywhere??
+# why is clf accuracy so high everywhere??
 # correct for configuration x time
 # correct for FD. FD vs type of 
 # correct for number of correct trials
@@ -19,28 +19,37 @@ source('./plot_funcs.R')
 source('./load_covariates.R')
 
 sem = function(x) sd(x, na.rm = T)/sqrt(length(x))
-data_file = '/data/lv0/MotorSkill/fmriprep/analysis/surf/roi_scores_tess.csv' 
-#data_file = '/data/lv0/MotorSkill/fmriprep/analysis/surf/roi_scores_tess_extended.csv'
-output_file = '/data/lv0/MotorSkill/fmriprep/analysis/surf/svm_acc.csv'
+#data_file = '/data/lv0/MotorSkill/fmriprep/analysis/sub-lue5103/ses-4/surf/roi_scores_mask.csv'
+#/surf/roi_scores_tess.csv' 
+data_file = '/data/lv0/MotorSkill/fmriprep/analysis/surf/roi_scores_mask.csv'
+#output_file = '/data/lv0/MotorSkill/fmriprep/analysis/surf/clf_acc.csv'
+output_file = '/data/lv0/MotorSkill/fmriprep/analysis/surf/alpha_diff.csv'
 #output_file = '/data/lv0/MotorSkill/fmriprep/analysis/surf/crossnobis.csv'
 data = read.table(data_file, header = T, sep = ',') %>% arrange(subject, session, hemi, label)
 
 data$group = "Intervention"
 data$group[grep("sub-lue.2", data$subject)] = "Control"
+mymeasures = c("xnobis_trained_same", "xnobis_untrained_same", "xnobis_trained_different", "xnobis_untrained_different", "xnobis_trained_untrained")
+#mymeasures = c("clf_acc_trained", "clf_acc_untrained")
+#c("mean_signal_trained", "mean_signal_untrained") #c("alpha_trained", "alpha_untrained")
+#mymeasures = c("crossnobis_trained", "crossnobis_untrained") #c("mean_signal_trained", "mean_signal_untrained") #c("alpha_trained", "alpha_untrained")
 
-data$value = data$alpha_trained_PCM - data$alpha_untrained_PCM 
-data$value = data$svm_acc
+data$value = data$xnobis_untrained_same - data$xnobis_trained_same 
+#data$value = data$mean_signal_trained
+#data$value = data$clf_acc_trained - data$clf_acc_untrained
+# data$value = data$clf_acc .25)/.25*100
+#data$value = (data$clf_acc_perm - .25)/.25*100
 #data$value = 0.5*(data$crossnobis_trained + data$crossnobis_untrained)
 #data$value = data$crossnobis_trained - data$crossnobis_untrained
 #data$value = data$alpha_trained_PCM - data$alpha_untrained_PCM
-
+#data = subset(data, session != 1)
 # save it 
 output.data = data%>%
   group_by(label)%>%
-  summarise(value=mean(value)) %>% arrange(-value)
+  summarise(value=mean(value)) %>% arrange(-value) #, value_perm = mean(value_perm)
 
 write.table(output.data, file = output_file, sep = ',', col.names = T, row.names = F)
-stophere
+#stophere
 
 nrois = 5
 # check data
@@ -50,7 +59,7 @@ plot(sort(table(data$session))/nrois/2, las = 2) # how many sessions per timepoi
 control_labels = c("R_C1", "L_C1")
 incomplete_subjects = c("sub-lue5207", "sub-lue3202")
   
-data = data %>% filter(!is.infinite(value))  %>% filter(!subject %in% incomplete_subjects)
+data = data %>% filter(!is.infinite(value))  %>% filter(!subject %in% incomplete_subjects, valid_runs >3) 
 
 data = data %>% group_by(subject) %>% 
   mutate(value=markoutliersIQR(value)) %>% 
@@ -68,17 +77,18 @@ data.melt = melt(data, #%>% filter( !label %in% control_labels),
                              "GROUP", "FD", "SYSTEM", "CONFIGURATION", "TRAINING", "TRAINING.Q"),
                  variable.name = "MEASURE", 
                  value.name = "value") %>% mutate(SUBJECT = subject, value = as.numeric(value)) %>%
-  filter(MEASURE %in% c("alpha_trained", "alpha_untrained")) 
+  filter(MEASURE %in% mymeasures) 
 
 
 # model the data + as.factor(CONFIGURATION)*as.factor(session)
 #
 
+if (F) {
 data.melt$value.corr  = 0
 
 # for (l in unique(data.melt$label)) {
 #   print(l)
-#   model = lmer(svm_acc ~ 1 + FD + SYSTEM + (1 |subject), data = data %>% filter(label == l))
+#   model = lmer(clf_acc ~ 1 + FD + SYSTEM + (1 |subject), data = data %>% filter(label == l))
 #   print(summary(model))
 # }
 for (l in unique(data.melt$label)) {
@@ -91,8 +101,12 @@ data.melt$value.corr[data.melt$label == l] = predict(model, data.melt %>% filter
                                                            SYSTEM = 'Classic',
                                                            CONFIGURATION = '1'
                                                            )) + resid(model)
-}    
-stophere
+}
+
+} else {
+  data.melt$value.corr  = data.melt$value
+  
+}
 # myplot = ggplot(data, aes(
 #   x = session,
 #   y = value,
@@ -155,16 +169,16 @@ myplot = ggplot(data.mean, aes(
   y = val.mean,
   ymin = val.mean - val.sem, 
   ymax = val.mean + val.sem, 
-  col = group,
+  col = MEASURE,
   group = group_measure,
-  linetype = MEASURE
+  linetype = group
   )) + 
   geom_line() + 
   geom_point() + 
   geom_errorbar() + 
   facet_wrap(. ~label, ncol = 5) + 
   #facet_grid(. ~ hemi) + 
-  theme_lh() + scale_colour_manual(values = myPalette) + theme(text = element_text(size = 5)) 
+  theme_lh() + scale_colour_manual(values = myPalette) + theme(text = element_text(size = 8)) 
 
 print(myplot)
 

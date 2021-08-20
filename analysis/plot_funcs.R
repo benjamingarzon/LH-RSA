@@ -6,9 +6,21 @@ library(ggpubr)
 library(lmerTest)
 library(dplyr)
 library(multcomp)
+library(freesurfer)
+
+label_map = function(x){
+  labels = list('SMA.label' = 'supplementary motor cortex',
+                         'PS.label'  = 'primary somatosensory cortex',
+                         'PM.label'  = 'premotor cortex',
+                         'SPL.label' = 'superior parietal lobule')
+  if (x %in% names(labels)) return(labels[[x]]) else return(x)
+} 
+
+hemi_map = list('lh' = 'left',
+                'rh' = 'right')
 
 theme_lh = theme_classic(base_size = 13, base_family = "Arial")
-myPalette = c("red", "blue")
+myPalette = c("red", "blue", "green", "yellow", "black")
 
 
 markoutliersIQR = function(x){
@@ -18,7 +30,7 @@ markoutliersIQR = function(x){
 sem = function(x)
   sd(x, na.rm = T) / sqrt(length(x))
 
-plot_activation_data = function(X, title, regressout = T, YMIN = -50, YMAX = 350) {
+plot_activation_data = function(X, title, regressout = F, YMIN = -300, YMAX = 450) {
   X = X %>% mutate(WAVE = as.numeric(substring(SUBJECT, 4, 4)))# %>% filter (WAVE> 1)
   model = lmer(y ~ 1 + FD + SYSTEM + CONFIGURATION + 
                  GROUP*CONDITION*(TRAINING + TRAINING.Q) +
@@ -29,7 +41,7 @@ plot_activation_data = function(X, title, regressout = T, YMIN = -50, YMAX = 350
   
   model.exp = lmer(y ~ 1 + FD + CONFIGURATION + #  #+ SYSTEM + #
                  GROUP*(TRAINING) + 
-                 + (1 + TRAINING|SUBJECT), data = subset(X, CONDITION == "UntrainedCorrect" & TP < 5))
+                 (1 + TRAINING|SUBJECT), data = subset(X, CONDITION == "UntrainedCorrect" & TP < 5))
   print(summary(model.exp))
   
   print(sum(!is.na(X$y)))
@@ -43,15 +55,12 @@ plot_activation_data = function(X, title, regressout = T, YMIN = -50, YMAX = 350
 #    dplyr::mutate(y.dem = (y - y[TP.baseline]) / mean(y, na.rm = T) *                     100)
   print(table(paste(X$GROUP, X$TP)))
   
+  #X = X %>% group_by(TP) %>% mutate(y = markoutliersIQR(y)) %>% filter(!is.na(y)) 
 
-  
-  X = X %>% group_by(TP) %>% mutate(y = markoutliersIQR(y)) %>% filter(!is.na(y)) 
-    
-  
-  X.subject = X %>% group_by(SUBJECT, TP, GROUP, CONDITION) %>% 
-    summarise( y = mean(y, na.rm = T)) %>% 
-    mutate(SUBJCON = paste(SUBJECT, CONDITION)) %>% 
-    group_by(SUBJECT, GROUP, CONDITION) %>% mutate(y.dem = y - mean(y)) %>% ungroup()
+  #X.subject = X %>% group_by(SUBJECT, TP, GROUP, CONDITION) %>% 
+  #  summarise( y = mean(y, na.rm = T)) %>% 
+  #  mutate(SUBJCON = paste(SUBJECT, CONDITION)) %>% 
+  #  group_by(SUBJECT, GROUP, CONDITION) %>% mutate(y.dem = y - mean(y)) %>% ungroup()
   
   X.sem = X %>% group_by(GROUP, TP, CONDITION) %>% summarise(y.sem = sem(y), y.mean = mean(y, na.rm = T))
   
@@ -257,6 +266,7 @@ create_vol_rois = function(DATADIR,
     print(
       "###############################################################################"
     )
+    
     roi = roimask[, , , myroi]
     roi_indices = which(roi[mask > 0] > 0)
     imaging.mat = results$imaging.mat[, roi_indices, drop = F]
@@ -297,7 +307,7 @@ create_surf_rois = function(DATADIR,
                             THR,
                             PRECOMP_ROI = NULL,
                             wDEPTH = F, 
-                            plot_function = plot_data) {
+                            plot_function = plot_data, annot = NULL) {
   tests = NULL
   rois = NULL
   myplots = NULL
@@ -308,18 +318,22 @@ create_surf_rois = function(DATADIR,
     TEST = file.path(DATADIR, DEST, paste(TESTNAME, 'func.gii', sep = '.'))
     SURFACE_FILE = SURFACE_FILES[hemi]
     if (is.null(PRECOMP_ROI)) {
+      #ROI_FILE = file.path(DATADIR,
+      #                     DEST,
+      #                     paste(TESTNAME, 'mask_circle', paste0(radius * 2, 'mm') , sep = '-'))
       ROI_FILE = file.path(DATADIR,
                            DEST,
-                           paste(TESTNAME, 'mask_circle', paste0(radius * 2, 'mm') , sep = '-'))
+                           paste(TESTNAME, 'mask_cluster', sep = '-'))
       command = paste(
-        "./make_circular_roi.sh",
+        "./make_cluster_rois.sh",
         file.path(DATADIR, DEST),
         SURFACE_FILE,
         TEST,
         DISTANCE,
         radius,
         ROI_FILE,
-        THR
+        THR,
+        hemi
       )
       print(command)
       system(command)
@@ -329,6 +343,7 @@ create_surf_rois = function(DATADIR,
         next
     }
     rois[hemi] = paste0(ROI_FILE, '.all.func.gii')
+
     tests[hemi] = TEST
     # plot data 
     myfile = file.path(DATADIR, DEST, 'results.rda')
@@ -346,8 +361,24 @@ create_surf_rois = function(DATADIR,
     if (sum(roimask) == 0)
       next
     
-    for (myroi in seq(dim(roimask)[4])) {
-      title = paste('ROI', hemi, myroi, sep = '-')
+#    for (myroi in seq(dim(roimask)[4])) {
+      for (myroi in seq(max(roimask))) {
+        title = paste0('ROI ', hemi, '_', myroi)
+
+#      roi = roimask[, , , myroi]
+      roi = 1*(roimask == myroi)
+      roi_indices = which(roi[mask > 0] > 0)
+      
+      if (!is.null(annot)) {
+        annot_data = read_annotation(annot[[hemi]])
+        masked_labels = annot_data$label[annot_data$label>0]
+        mylabels = table(masked_labels[roi_indices])
+        mylabels = mylabels/sum(mylabels)*100
+        w = which(annot_data$colortable$code %in% names(mylabels[1]))
+        region_name = paste(sapply(annot_data$colortable$label[w], label_map), collapse = '/')
+        title = paste0(title, ' (', hemi_map[[hemi]], ' ', region_name, ')')
+      }
+      
       print(
         "###############################################################################"
       )
@@ -355,8 +386,7 @@ create_surf_rois = function(DATADIR,
       print(
         "###############################################################################"
       )
-      roi = roimask[, , , myroi]
-      roi_indices = which(roi[mask > 0] > 0)
+      
       imaging.mat = results$imaging.mat[, roi_indices, drop = F]
       if (is.null(results$complete_data)) {
         X = results$data[-results$excluded,] }
@@ -369,12 +399,18 @@ create_surf_rois = function(DATADIR,
       j = j + 1
     }
   }
-  
+
+  if (length(myplots) == 0) return(NULL)
+  #browser()
   if (is.null(PRECOMP_ROI)) {
     FIG_MAP = paste(gsub("/", "-", TESTDIR), TESTNAME, 'map', sep = '-')
     FIG_ROI = paste(gsub("/", "-", TESTDIR), TESTNAME, 'roi', sep = '-')
     
     if (!file.exists(file.path(FIGS_DIR, paste0(FIG_MAP, '.png')))) {
+      if (!is.null(annot)) {
+        annot.lh = paste0('annot=', annot[['lh']],':annot_outline=1')
+        annot.rh = paste0('annot=', annot[['rh']],':annot_outline=1')
+      }
       # plot maps
       command = paste(
         "./show_surface.sh",
@@ -385,7 +421,9 @@ create_surf_rois = function(DATADIR,
         1,
         FIG_MAP,
         inflated.lh,
-        inflated.rh
+        inflated.rh,
+        annot.lh, 
+        annot.rh
       )
       print(command)
       system(command)
@@ -402,7 +440,9 @@ create_surf_rois = function(DATADIR,
         length(myplots),
         FIG_ROI,
         inflated.lh,
-        inflated.rh
+        inflated.rh,
+        annot.lh,
+        annot.rh
       )
       print(command)
       system(command)
@@ -417,8 +457,10 @@ create_surf_rois = function(DATADIR,
       nrow = ceiling(length(myplots) / NCOL),
       ncol = min(NCOL, length(myplots))
     ),
-    width = 21,
-    height = 13.2
+    width = NCOL*10,
+    height = ceiling(length(myplots) / NCOL)*8,
+    limitsize = F,
+    dpi = 500
   )
   
   return(list(myplots = myplots, ROI_FILE = ROI_FILE))

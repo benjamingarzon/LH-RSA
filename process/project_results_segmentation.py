@@ -8,7 +8,7 @@ Created on Mon Jan 11 12:10:37 2021
 from nibabel.freesurfer.io import read_annot, write_morph_data, read_geometry
 import pandas as pd
 import numpy as np
-import re
+import re, os
 
 #annot_lh = '/data/lv0/MotorSkill/labels/GlasserParc/lh.HCP-MMP1.annot'
 #annot_rh = '/data/lv0/MotorSkill/labels/GlasserParc/rh.HCP-MMP1.annot'
@@ -42,13 +42,19 @@ def project_results_annot(annot, results_file, file_like, hemi = 'R'):
             
         w = np.where(labels == mylabel.encode('utf-8'))[0]
         if (len(w) > 0):            
-            output[values == w] = round(row.value, 4)
-            print(row.label, mylabel, w, round(row.value, 4))
+            output[values == w] = round(row.value_perm, 4)
+            print(row.label, mylabel, w, round(row.value_perm, 4))
         
     write_morph_data(file_like = file_like, values = output)
 
 project_results_annot(annot_lh, results_file, output_lh, hemi = 'L')
 project_results_annot(annot_rh, results_file, output_rh, hemi = 'R')
-#freeview -f /usr/local/freesurfer/7.1.1-1/subjects/fsaverage/surf/rh.inflated:overlay=/data/lv0/MotorSkill/fmriprep/analysis/surf/rh.svm_acc.map:annot=/data/lv0/MotorSkill/parcellations/fs_LR_32/Icosahedron-162.fsaverage.R.annot /usr/local/freesurfer/7.1.1-1/subjects/fsaverage/surf/lh.inflated:overlay=/data/lv0/MotorSkill/fmriprep/analysis/surf/lh.svm_acc.map:annot=/data/lv0/MotorSkill/parcellations/fs_LR_32/Icosahedron-162.fsaverage.L.annot
+os.system("""freeview -f """
+          """/usr/local/freesurfer/7.1.1-1/subjects/fsaverage/surf/rh.inflated:"""
+          """overlay=/data/lv0/MotorSkill/fmriprep/analysis/surf/rh.svm_acc.map:"""
+          """annot=/data/lv0/MotorSkill/parcellations/fs_LR_32/Icosahedron-162.fsaverage.R.annot:annot_outline=1 """
+          """/usr/local/freesurfer/7.1.1-1/subjects/fsaverage/surf/lh.inflated:"""
+          """overlay=/data/lv0/MotorSkill/fmriprep/analysis/surf/lh.svm_acc.map:"""
+          """annot=/data/lv0/MotorSkill/parcellations/fs_LR_32/Icosahedron-162.fsaverage.L.annot:annot_outline=1""")
 
 #freeview -f /usr/local/freesurfer/7.1.1-1/subjects/fsaverage/surf/lh.inflated:overlay=/data/lv0/MotorSkill/labels/GlasserParc/lh.test:annot=lh.HCP-MMP1.annot 

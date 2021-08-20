@@ -24,8 +24,8 @@ if True:
 
 else:    
     WD = '/data/lv0/MotorSkill/'
-    datapath = os.path.join(WD, 'fmriprep/analysis/sub-lue1101/ses-1/')
-    sequences_fn = os.path.join(WD, 'responses/sub-lue1101/ses-1/sequences.csv')
+    datapath = os.path.join(WD, 'fmriprep/analysis/sub-lue1101/ses-6/')
+    sequences_fn = os.path.join(WD, 'responses/sub-lue1101/ses-6/sequences.csv')
     hemi = 'rh'
     radius = 10.0
     runs = np.array([int(x) for x in "1 2 3 4 5".split(' ') ])
@@ -59,7 +59,7 @@ if True:
                                   white_surf = white_surf_fn, 
                                   pial_surf = pial_surf_fn,
                                   source_surf = mid_surf_fn, 
-                                  nproc = 30)
+                                  nproc = 20)
     suffix = ''
 
 else:

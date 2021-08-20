@@ -18,7 +18,7 @@ debug.active += ["SVS", "SLC"]
 metrics = ['correlation'] #['correlation', 'euclidean']:
 minacc = 1.0
 
-if True:
+if False:
   datapath = sys.argv[1] 
   sequences_fn = sys.argv[2] 
   label_fn = sys.argv[3]
@@ -33,8 +33,8 @@ else:
   sequences_fn = os.path.join(WD, 'responses/sub-lue1101/ses-3/sequences.csv')
   label_fn = os.path.join(WD, 'fmriprep', 
                           'freesurfer/sub-lue1101/label/rh.cortex.label')
-  label_fn = os.path.join(WD, 'fmriprep', 
-                         'analysis/sub-lue1101/label/rh.somatomotor-mask.ds.label')
+#  label_fn = os.path.join(WD, 'fmriprep', 
+#                         'analysis/sub-lue1101/label/rh.somatomotor-mask.ds.label')
 
   hemi = 'rh'
   radius = 10.0
