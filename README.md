@@ -10,6 +10,9 @@ process/extract_labels.sh
 ## Functional
 process/run_pipeline.sh
   -> process/pipeline.sh
+  
+# multivariate
+process/surface_roi_analysis.py
 
 ###MPRAGE calculation  
   -> process/mprageconvert/create_mp2rage_command.m
@@ -37,4 +40,6 @@ analysis/structural_analysis.R
 
 # Functional 
 analysis/high_level_analysis.R
-
+analysis/myfmritests.R
+analysis/variability_analysis.R
+analysis/session_variability_analysis.R

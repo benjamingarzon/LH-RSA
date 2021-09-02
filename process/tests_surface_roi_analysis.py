@@ -39,7 +39,7 @@ subjects_dir = os.path.join(WD, 'fmriprep', 'freesurfer')
 labels_dir = '/data/lv0/MotorSkill/labels/fsaverage'
 effects_filename = 'effects.nii.gz'
 derivatives_filename = 'derivatives.nii.gz'
-subject = 'sub-lue1105'
+subject = 'sub-lue1205'
 session = 5
 #label = 'R_C1'
 label = 'R_SPL'
@@ -296,7 +296,7 @@ def test_clf(permutate = False, do_prewhitening = None):
     alldata.columns = colnames
     sequences = sequences.loc[ valid, : ]
     
-    targets = sequences.seq_type.to_numpy()
+    targets = sequences.true_sequence.to_numpy()
     seq_train = sequences.seq_train.to_numpy()
     runs = sequences.run.to_numpy()
     effects = effects[valid, :]
@@ -308,8 +308,6 @@ def test_clf(permutate = False, do_prewhitening = None):
         targets_perm[runs == run] = \
             np.random.permutation(targets[runs == run])    
             
-    #print([ x for x in zip(runs, targets, targets_perm)])
-
     if permutate:
         # targets and seq_train are pointing to df
         for run in np.unique(runs):
@@ -317,7 +315,8 @@ def test_clf(permutate = False, do_prewhitening = None):
             targets[runs == run] = targets[runs == run][myperm]
             seq_train[runs == run] = seq_train[runs == run][myperm]
             
-    df = sequences[['seq_type', 'seq_train']].drop_duplicates()
+    sequences['target'] = sequences.true_sequence   
+    df = sequences[['target', 'seq_train']].drop_duplicates()
     #X = np.hstack((effects, derivatives))
     #pca = PCA(n_components = 10).fit(X)
     #Z = pca.transform(X)
@@ -327,12 +326,20 @@ def test_clf(permutate = False, do_prewhitening = None):
     #cv_scores = fit_clf(Z, targets, splits = runs)
     #print(cv_scores)
 
-    cv_scores = fit_clf(effects, targets, splits = runs)
-    print(cv_scores)
+    #effects = effects[sequences.block == 1, :]
+    #targets = targets[sequences.block == 1]
+    #runs = runs[sequences.block == 1]
+    #effects = np.concatenate((effects, effects))
+    #targets = np.concatenate((targets, targets))
+    #runs = np.concatenate((runs, runs))
+    cosine, cosine_same, cosine_different, cosine_trained_same, \
+    cosine_trained_different, cosine_untrained_same, \
+    cosine_untrained_different, cosine_trained_untrained, \
+    labels = compute_distance(effects, targets, df, splits = runs,
+                              dist_type = 'xcosine')
 
-    cv_scores = fit_clf(derivatives, targets, splits = runs)
-    print(cv_scores)
-
+    
+    print("cosine: same %f, different %f"%(cosine_same, cosine_different)) 
     xnobis, xnobis_same, xnobis_different, xnobis_trained_same, \
     xnobis_trained_different, xnobis_untrained_same, \
     xnobis_untrained_different, xnobis_trained_untrained, labels = \
@@ -341,14 +348,12 @@ def test_clf(permutate = False, do_prewhitening = None):
 
     print("xnobis: same %f, different %f"%(xnobis_same, xnobis_different))    
         
-    cosine, cosine_same, cosine_different, cosine_trained_same, \
-    cosine_trained_different, cosine_untrained_same, \
-    cosine_untrained_different, cosine_trained_untrained, \
-    labels = compute_distance(effects, targets, df, splits = runs,
-                              dist_type = 'cosine')
+    cv_scores = fit_clf(effects, targets, splits = runs)
+    print(cv_scores)
 
-    
-    print("cosine: same %f, different %f"%(cosine_same, cosine_different))    
+#    cv_scores = fit_clf(derivatives, targets, splits = runs)
+#    print(cv_scores)    
+   
     #cv_score, accuracy, accuracy_trained, accuracy_untrained = \
     #    fit_clf_confusion(effects, targets, runs, df)
     clf_acc_trained, clf_acc_untrained,  clf_acc_trained_untrained = \

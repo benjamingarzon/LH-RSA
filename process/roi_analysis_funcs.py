@@ -27,9 +27,12 @@ from scipy.optimize import nnls
 from scipy.linalg import svd
 from sklearn.metrics import confusion_matrix
 from sklearn.model_selection import cross_validate, cross_val_predict, LeaveOneOut
-from scipy.spatial.distance import pdist, cdist, cosine, correlation
+from scipy.spatial.distance import pdist, cdist, cosine, correlation, euclidean
 from itertools import combinations, product
 import random
+from collections import defaultdict, ChainMap
+from joblib import Parallel, delayed
+
 
 sys.path.append('/home/xgarzb@GU.GU.SE/Software/')
 import PcmPy as pcm
@@ -247,6 +250,7 @@ balanced_scorer = make_scorer(balanced_accuracy_score)
 
 def partial_dist(X, y, splits, label1, label2, splitp, distance = cosine):
     
+
     if label1 == label2:
         indicesp = np.where(np.logical_and(y == label1, splits == splitp))[0]
         index_pairsp = list(combinations(indicesp, 2))
@@ -255,10 +259,36 @@ def partial_dist(X, y, splits, label1, label2, splitp, distance = cosine):
         indices1p = np.where(np.logical_and(y == label1, splits == splitp))[0]
         indices2p = np.where(np.logical_and(y == label2, splits == splitp))[0]
         index_pairsp = list(product(indices1p, indices2p))
-
+    
     dists = [distance(X[index1, :], X[index2, :]) \
                  for index1, index2 in index_pairsp ]
-    print(dists)
+    return np.mean(dists)
+
+def partial_xdist(X, y, splits, label1, label2, splitp, splitn, 
+                  distance = cosine, n_sample = None):
+    
+    indices1p = np.where(np.logical_and(y == label1, splits == splitp))[0]
+    indices2n = np.where(np.logical_and(y == label2, splits == splitn))[0]
+    index_prod = list(product(indices1p, indices2n))
+
+    if n_sample is not None:
+        if n_sample < len(index_prod):
+            index_prod = random.sample(index_prod, k = n_sample)
+                
+    dists = [distance(X[indexp, :], X[indexn, :]) \
+             for indexp, indexn in index_prod ]
+           
+    return np.mean(dists)
+
+
+def partial_dist_session(X_1, y_1, label1, X_2, y_2, label2, distance = cosine):
+    
+    indices1p = np.where(y_1 == label1)[0]
+    indices2p = np.where(y_2 == label2)[0]
+    index_pairsp = list(product(indices1p, indices2p))
+
+    dists = [distance(X_1[index1, :], X_2[index2, :]) \
+                 for index1, index2 in index_pairsp ]
     return np.mean(dists)
 
 def partial_xnobis(X, y, splits, label1, label2, splitp, splitn, n_sample = None):
@@ -290,7 +320,6 @@ def partial_xnobis(X, y, splits, label1, label2, splitp, splitn, n_sample = None
 
   
 def compute_distance(X, y, df, splits, dist_type = 'xnobis'):
-    
     labels = np.unique(y)
     n_labels = len(labels)
     usplits = np.unique(splits)
@@ -307,28 +336,52 @@ def compute_distance(X, y, df, splits, dist_type = 'xnobis'):
                                                                   label1, label2, 
                                                                   splitp, splitn)
         dist = np.mean(dist, axis = 3) # across training splits 
- 
-    else:
+
+    distances = {
+    'correlation': correlation,
+    'cosine': cosine,
+    'euclidean': euclidean,
+    'xcorrelation': correlation,
+    'xcosine': cosine,
+    'xeuclidean': euclidean
+             } 
+
+    if dist_type in ['xcorrelation', 'xcosine', 'xeuclidean']:
+
+        dist = np.zeros((n_labels, n_labels, len(usplits), len(usplits)-1))
+    
+        for j, splitp in enumerate(usplits):
+            for k, splitn in enumerate(usplits[usplits != splitp]):
+                for i1, label1 in enumerate(labels):
+                    for i2, label2 in enumerate(labels):
+                            dist[i1, i2, j, k] = partial_xdist(X, y, splits, 
+                                                                  label1, label2, 
+                                                                  splitp, splitn,                                                                  
+                                                                  distances[dist_type])
+        dist = np.mean(dist, axis = 3) # across training splits 
+
+    if dist_type in ['correlation', 'cosine', 'euclidean']:
 
         dist = np.zeros((n_labels, n_labels, len(usplits)))
-        distance = correlation if dist_type == 'correlation' else cosine
         for j, splitp in enumerate(usplits):
             for i1, label1 in enumerate(labels):
                 for i2, label2 in enumerate(labels):
-                            dist[i1, i2, j] = partial_dist(X, y, 
-                                                             splits, 
-                                                             label1, label2, 
-                                                             splitp, 
-                                                             distance)
+                            dist[i1, i2, j] = partial_dist(X, 
+                                                           y, 
+                                                           splits, 
+                                                           label1, label2, 
+                                                           splitp, 
+                                                           distances[dist_type])
                         
     dist = np.mean(dist, axis = 2) # across validation splits
-    
-    plt.figure()
-    plt.imshow(dist, cmap = 'jet')
+    if False:
+        plt.figure()
+        plt.imshow(dist, cmap = 'jet')
+        
     dist_same = np.mean(np.diag(dist))
-    dist_different = np.mean(dist[np.eye(dist.shape[0])==0])
+    dist_different = np.mean(dist[np.eye(n_labels)==0])
     
-    mapping = pd.Series(df.seq_train.values, index=df.seq_type) 
+    mapping = pd.Series(df.seq_train.values, index=df.target) 
  
     dist_trained = dist[mapping == 'trained', :][:, mapping == 'trained']
     dist_untrained = dist[mapping == 'untrained', :][:, mapping == 'untrained']
@@ -356,6 +409,93 @@ def compute_distance(X, y, df, splits, dist_type = 'xnobis'):
            dist_trained_untrained,
            labels)
 
+def compute_distance_session(X_1, y_1, X_2, y_2, df_1, df_2, dist_type = 'xcosine'):
+    
+    labels1 = np.unique(y_1)
+    labels2 = np.unique(y_2)
+    n_labels1 = len(labels1)
+    n_labels2 = len(labels2)
+
+    mapping1 = pd.Series(df_1.seq_train.values, index=df_1.target) 
+    mapping2 = pd.Series(df_2.seq_train.values, index=df_2.target) 
+
+    if dist_type == 'xnobis':
+        pass
+#        dist = np.zeros((n_labels, n_labels, len(usplits), len(usplits)-1))
+    
+#        for j, splitp in enumerate(usplits):
+#            for k, splitn in enumerate(usplits[usplits != splitp]):
+#                for i1, label1 in enumerate(labels):
+#                    for i2, label2 in enumerate(labels):
+#                            dist[i1, i2, j, k] = partial_xnobis(X, y, splits, 
+#                                                                  label1, label2, 
+#                                                                  splitp, splitn)
+#        dist = np.mean(dist, axis = 3) # across training splits 
+ 
+    else:
+        dist = np.zeros((n_labels1, n_labels2)) + np.nan
+        distances = {
+            'xcorrelation': correlation,
+            'xcosine': cosine,
+            'xeuclidean': euclidean
+                     }         
+        list_same, list_different, list_trained_same, list_trained_different, \
+        list_untrained_same, list_untrained_different, \
+        list_trained_untrained = [], [], [], [], [], [], []
+        
+        for i1, label1 in enumerate(labels1):
+            for i2, label2 in enumerate(labels2):
+                dist[i1, i2] = partial_dist_session(X_1, y_1, 
+                                                 label1, 
+                                                 X_2, y_2, 
+                                                 label2,
+                                                 distances[dist_type])
+                if label1 == label2:
+                    list_same.append(dist[i1, i2])    
+                    if mapping1[label1] == 'trained':
+                        list_trained_same.append(dist[i1, i2])
+                    else:
+                        list_trained_different.append(dist[i1, i2])
+                else:
+                    list_different.append(dist[i1, i2])
+                    if mapping1[label1] == mapping2[label2]:
+                        if mapping1[label1] == 'trained':
+                            list_trained_different.append(dist[i1, i2])
+                        else:
+                            list_untrained_different.append(dist[i1, i2])
+                    else:
+                        list_untrained_different.append(dist[i1, i2])
+
+                    list_trained_untrained.append(dist[i1, i2])
+                if label1 == label2:
+                    list_same.append(dist[i1, i2])                        
+                else:
+                    list_different.append(dist[i1, i2])
+
+    if False:
+        plt.figure()
+        plt.imshow(dist, cmap = 'jet')
+    dist_same = np.mean(list_same)
+    dist_different = np.mean(list_different)
+    dist_trained_same = np.mean(list_trained_same)
+    dist_trained_different = np.mean(list_trained_different)
+    dist_untrained_same = np.mean(list_untrained_same) \
+        if len(list_untrained_same)> 0 else np.nan
+    dist_untrained_different = np.mean(list_untrained_different)
+    dist_trained_untrained = np.mean(list_trained_untrained)
+         
+    return(dist, 
+           dist_same, 
+           dist_different, 
+           dist_trained_same, 
+           dist_trained_different, 
+           dist_untrained_same,
+           dist_untrained_different, 
+           dist_trained_untrained,
+           (labels1, labels2))
+
+
+
 def fit_clf(X, y, splits = None, cl = svc_ovo):
     
     if True:
@@ -376,7 +516,7 @@ def fit_clf(X, y, splits = None, cl = svc_ovo):
                                     verbose = 0,  groups = splits, 
                                     scoring = balanced_scorer)
 
-    if True:
+    if False:
         cl_cv.fit(X, y, groups = splits)
         print(cl_cv.best_params_)
         #print(cv_scores)
@@ -418,9 +558,8 @@ def fit_clf_separate(X, y, splits, df, cl = svc0):
                          cv=LeaveOneGroupOut(),
                          verbose = 0, 
                          scoring = balanced_scorer)
-    
-    mapping = pd.Series(df.seq_train.values, index=df.seq_type) 
- 
+    mapping = pd.Series(df.seq_train.values, index=df.target) 
+  
     labels = np.unique(y)
     
     trained_scores = []
@@ -580,9 +719,9 @@ def process(label, subject, session, subjects_dir, analysis_dir, labels_dir,
                        index = False, 
                        float_format = '%.4f')
         
-    sequences = sequences.loc[ valid, : ]
+    sequences = sequences.loc[ valid, : ].copy()
 
-    targets = sequences.seq_type.to_numpy()
+    targets = sequences.true_sequence.to_numpy() #seq_type.to_numpy()
     seq_train = sequences.seq_train.to_numpy()
     runs = sequences.run.to_numpy()
     effects = effects[valid, :]
@@ -601,15 +740,17 @@ def process(label, subject, session, subjects_dir, analysis_dir, labels_dir,
             seq_train[runs == run] = seq_train[runs == run][myperm]
 
 
+    # print("Computing SVM classification for label %s"%label)    
+    # SVM
+    sequences.loc[:, 'target'] = sequences.true_sequence
+    df = sequences[['target', 'seq_train']].drop_duplicates()
+    
     try:
-        # print("Computing SVM classification for label %s"%label)    
-        # SVM
         clf_acc = fit_clf(effects, targets, runs)
-        df = sequences[['seq_type', 'seq_train']].drop_duplicates()
-
+    
         clf_acc_trained, clf_acc_untrained,  clf_acc_trained_untrained = \
             fit_clf_separate(effects, targets, runs, df)
-
+    
         clf_acc_perm = fit_clf(effects, targets_perm, runs)
 
         mean_signal_trained = \
@@ -626,29 +767,64 @@ def process(label, subject, session, subjects_dir, analysis_dir, labels_dir,
             clf_acc_trained_untrained, \
             mean_signal_trained, mean_signal_untrained,\
             clf_acc_perm = [np.nan]*7
+    
+    try:
+        xnobis, xnobis_same, xnobis_different, xnobis_trained_same, \
+            xnobis_trained_different, xnobis_untrained_same, \
+            xnobis_untrained_different, xnobis_trained_untrained, \
+            labels = compute_distance(effects, targets, df, splits = runs,
+                                      dist_type = 'xnobis')
+        print("xnobis: same %f, different %f"%(xnobis_same, xnobis_different)) 
+    
+    except:
+        xnobis_same, xnobis_different, xnobis_trained_same, \
+        xnobis_trained_different, xnobis_untrained_same, \
+        xnobis_untrained_different, xnobis_trained_untrained = [np.nan]*7
+
+    try:
+        cosine_mat, cosine_same, cosine_different, cosine_trained_same, \
+            cosine_trained_different, cosine_untrained_same, \
+            cosine_untrained_different, cosine_trained_untrained, \
+            labels = compute_distance(effects, targets, df, splits = runs,
+                                      dist_type = 'xcosine')
+        print("cosine: same %f, different %f"%(cosine_same, cosine_different)) 
+
+    except:
+        cosine_same, cosine_different, cosine_trained_same, \
+        cosine_trained_different, cosine_untrained_same, \
+        cosine_untrained_different, cosine_trained_untrained = [np.nan]*7
+
+    try:
+        correlation_mat, correlation_same, correlation_different, correlation_trained_same, \
+            correlation_trained_different, correlation_untrained_same, \
+            correlation_untrained_different, correlation_trained_untrained, \
+            labels = compute_distance(effects, targets, df, splits = runs,
+                                      dist_type = 'xcorrelation')
+    
+    except:
+        correlation_same, correlation_different, correlation_trained_same, \
+        correlation_trained_different, correlation_untrained_same, \
+        correlation_untrained_different, correlation_trained_untrained = [np.nan]*7
+
+    try:
+        euclidean_mat, euclidean_same, euclidean_different, euclidean_trained_same, \
+            euclidean_trained_different, euclidean_untrained_same, \
+            euclidean_untrained_different, euclidean_trained_untrained, \
+            labels = compute_distance(effects, targets, df, splits = runs,
+                                      dist_type = 'xeuclidean')
+    
+    except:
+        euclidean_same, euclidean_different, euclidean_trained_same, \
+        euclidean_trained_different, euclidean_untrained_same, \
+        euclidean_untrained_different, euclidean_trained_untrained = [np.nan]*7
 
     try: 
         
-        ##############################
- #       if False:
-            # prewhiten the data
-#            residual_file_list = [os.path.join(analysis_dir, subject, 
-#                                         'ses-%d'%session, 
-#                                         'run%d'%run,
-#                                         'res4d_LSA_%d.nii.gz'%run) \
-#                                  for run in np.unique(sequences.run)]
-#            cov_ledoit_sqrt = get_cov_ledoit(residual_file_list, nifti_masker, 
-#                                             constant_columns)
- #           for run in np.unique(sequences.run):
- #               effects[sequences.run == run, :], prewhiten_ok = prewhiten(
- #                   effects[sequences.run == run, :], cov_ledoit_sqrt)        
-        ##############################
-
         # compute the different indices
         XG = second_moment(sequences)
-        theta, resnorm = fit_second_moment(effects, XG)
+        theta, resnorm = fit_second_moment(effects.copy(), XG)
         T_ind, theta_PCM, G_hat_trained, G_hat_untrained = \
-        second_moment_PCM(sequences, effects)
+        second_moment_PCM(sequences, effects.copy())
 
         alpha_trained = np.log(theta[6])
         alpha_untrained = np.log(theta[7])
@@ -659,30 +835,6 @@ def process(label, subject, session, subjects_dir, analysis_dir, labels_dir,
         alpha_trained, alpha_untrained, alpha_trained_PCM,\
             alpha_untrained_PCM, resnorm, \
             G_hat_trained, G_hat_untrained = [np.nan]*7
-    
-    try:
-        xnobis, xnobis_same, xnobis_different, xnobis_trained_same, \
-            xnobis_trained_different, xnobis_untrained_same, \
-            xnobis_untrained_different, xnobis_trained_untrained, \
-            labels = compute_distance(effects, targets, df, splits = runs,
-                                      dist_type = 'xnobis')
-    
-    except:
-        xnobis_same, xnobis_different, xnobis_trained_same, \
-        xnobis_trained_different, xnobis_untrained_same, \
-        xnobis_untrained_different, xnobis_trained_untrained = [np.nan]*7
-
-    try:
-        cosine, cosine_same, cosine_different, cosine_trained_same, \
-            cosine_trained_different, cosine_untrained_same, \
-            cosine_untrained_different, cosine_trained_untrained, \
-            labels = compute_distance(effects, targets, df, splits = runs,
-                                      dist_type = 'cosine')
-    
-    except:
-        cosine_same, cosine_different, cosine_trained_same, \
-        cosine_trained_different, cosine_untrained_same, \
-        cosine_untrained_different, cosine_trained_untrained = [np.nan]*7
 
     return((subject, session, hemi, label, resnorm,
             alpha_trained, 
@@ -710,6 +862,20 @@ def process(label, subject, session, subjects_dir, analysis_dir, labels_dir,
             cosine_untrained_same, 
             cosine_untrained_different, 
             cosine_trained_untrained,
+            correlation_same, 
+            correlation_different, 
+            correlation_trained_same, 
+            correlation_trained_different, 
+            correlation_untrained_same, 
+            correlation_untrained_different, 
+            correlation_trained_untrained,
+            euclidean_same, 
+            euclidean_different, 
+            euclidean_trained_same, 
+            euclidean_trained_different, 
+            euclidean_untrained_same, 
+            euclidean_untrained_different, 
+            euclidean_trained_untrained,
             mean_signal_trained, 
             mean_signal_untrained,
             nvalid, 
@@ -727,3 +893,172 @@ def gather_results(analysis_dir, suffix):
         
     results = pd.concat(results)
     return(results)
+
+def get_correct(data):
+        data.dropna(subset = ['iscorrect'], inplace = True)
+        valid_types = data.groupby(['run', 'seq_type']).iscorrect.sum()
+        valid_runs = (valid_types >= MINCORRECT).groupby('run').sum() == NTYPES
+        valid_runs = valid_runs.index[valid_runs]
+        valid = np.logical_and(data.run.isin(valid_runs),
+                               data.iscorrect)
+        data = data[data.valid]
+        nvalid = np.sum(valid)
+        ntrials = len(valid)
+        nruns = len(valid_runs)
+
+        return data, ntrials, nvalid, nruns
+
+def get_group(subject):
+
+    if any([ 'lue%d1'%x in subject for x in range(1, 6)]): 
+        return 'Intervention'
+    else:
+        return 'Control'        
+    
+def get_roi_distances(file_1, file_2):
+    
+    target_col = 'true_sequence'
+    data_1, ntrials1, nvalid1, nruns1 = get_correct(pd.read_csv(file_1))
+    
+    feature_cols = [ x for x in data_1.columns if 'feature' in x ]
+
+    runs1 = np.unique(data_1.run)
+    
+    if nruns1 < 4:
+        print('Skipping, less than 4 runs: %s'%file_1)
+        return None
+    else: 
+        print('%s has %d valid runs'%(file_1, len(runs1)))
+    #data_1 = balance_labels(train_data, self.target_col)
+    data_1 = data_1.dropna(subset = feature_cols)
+    y_1 = data_1[target_col].values
+    X_1 = data_1[feature_cols].values
+    data_1.loc[:, 'target']  = data_1.true_sequence
+    df_1 = data_1[['target', 'seq_train']].drop_duplicates()
+            
+    scores = {}
+
+    for mydistance in ['xeuclidean', 'xcosine', 'xcorrelation']:
+
+        metric_value = {}    
+
+        try:
+    
+            if file_1 == file_2:
+                results = compute_distance(X_1, y_1, df_1, splits = data_1.run,
+                                              dist_type = mydistance)
+            else:
+                
+                data_2, ntrials2, nvalid2, nruns2 = get_correct(pd.read_csv(file_2))
+                data_2 = data_2.dropna(subset = feature_cols)
+                data_2.loc[:, 'target']  = data_2.true_sequence
+                y_2 = data_2[target_col].values
+                X_2 = data_2[feature_cols].values
+                df_2 = data_2[['target', 'seq_train']].drop_duplicates()
+                results = compute_distance_session(X_1, y_1, X_2, y_2, df_1, df_2, 
+                                                   dist_type = mydistance)
+                
+        except:
+           results = [np.nan]*9
+            
+        metric_names = ['same', 'different', 'trained_same', \
+                'trained_different', 'untrained_same', \
+                'untrained_different', 'trained_untrained']
+            
+        for i, metric_name in enumerate(metric_names):
+            metric_value[metric_name] = results[i + 1]
+            
+        scores[mydistance] = metric_value
+        
+    return scores
+
+def process_scores(scores):
+    
+    # turn into
+    data = []
+    for score_key, score_value in scores.items():
+        print(score_key, score_value)
+        if score_value is None: 
+            continue
+        if len(score_value) == 0:
+            continue
+        if type(score_value) == dict:
+            for metrics_key, metrics_value in score_value.items():
+                for train_key, train_value in metrics_value.items():
+                    data.append(score_key + (metrics_key, train_key, train_value))
+    score_df = pd.DataFrame(data, columns = ['label', 'subject' ,'session_train', 
+                                           'session_test', 'metric', 'seq_train', 'value'])
+    return(score_df)
+
+def get_subject_scores(subject, label, sessions, myfiles, 
+                       selected_sessions = None):
+
+    scores = defaultdict(list) 
+
+    mysessions = sessions[subject] if selected_sessions is None \
+        else [ x for x in sessions[subject] if x in selected_sessions ]
+    for session_1 in mysessions:
+        
+        file_1 = myfiles[(subject, label, session_1)]
+        
+        for session_2 in mysessions: # add type as well
+        
+            index = (label, subject, session_1, session_2)
+            file_2 = myfiles[(subject, label, session_2)]
+            
+            scores[index] = get_roi_distances(file_1, file_2)
+
+    return scores
+
+def get_across_session_scores(analysis_dir, suffix, 
+                              num_cores = 1, 
+                              selected_subjects = None,
+                              selected_labels = None,
+                              selected_sessions = None):
+    
+    file_list = glob(os.path.join(analysis_dir, '*'))
+    subjects = []
+    myfiles = {}
+    sessions = defaultdict(list)
+    labels = []
+    
+    for file in file_list:
+        filename = os.path.basename(file)
+        print(filename)
+        if '_%s_'%suffix not in filename:
+            continue
+        subject, sess, _, _, _, hemi, hemil, label = filename.split('_')
+        session = int(sess[4])
+        label = hemil + '_' + label.split('.')[0]
+        subjects.append(subject)
+        labels.append(label)
+        myfiles[(subject, label, session)] = file
+        if session not in sessions[subject]:
+            sessions[subject].append(session)
+        
+    mysubjects = list(set(subjects))
+    mylabels = list(set(labels))
+    
+    print("Parsed {} files".format(len(file_list)))
+    print("Found {} subjects: {}".format(len(mysubjects), mysubjects))
+    
+    subjects = mysubjects if selected_subjects is None else selected_subjects
+    labels = mylabels if selected_labels is None else selected_labels
+    scores = {}
+    for label in labels:
+        print(label)
+        score_list = Parallel(n_jobs = num_cores, 
+                                  require = "sharedmem", 
+                                  verbose = 0)(
+                                      delayed(get_subject_scores) 
+                                           (subject, 
+                                           label, 
+                                           sessions,
+                                           myfiles, 
+                                           selected_sessions) for subject in subjects)
+                                      
+        scores = {key: value for key, value \
+                  in [z for x in score_list for z in x.items()] + list(scores.items())}
+                                          
+    scores_df = process_scores(scores)
+    return scores_df 

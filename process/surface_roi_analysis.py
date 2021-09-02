@@ -5,12 +5,11 @@ Created on Thu Nov 12 11:31:00 2020
 @author: benjamin.garzon@ki.se
 """
 
-# remove bad cases
 # permutation and no permutation
-# prewhitening: session/run
-# second_moment_pcm
-# compare patterns across timepoints 
-
+# prewhitening and no perm: session/run
+# derivative /effect
+# try with derivatives
+#try w o prewhitening
 
 MINACC = 1.0
 num_cores = 10
@@ -22,17 +21,19 @@ import pandas as pd
 import os
 import numpy as np
 from glob import glob
-from roi_analysis_funcs import process, gather_results
+from roi_analysis_funcs import process, gather_results, \
+    get_across_session_scores
 import seaborn as sns
 import matplotlib.pyplot as plt
     
-# try if gridsearch improves
-# project the labels to volume
-overwrite_extract = True 
-overwrite_scores = True
+
+PERMUTATE = False
+overwrite_extract = False 
+overwrite_scores = False
 output_data = True
-do_prewhitening = 'session'
-suffix = 'mask' # within mask using Glasser parc
+do_prewhitening = 'run'
+suffix = 'mask-cross-derivatives' # within mask using Glasser parc
+#suffix = 'mask-noprew' # within mask using Glasser parc
 labels_file = '/home/xgarzb@GU.GU.SE/Software/LeftHand/masks/motor_roi_parcels.txt'
 #labels_file = '/home/xgarzb@GU.GU.SE/Software/LeftHand/masks/mask_parcels.txt'
 labels_dir = '/data/lv0/MotorSkill/labels/fsaverage'
@@ -40,7 +41,8 @@ labels_dir = '/data/lv0/MotorSkill/labels/fsaverage'
 #suffix = 'tess' # whole brain using tessellation
 #labels_file = '/home/xgarzb@GU.GU.SE/Software/LeftHand/masks/tessellation162_parcels.txt'
 #labels_dir = '/data/lv0/MotorSkill/labels/fsaverage/tessellation162'
-effects_name = 'effects.nii.gz'
+#effects_name = 'effects.nii.gz'
+effects_name = 'derivatives.nii.gz'
 if __name__ == "__main__":
     
     WD = '/data/lv0/MotorSkill/'
@@ -54,9 +56,8 @@ if __name__ == "__main__":
     
     paths = glob(os.path.join(analysis_dir, 'sub-lue*', 'ses-*', 
                                   effects_name))
-    
     # open label file
-    labels = np.genfromtxt(labels_file, dtype = 'str').tolist() #[:9]
+    labels = np.genfromtxt(labels_file, dtype = 'str').tolist()
     skipped = []
     # iterate across paths
     for path in paths:
@@ -121,7 +122,7 @@ if __name__ == "__main__":
                                                       roi_data_file,
                                                       do_prewhitening = do_prewhitening,
                                                       overwrite_extract = overwrite_extract, 
-                                                      permutate = False)
+                                                      permutate = PERMUTATE)
                                                      for label in labels)
             
             mycols = ['subject', 'session', 'hemi', 'label', 'resnorm',
@@ -150,6 +151,20 @@ if __name__ == "__main__":
             'cosine_untrained_same', 
             'cosine_untrained_different', 
             'cosine_trained_untrained',
+            'correlation_same', 
+            'correlation_different', 
+            'correlation_trained_same', 
+            'correlation_trained_different', 
+            'correlation_untrained_same', 
+            'correlation_untrained_different', 
+            'correlation_trained_untrained',
+            'euclidean_same', 
+            'euclidean_different', 
+            'euclidean_trained_same', 
+            'euclidean_trained_different', 
+            'euclidean_untrained_same', 
+            'euclidean_untrained_different', 
+            'euclidean_trained_untrained',
             'mean_signal_trained',
             'mean_signal_untrained',
             'valid',
@@ -166,6 +181,8 @@ if __name__ == "__main__":
                                     'roi_scores_%s.csv'%(suffix)),
                                     index = False,
                                     float_format = '%.3f')
+        
+
     plt.figure()    
     ax = sns.boxplot(x = 'label', 
                 y = 'clf_acc', 
@@ -175,20 +192,6 @@ if __name__ == "__main__":
 
     plt.figure()    
     ax = sns.boxplot(x = 'label', 
-                y = 'clf_acc_perm', 
-                hue = 'hemi', 
-                data = results_all)
-    ax.set_ylim([0, 0.5])
-
-    plt.figure()    
-    ax = sns.boxplot(x = 'session', 
-                y = 'clf_acc', 
-                hue = 'hemi', 
-                data = results_all)
-    ax.set_ylim([0, 0.5])
-
-    plt.figure()
-    ax = sns.boxplot(x = 'session', 
                 y = 'clf_acc_perm', 
                 hue = 'hemi', 
                 data = results_all)
@@ -202,10 +205,10 @@ if __name__ == "__main__":
     
     plt.figure()    
     ax = sns.boxplot(x = 'session', 
-            y = 'crossnobis_untrained', 
+            y = 'xnobis_trained_untrained', 
             hue = 'hemi', 
             data = results_all)    #ax.set_ylim([-1, 1])
-    ax.set_ylim([-1, 2])
+    ax.set_ylim([-.1, .3])
     results_all.groupby(['session', 'label']).max().clf_acc.max()
     
     skipped_df = pd.DataFrame(skipped, columns = ['Subject', 'Session', 

@@ -13,55 +13,23 @@ nifti_convert = '/data/lv0/Software/workbench/bin_rh_linux64/wb_command -metric-
 
 collect_data = F
 
-# pes : Fixation (1), Stretch (3), TrainedCorrect (5), UntrainedCorrect (7)
-# TrainedIncorrect (9), UntrainedIncorrect (11)
+# pes : Fixation (1), Stretch (3), TrainedCorrect (5), UntrainedCorrect (7), TrainedIncorrect (9), UntrainedIncorrect (11)
 # cope : TrainedCorrect (1), UntrainedCorrect (2), TrainedIncorrect (3), UntrainedIncorrect (4)
-
-# remove zero
-
-# 21/6 continue writing
 
 ###############
 # change back : exclude, select first session
 ###############
 
-# run on prereg mask
-# check again places for quadratic effects
-# redo pipeline resampling surfaces again?
-# check variability results
-
-# separate score, train vs untrained
-
-# runs that are empty have no correct trials 
-# try with and without aroma
-# prediction: separate train an untrained
-
-
-# check removing last
-# understand crossnobis and svm_acc
-# try whole cortex parcellation
-
-# check trained correct vs incorrect
-# check only 4 waves
-# robust to outliers?
-# other covariates?
-# both hemispheres
-# model comparison
-# random effects, higher order
-
-# take run into account
-# define vars
-# add variability contrast 
-
 WD = '/data/lv0/MotorSkill/fmriprep/analysis'
 
-#schedules = read.table('~/Data/LeftHand/Lund1/responses/all_schedule_tables.csv', header = T)
+# define surfaces
 rh.gii = '/data/lv0/MotorSkill/fmriprep/freesurfer/fsaverage6/surf/rh.white.surf.gii' 
 lh.gii = '/data/lv0/MotorSkill/fmriprep/freesurfer/fsaverage6/surf/lh.white.surf.gii'
 mask.rh = '/data/lv0/MotorSkill/labels/fsaverage6/rh.motor.rois.nii.gz'
 mask.lh = '/data/lv0/MotorSkill/labels/fsaverage6/lh.motor.rois.nii.gz'
 mask_whole = 'mask_whole.nii.gz'   
 mask_roi = 'mask.nii.gz'
+
 #analysis_name = 'UntrainedCorrect_UntrainedIncorrect'
 #conditions = c(2, 4)
 #names(conditions) = c('UntrainedCorrect', 'UntrainedIncorrect')
@@ -82,7 +50,7 @@ peprefix = "/cope"
 
 analysis_type = 'surfR'  #volume, surfR/L 
 
-NPROCS = 5
+NPROCS = 10
 # list files, adapt depending on type of analysis
 contrasts = NULL
 image.list = NULL

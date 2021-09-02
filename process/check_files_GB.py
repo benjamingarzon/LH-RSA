@@ -388,8 +388,8 @@ ntrials = 32
 # 1 if more than 1 run that with enough trials
 df['enough_trials'] = df.valid_runs.apply(np.isnan)*1 
 df['complete_analysis'] = 1*np.logical_and.reduce((
-                        #df.enough_trials == 1,
-                        #df.complete_scores == 1,
+                        df.enough_trials == 1,
+                        df.complete_scores == 1,
                         df.complete_effects == ntrials*df.complete_fmriprep_vol, 
                         #df.complete_volume == df.complete_fmriprep_vol,
                         df.complete_surf == df.complete_fmriprep_surf)

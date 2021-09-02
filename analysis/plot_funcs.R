@@ -7,6 +7,7 @@ library(lmerTest)
 library(dplyr)
 library(multcomp)
 library(freesurfer)
+library(stringr)
 
 label_map = function(x){
   labels = list('SMA.label' = 'supplementary motor cortex',
@@ -19,7 +20,7 @@ label_map = function(x){
 hemi_map = list('lh' = 'left',
                 'rh' = 'right')
 
-theme_lh = theme_classic(base_size = 13, base_family = "Arial")
+theme_lh = theme_classic(base_size = 13, base_family = "Arial") 
 myPalette = c("red", "blue", "green", "yellow", "black")
 
 
@@ -30,8 +31,9 @@ markoutliersIQR = function(x){
 sem = function(x)
   sd(x, na.rm = T) / sqrt(length(x))
 
-plot_activation_data = function(X, title, regressout = F, YMIN = -300, YMAX = 450) {
-  X = X %>% mutate(WAVE = as.numeric(substring(SUBJECT, 4, 4)))# %>% filter (WAVE> 1)
+plot_activation_data = function(X, title, regressout = F, YMIN = 0, YMAX = 3.5) {
+  X = X %>% mutate(WAVE = as.numeric(substring(SUBJECT, 4, 4)), y = y/100)# %>% filter (WAVE> 1) to percent signal change
+
   model = lmer(y ~ 1 + FD + SYSTEM + CONFIGURATION + 
                  GROUP*CONDITION*(TRAINING + TRAINING.Q) +
                  (1 + TRAINING + TRAINING.Q|SUBJECT), data = X)
@@ -76,6 +78,9 @@ plot_activation_data = function(X, title, regressout = F, YMIN = -300, YMAX = 45
   #                                    y = y.dem
   #                                  ),
   #                                  alpha = 0.2) + geom_point(alpha = 0.2) 
+  
+    X$CONDITION = gsub('Correction', '', X$CONDITION)
+  
     myplot =  ggplot() + 
     geom_line(data = X.sem, aes(
       x = TP,
@@ -98,9 +103,12 @@ plot_activation_data = function(X, title, regressout = F, YMIN = -300, YMAX = 45
                     col = CONDITION
                   )) +
     facet_grid(. ~ GROUP) +
+    xlab('Test session') +
+    ylab('% signal change') + 
     scale_colour_manual(values = myPalette) + theme_lh + 
-    theme(legend.position = "bottom") + 
-    ggtitle(title) + geom_hline(yintercept = 0, size = 0.2)  + ylim(YMIN, YMAX)
+    theme(legend.position = "bottom", legend.title = element_blank()) + 
+    ggtitle(title) + ylim(YMIN, YMAX) 
+    if (YMIN < 0 ) myplot = myplot + geom_hline(yintercept = 0, size = 0.2)  
     
   return(myplot)
 }
@@ -376,7 +384,10 @@ create_surf_rois = function(DATADIR,
         mylabels = mylabels/sum(mylabels)*100
         w = which(annot_data$colortable$code %in% names(mylabels[1]))
         region_name = paste(sapply(annot_data$colortable$label[w], label_map), collapse = '/')
-        title = paste0(title, ' (', hemi_map[[hemi]], ' ', region_name, ')')
+        #title = paste0(title, ' (', hemi_map[[hemi]], ' ', region_name, ')')
+        title = str_to_title(
+          paste0(hemi_map[[hemi]], ' ', region_name)
+        )
       }
       
       print(
