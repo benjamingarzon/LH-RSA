@@ -43,3 +43,6 @@ analysis/high_level_analysis.R
 analysis/myfmritests.R
 analysis/variability_analysis.R
 analysis/session_variability_analysis.R
+
+analysis/roi_analysis_fMRI.R
+

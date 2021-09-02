@@ -1,86 +1,8 @@
 # hypothesis HF2
 export_funcs = c('testlinearrun', 'testquadraticrun') # export it to imagelmmr
 
-testlinearrun = function(y, X, ALTERNATIVE = 'greater', WAVES = seq(5), TPS = seq(7))
-{ 
-  
-  if (max(TPS) >= 6) {
-    var.names = c("INTERCEPT", "FD", "SYSTEMMTx8", 
-                  "CONFIGURATION2", "CONFIGURATION3", "CONFIGURATION4",
-                  "GROUPExp", "CONDITIONUnt", "TRAINING", 
-                  "GROUPExp_x_CONDITIONUnt", "GROUPExp_x_TRAINING", 
-                  "CONDITIONUnt_x_TRAINING", "GROUPExp_x_CONDITIONUnt_x_TRAINING")
-    
-    contrast.names = c("GROUPExp_x_TRAINING-", "GROUPExp_x_CONDITIONUnt_x_TRAINING+")
-    myformula = as.formula('y ~ 1 + FD + SYSTEM + CONFIGURATION + GROUP*CONDITION*TRAINING + (1 + TRAINING|SUBJECT)')
-    c.1        = c(rep(0, 11), -1, 0)
-    c.2        = c(rep(0, 12), 1)
-  } else {
-    # no difference in system
-    var.names = c("INTERCEPT", "FD", 
-                  "CONFIGURATION2", "CONFIGURATION3", "CONFIGURATION4",
-                  "GROUPExp", "CONDITIONUnt", "TRAINING", 
-                  "GROUPExp_x_CONDITIONUnt", "GROUPExp_x_TRAINING", 
-                  "CONDITIONUnt_x_TRAINING", "GROUPExp_x_CONDITIONUnt_x_TRAINING")
-    
-    contrast.names = c("GROUPExp_x_TRAINING-", "GROUPExp_x_CONDITIONUnt_x_TRAINING+")
-    myformula = as.formula('y ~ 1 + FD + CONFIGURATION + GROUP*CONDITION*TRAINING + (1 + TRAINING|SUBJECT)')
-    c.1        = c(rep(0, 10), -1, 0)
-    c.2        = c(rep(0, 11), 1)
-  }
-  
-  cont.mat = rbind(c.1, c.2)
-  colnames(cont.mat) = var.names
-  rownames(cont.mat) = contrast.names
-  
-  tags = c(paste0(var.names, '_coef'),
-           paste0(contrast.names, '_coef'),
-           paste0(var.names, '_tstat'),
-           paste0(contrast.names, '_tstat'),
-           paste0(var.names, '_p'),
-           paste0(contrast.names, '_p'))
-  
-  X$y = y
-  model = lmer(myformula, data = subset(X, TP %in% TPS & WAVE %in% WAVES))
 
-  tryCatch({
-    coefs = fixef(model)
-    pvalues = summary(model)$coefficients[ , "Pr(>|t|)"]
-    tstats = summary(model)$coefficients[ , "t value"]
-    glh = glht(model, linfct = cont.mat, alternative=ALTERNATIVE) 
-    contrast.pvalues = summary(glh)$test$pvalues
-    contrast.coefs = coef(glh)
-    contrast.tstats = summary(glh)$test$tstat
-    val = c(coefs, contrast.coefs, tstats, contrast.tstats, pvalues, contrast.pvalues)
-    names(val) = tags
-    return(val)
-    
-  },
-  
-  error = function(cond){
-    # something went wrong, save special values
-    pvalues = rep(2, length(var.names))
-    coefs = rep(0, length(var.names))
-    contrast.pvalues = rep(2, length(contrast.names))
-    contrast.coefs = rep(0, length(contrast.names))
-    val = c(coefs, contrast.coefs, pvalues, contrast.pvalues)
-    names(val) = tags
-    return(val)
-    
-  }
-  )
-  
-}
-
-testlinearrun_prereg  = function(y, X, ALTERNATIVE = 'greater') {
-  return( testlinearrun(y, X, ALTERNATIVE, WAVES = c(2, 3, 4, 5)))
-}
-
-testlinearrun_prereg_half  = function(y, X, ALTERNATIVE = 'greater') {
-  return( testlinearrun(y, X, ALTERNATIVE, WAVES = c(2, 3, 4, 5), TPS = seq(4)))
-}
-
-
+# quadratic tests
 testquadraticrun = function(y, X, ALTERNATIVE = 'greater', WAVES = seq(5), select_contrasts = seq(4))
 { 
   var.names = c("INTERCEPT", "FD", "SYSTEMMTx8", "CONFIGURATION2", "CONFIGURATION3", "CONFIGURATION4",
@@ -165,7 +87,87 @@ testquadraticrun_prereg_groupxconditionxtraining  = function(y, X, ALTERNATIVE =
   return( testquadraticrun(y, X, ALTERNATIVE, WAVES = c(2, 3, 4, 5), select_contrasts = c(3, 4)))
 }
 
+# linear tests
+testlinearrun = function(y, X, ALTERNATIVE = 'greater', WAVES = seq(5), TPS = seq(7))
+{ 
+  
+  if (max(TPS) >= 6) {
+    var.names = c("INTERCEPT", "FD", "SYSTEMMTx8", 
+                  "CONFIGURATION2", "CONFIGURATION3", "CONFIGURATION4",
+                  "GROUPExp", "CONDITIONUnt", "TRAINING", 
+                  "GROUPExp_x_CONDITIONUnt", "GROUPExp_x_TRAINING", 
+                  "CONDITIONUnt_x_TRAINING", "GROUPExp_x_CONDITIONUnt_x_TRAINING")
+    
+    contrast.names = c("GROUPExp_x_TRAINING-", "GROUPExp_x_CONDITIONUnt_x_TRAINING+")
+    myformula = as.formula('y ~ 1 + FD + SYSTEM + CONFIGURATION + GROUP*CONDITION*TRAINING + (1 + TRAINING|SUBJECT)')
+    c.1        = c(rep(0, 11), -1, 0)
+    c.2        = c(rep(0, 12), 1)
+  } else {
+    # no difference in system
+    var.names = c("INTERCEPT", "FD", 
+                  "CONFIGURATION2", "CONFIGURATION3", "CONFIGURATION4",
+                  "GROUPExp", "CONDITIONUnt", "TRAINING", 
+                  "GROUPExp_x_CONDITIONUnt", "GROUPExp_x_TRAINING", 
+                  "CONDITIONUnt_x_TRAINING", "GROUPExp_x_CONDITIONUnt_x_TRAINING")
+    
+    contrast.names = c("GROUPExp_x_TRAINING-", "GROUPExp_x_CONDITIONUnt_x_TRAINING+")
+    myformula = as.formula('y ~ 1 + FD + CONFIGURATION + GROUP*CONDITION*TRAINING + (1 + TRAINING|SUBJECT)')
+    c.1        = c(rep(0, 10), -1, 0)
+    c.2        = c(rep(0, 11), 1)
+  }
+  
+  cont.mat = rbind(c.1, c.2)
+  colnames(cont.mat) = var.names
+  rownames(cont.mat) = contrast.names
+  
+  tags = c(paste0(var.names, '_coef'),
+           paste0(contrast.names, '_coef'),
+           paste0(var.names, '_tstat'),
+           paste0(contrast.names, '_tstat'),
+           paste0(var.names, '_p'),
+           paste0(contrast.names, '_p'))
+  
+  X$y = y
+  model = lmer(myformula, data = subset(X, TP %in% TPS & WAVE %in% WAVES))
+  
+  tryCatch({
+    coefs = fixef(model)
+    pvalues = summary(model)$coefficients[ , "Pr(>|t|)"]
+    tstats = summary(model)$coefficients[ , "t value"]
+    glh = glht(model, linfct = cont.mat, alternative=ALTERNATIVE) 
+    contrast.pvalues = summary(glh)$test$pvalues
+    contrast.coefs = coef(glh)
+    contrast.tstats = summary(glh)$test$tstat
+    val = c(coefs, contrast.coefs, tstats, contrast.tstats, pvalues, contrast.pvalues)
+    names(val) = tags
+    return(val)
+    
+  },
+  
+  error = function(cond){
+    # something went wrong, save special values
+    pvalues = rep(2, length(var.names))
+    coefs = rep(0, length(var.names))
+    contrast.pvalues = rep(2, length(contrast.names))
+    contrast.coefs = rep(0, length(contrast.names))
+    val = c(coefs, contrast.coefs, pvalues, contrast.pvalues)
+    names(val) = tags
+    return(val)
+    
+  }
+  )
+  
+}
 
+testlinearrun_prereg  = function(y, X, ALTERNATIVE = 'greater') {
+  return( testlinearrun(y, X, ALTERNATIVE, WAVES = c(2, 3, 4, 5)))
+}
+
+testlinearrun_prereg_half  = function(y, X, ALTERNATIVE = 'greater') {
+  return( testlinearrun(y, X, ALTERNATIVE, WAVES = c(2, 3, 4, 5), TPS = seq(4)))
+}
+
+# modelcomparison
 modelcomparisonrun = function(y, X)
 {
   X$y = y

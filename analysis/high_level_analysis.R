@@ -5,13 +5,13 @@ library(dplyr)
 
 source('~/Software/ImageLMMR/ImageLMMR.R')
 setwd("~/Software/LeftHand/analysis")
+source('./high_level_analysis_funcs.R')
 source('./mytests.R')
 source('./myfmritests.R')
 source('./load_covariates.R')
 
 nifti_convert = '/data/lv0/Software/workbench/bin_rh_linux64/wb_command -metric-convert -to-nifti'
 
-collect_data = F
 
 # pes : Fixation (1), Stretch (3), TrainedCorrect (5), UntrainedCorrect (7), TrainedIncorrect (9), UntrainedIncorrect (11)
 # cope : TrainedCorrect (1), UntrainedCorrect (2), TrainedIncorrect (3), UntrainedIncorrect (4)
@@ -30,6 +30,19 @@ mask.lh = '/data/lv0/MotorSkill/labels/fsaverage6/lh.motor.rois.nii.gz'
 mask_whole = 'mask_whole.nii.gz'   
 mask_roi = 'mask.nii.gz'
 
+########################
+# Set up analyses
+########################
+collect_data = F
+NPROCS = 10
+
+analysis_type = 'surfR'  #volume, surfR/L 
+
+analysis_name = 'Trained_Untrained'
+conditions = c(1, 2)
+names(conditions) = c('TrainedCorrect', 'UntrainedCorrect')
+peprefix = "/cope"
+
 #analysis_name = 'UntrainedCorrect_UntrainedIncorrect'
 #conditions = c(2, 4)
 #names(conditions) = c('UntrainedCorrect', 'UntrainedIncorrect')
@@ -38,19 +51,16 @@ mask_roi = 'mask.nii.gz'
 #conditions = c(1, 3)
 #names(conditions) = c('TrainedCorrect', 'TrainedIncorrect')
 
-analysis_name = 'Trained_Untrained'
-conditions = c(1, 2)
-names(conditions) = c('TrainedCorrect', 'UntrainedCorrect')
-peprefix = "/cope"
 
 #analysis_name = 'Fixation_Stretch'
 #conditions = c(1, 3)
 #names(conditions) = c('Fixation', 'Stretch')
 #peprefix = "/pe"
 
-analysis_type = 'surfR'  #volume, surfR/L 
+########################
+# Gather data
+########################
 
-NPROCS = 10
 # list files, adapt depending on type of analysis
 contrasts = NULL
 image.list = NULL
@@ -77,7 +87,7 @@ if (analysis_type %in% c('volume', 'surfR', 'surfL')) {
   condition.list = condition.list[sel]}
     
 print(image.list)
-# output files for analysis
+
 DATADIR = file.path(WD, "higherlevel", analysis_name)
 dir.create(DATADIR)
 dir.create(file.path(DATADIR, analysis_type))
@@ -104,7 +114,6 @@ if (analysis_type == 'volume') {
   condition.list = condition.list[indices]
 }
 
-#browser()
 if (collect_data) {
   if (analysis_type == 'volume') {
 
@@ -164,7 +173,6 @@ if (collect_data) {
                    analysis_type))
     
     # Convert to gifti for checks
-      #print(filename)
     system(paste(gifti_convert, 
                    sprintf('%s/images.nii.gz', analysis_type), 
                    ifelse(analysis_type =='surfR', rh.gii, lh.gii), 
@@ -176,96 +184,10 @@ if (collect_data) {
 }
 
 
-extract_substr = function(x, pattern, start, stop){
-  i = strfind(x, pattern)
-  if (!is.null(i)) substr = substr(x, i + start, i + stop)
-  else substr = "-1"
-  return(substr)
-  
-} 
-
-check_empty_data = function(IMAGING_FILE){
-  
-  x = system(paste("fslstats -t", IMAGING_FILE, "-a -m"), intern = T)
-  notempty = as.numeric(x) != 0
-  return(notempty)
-}
-  
-
-doit = function(WD, IMAGES, MYTEST, OD, 
-                MASK = '', 
-                IMAGES_NAME = '',
-                IMAGING_NAME = '',
-                conditions = NULL, motion = NULL, 
-                to_gifti = '', flip = F){
-  setwd(WD)
-  IMAGING_FILE = file.path(WD, IMAGING_NAME)
-  MASK_FILE = file.path(WD, MASK)
-  OUTPUT_DIR = file.path(WD, OD)
-  # create regressors
-  subject = sapply(IMAGES, extract_substr, "sub-", 4, 10)
-  sess_num = sapply(IMAGES, extract_substr, "ses-", 4, 4) 
-  run = sapply(IMAGES, extract_substr, "run", 3, 3)
-  DATA = data.frame(NAME = unlist(IMAGES), SUBJECT = subject, 
-                    TP = as.numeric(sess_num), 
-                    RUN = as.numeric(run), CONDITION = conditions) 
-  DATA$SUBJECT.NUM = as.numeric(as.factor(DATA$SUBJECT))
-  #write.table(data, file = file.path(DATADIR, "image_list.txt"), row.names = F, quote = F, col.names = F)
-  DATA = left_join(DATA, covars.table, by = c("SUBJECT", "TP"))
-  DATA = left_join(DATA, motion, by = c("SUBJECT", "TP", "RUN"))  
-  DATA$CONFIGURATION = as.factor(DATA$CONFIGURATION)
-  DATA$WAVE = as.numeric(substring(DATA$SUBJECT, 4, 4))
-  DATA$FD.clean = markoutliersIQR(DATA$FD)
-  notempty = check_empty_data(IMAGING_FILE)
-  #browser()
-  DATA$notempty = notempty
-  DATA.GROUPED = DATA %>% filter(!is.na(FD.clean) & notempty ) %>% 
-    group_by(SUBJECT, TP) %>% 
-    sample_n(1) %>% 
-    group_by(SUBJECT) %>% 
-    summarise(COUNT = n()) %>%filter(COUNT<4)
-  
-  excluded = which(DATA$SUBJECT %in% DATA.GROUPED$SUBJECT | is.na(DATA$FD.clean) | !DATA$notempty) #| !complete.cases(DATA))
-  print(paste("Excluding ", length(excluded), "observations, with these complete subjects:"))
-  print(DATA.GROUPED$SUBJECT)
-  View(DATA)  
-  # replicate DATA for each condition
-  results = list()
-  results = vbanalysis(
-    IMAGING_FILE,
-    OUTPUT_DIR,
-    DATA,
-    MASK_FILE,
-    MYTEST,
-    remove_outliers = F, 
-    to_gifti = to_gifti, excluded = excluded, 
-    flip = flip
-  )
-  results$complete_data = DATA
-  save(results, file = file.path(OUTPUT_DIR, "results.RData"))
-  print(paste("Saving results to ", file.path(OUTPUT_DIR, "results.RData")))
-  for (f in list.files(OUTPUT_DIR, pattern = '*.gii', full.names = T)){
-    system(paste('mri_convert', f, f))
-  }
-  return(results)
-}
 
 # check results: freeview -f /usr/local/freesurfer/7.1.1/subjects/fsaverage6/surf/lh.inflated:overlay=INTERCEPT_coef.func.gii
 
-# results.average = doit(file.path(DATADIR, analysis_type),
-#            image.list,
-#            testaverage_simple,
-#            'tests/average',
-#            MASK = mask,
-#            IMAGES_NAME = 'image_list.txt',
-#            IMAGING_NAME = 'images.nii.gz',
-#            conditions = condition.list,
-#            motion = motion,
-#            to_gifti = mysurf)
-
-
 # tests for activation maps
-if (F) {
 results.quadratic_prereg_groupxtraining = doit(file.path(DATADIR, analysis_type),
                                 image.list,
                                 testquadraticrun_prereg_groupxtraining,
@@ -299,6 +221,8 @@ results.quadratic_whole_prereg = doit(file.path(DATADIR, analysis_type),
                                 motion = motion,
                                 to_gifti = mysurf)
 
+if (F) {
+  
 results.quadratic.prereg = doit(file.path(DATADIR, analysis_type),
                                 image.list,
                                 testquadraticrun_prereg,
@@ -310,7 +234,6 @@ results.quadratic.prereg = doit(file.path(DATADIR, analysis_type),
                                 motion = motion,
                                 to_gifti = mysurf)
 
-}
 results.linear = doit(file.path(DATADIR, analysis_type),
                            image.list,
                            testlinearrun,
@@ -378,44 +301,12 @@ results.linear.prereg_half = doit(file.path(DATADIR, analysis_type),
                                   motion = motion,
                                   to_gifti = mysurf)
 
+}
+
+# sync folders
 #mydir=TrainedCorrect_TrainedIncorrect
 #for name in comparison_prereg comparison_whole_prereg linear_prereg linear linear_whole_prereg linear_prereg_half quadratic_prereg quadratic_whole_prereg quadratic_prereg_groupxtraining quadratic_prereg_groupxconditionxtraining; 
 #do 
 #ln -s /data/lv0/MotorSkill/fmriprep/analysis/higherlevel/$mydir/surfL/tests/$name /data/lv0/MotorSkill/fmriprep/analysis/higherlevel/$mydir/surf/tests/${name}.lh
 #ln -s /data/lv0/MotorSkill/fmriprep/analysis/higherlevel/$mydir/surfR/tests/$name /data/lv0/MotorSkill/fmriprep/analysis/higherlevel/$mydir/surf/tests/${name}.rh
 #done
-stophere 
-# results.linear = doit(file.path(DATADIR, analysis_type), 
-#                          image.list, 
-#                          testlinearrun, 
-#                          'tests/linear',
-#                          MASK = mask,  
-#                          IMAGES_NAME = 'image_list.txt',
-#                          IMAGING_NAME = 'images.nii.gz',           
-#                          conditions = condition.list, 
-#                          motion = motion, 
-#                          to_gifti = mysurf)
-
-results.quadratic = doit(file.path(DATADIR, analysis_type), 
-                      image.list, 
-                      testquadraticrun, 
-                      'tests/quadratic',
-                      MASK = mask,  
-                      IMAGES_NAME = 'image_list.txt',
-                      IMAGING_NAME = 'images.nii.gz',           
-                      conditions = condition.list, 
-                      motion = motion, 
-                      to_gifti = mysurf)
-
-results.comparison = doit(file.path(DATADIR, analysis_type),
-                            image.list,
-                            modelcomparisonrun,
-                            'tests/comparison',
-                            MASK = mask,
-                            IMAGES_NAME = 'image_list.txt',
-                            IMAGING_NAME = 'images.nii.gz',
-                            conditions = condition.list, 
-                            motion = motion,
-                            to_gifti = mysurf)
-
-

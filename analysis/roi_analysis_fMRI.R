@@ -4,10 +4,6 @@
 rm(list = ls())
 cat("\014")
 
-# plot data
-
-# run only for Classic within mask
-# plot t1 from where there is an effect
 # write how many observations
 # add annotation :annot=/data/lv0/MotorSkill/labels/subject/fsaverage6/label/rh.motor.rois.annot:annot_outline=1
 
@@ -15,53 +11,24 @@ cat("\014")
 setwd("~/Software/LeftHand/analysis")
 source("./plot_funcs.R")
 
-NCOL = 3
+#WD = '/data/lv0/MotorSkill/fmriprep/analysis/higherlevel/TrainedCorrect_TrainedIncorrect/'
+#FIGS_DIR = '~/Data/LeftHand/Lund1/figs/TrainedCorrect_TrainedIncorrect/'
 
-#FIGS_DIR = '~/Data/LeftHand/Lund1/figs/Trained_Untrained/'
-FIGS_DIR = '~/Data/LeftHand/Lund1/figs/TrainedCorrect_TrainedIncorrect/'
-WD = '/data/lv0/MotorSkill/fmriprep/analysis/higherlevel/TrainedCorrect_TrainedIncorrect/'
+FIGS_DIR = '~/Data/LeftHand/Lund1/figs/Trained_Untrained/'
+#WD = '/data/lv0/MotorSkill/fmriprep/analysis/higherlevel/TrainedCorrect_TrainedIncorrect/'
 dir.create(FIGS_DIR)
-#unlink(file.path(FIGS_DIR, 'figs','*.png'))
-
-THR = 0.99
 
 #################################################################################
-radius = 3
-
+# Surface analyses
+#################################################################################
 surface.rh = '/data/lv0/MotorSkill/labels/subject/fsaverage6/surf/rh.pial.shape.gii'
 surface.lh = '/data/lv0/MotorSkill/labels/subject/fsaverage6/surf/lh.pial.shape.gii'
 SURFACE_FILES = c(surface.lh, surface.rh)
 names(SURFACE_FILES) = c("lh", "rh")
-
 inflated.rh = '/data/lv0/MotorSkill/labels/subject/fsaverage6/surf/rh.inflated.shape.gii:curvature=/data/lv0/MotorSkill/labels/subject/fsaverage6/surf/rh.curv'
 inflated.lh = '/data/lv0/MotorSkill/labels/subject/fsaverage6/surf/lh.inflated.shape.gii:curvature=/data/lv0/MotorSkill/labels/subject/fsaverage6/surf/lh.curv'
 
 DISTANCE = 10
-
-#WD = '/data/lv0/MotorSkill/fmriprep/analysis/higherlevel/TrainedCorrect_TrainedIncorrect/'
-MASK_NAME = 'mask.nii.gz'
-
-if (F) {
-DATADIR = file.path(WD, 'volume/')
-
-TESTDIR = 'tests/linear'
-TESTNAME = 'GROUPExp_x_CONDITIONUnt_x_TRAINING_p' #'TRAINING_p_fdr'
-myplots.vol.training = create_vol_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, 
-                                       plot_function = plot_activation_data)
-TESTDIR = 'tests/linear'
-TESTNAME = 'CONDITIONUnt_p' #'TRAINING_p_fdr'
-myplots.vol.training = create_vol_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, 
-                                       plot_function = plot_activation_data)
-
-
-
-DATADIR = file.path(WD, 'volume/')
-TESTDIR = 'tests/linear'
-TESTNAME = 'GROUPExp_x_CONDITIONUnt_x_TRAINING_p' #'TRAINING_p_fdr'
-myplots.vol.training = create_vol_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, 
-                                    plot_function = plot_activation_data)
-
-}
 
 # surf
 radius = 10
@@ -73,25 +40,13 @@ aparc=list('lh'='/data/lv0/MotorSkill/labels/subject/fsaverage6/label/lh.aparc.a
 THR = 0.975
 
 DATADIR = file.path(WD, 'surf/')
-
-MASK_NAME = 'mask_whole.nii.gz'
-TESTDIR = 'tests/quadratic_whole_prereg'
-TESTNAME = 'INTERCEPT_p_fdr'
-myplots.surf.intercept = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, 
-                                          plot_function = plot_activation_data, annot = aparc)
-
-stophere
-MASK_NAME = 'mask_prereg.nii.gz'
-TESTDIR = 'tests/quadratic_prereg'  
-TESTNAME = 'Omni_p_fdr'
-myplots.surf.omni = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, 
-                                     plot_function = plot_activation_data, annot = annot)
+NCOL = 2
 
 MASK_NAME = 'mask_prereg.nii.gz'
 TESTDIR = 'tests/quadratic_prereg_groupxconditionxtraining'
 TESTNAME = 'Omni_p_fdr'
 myplots.surf.omni = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, 
-                                          plot_function = plot_activation_data, annot = annot)
+                                     plot_function = plot_activation_data, annot = annot)
 
 
 MASK_NAME = 'mask_prereg.nii.gz'
@@ -99,6 +54,24 @@ TESTDIR = 'tests/quadratic_prereg_groupxtraining'
 TESTNAME = 'Omni_p_fdr'
 myplots.surf.omni = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, 
                                      plot_function = plot_activation_data, annot = annot)
+
+
+MASK_NAME = 'mask_whole.nii.gz'
+TESTDIR = 'tests/quadratic_whole_prereg'
+TESTNAME = 'INTERCEPT_p_fdr'
+myplots.surf.intercept = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, 
+                                          plot_function = plot_activation_data, annot = aparc)
+
+
+stophere
+############################################
+stophere
+MASK_NAME = 'mask_prereg.nii.gz'
+TESTDIR = 'tests/quadratic_prereg'  
+TESTNAME = 'Omni_p_fdr'
+myplots.surf.omni = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, 
+                                     plot_function = plot_activation_data, annot = annot)
+
 
 #MASK_NAME = 'mask_prereg.nii.gz'
 #TESTDIR = 'tests/linear_prereg'
@@ -171,4 +144,27 @@ myplots.surf.training = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, r
                                          plot_function = plot_activation_data)
 
 stophere
+
+if (F) {
+  MASK_NAME = 'mask.nii.gz'
+  DATADIR = file.path(WD, 'volume/')
+  
+  TESTDIR = 'tests/linear'
+  TESTNAME = 'GROUPExp_x_CONDITIONUnt_x_TRAINING_p' #'TRAINING_p_fdr'
+  myplots.vol.training = create_vol_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, 
+                                         plot_function = plot_activation_data)
+  TESTDIR = 'tests/linear'
+  TESTNAME = 'CONDITIONUnt_p' #'TRAINING_p_fdr'
+  myplots.vol.training = create_vol_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, 
+                                         plot_function = plot_activation_data)
+  
+  
+  
+  DATADIR = file.path(WD, 'volume/')
+  TESTDIR = 'tests/linear'
+  TESTNAME = 'GROUPExp_x_CONDITIONUnt_x_TRAINING_p' #'TRAINING_p_fdr'
+  myplots.vol.training = create_vol_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, 
+                                         plot_function = plot_activation_data)
+  
+}
 
