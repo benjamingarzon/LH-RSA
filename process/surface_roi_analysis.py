@@ -12,40 +12,24 @@ Created on Thu Nov 12 11:31:00 2020
 #try w o prewhitening
 
 MINACC = 1.0
-num_cores = 10
 MINCORRECT = 3
 NTYPES = 4
 
 from joblib import Parallel, delayed
 import pandas as pd
 import os
+import argparse
 import numpy as np
 from glob import glob
-from roi_analysis_funcs import process, gather_results, \
-    get_across_session_scores
+from roi_analysis_funcs import process, gather_results
 import seaborn as sns
 import matplotlib.pyplot as plt
     
 
-PERMUTATE = False
-overwrite_extract = False 
-overwrite_scores = False
-output_data = True
-do_prewhitening = 'run'
-suffix = 'mask-cross-derivatives' # within mask using Glasser parc
-#suffix = 'mask-noprew' # within mask using Glasser parc
-labels_file = '/home/xgarzb@GU.GU.SE/Software/LeftHand/masks/motor_roi_parcels.txt'
-#labels_file = '/home/xgarzb@GU.GU.SE/Software/LeftHand/masks/mask_parcels.txt'
-labels_dir = '/data/lv0/MotorSkill/labels/fsaverage'
-
-#suffix = 'tess' # whole brain using tessellation
-#labels_file = '/home/xgarzb@GU.GU.SE/Software/LeftHand/masks/tessellation162_parcels.txt'
-#labels_dir = '/data/lv0/MotorSkill/labels/fsaverage/tessellation162'
-#effects_name = 'effects.nii.gz'
-effects_name = 'derivatives.nii.gz'
-if __name__ == "__main__":
+def do_analysis(WD, PERMUTATE, overwrite_extract, overwrite_scores, output_data, 
+                do_prewhitening, suffix, labels_file, labels_dir, 
+                effects_name, num_cores):
     
-    WD = '/data/lv0/MotorSkill/'
     subjects_dir = os.path.join(WD, 'fmriprep', 'freesurfer')
 
     analysis_dir = '/data/lv0/MotorSkill/fmriprep/analysis/'
@@ -214,3 +198,27 @@ if __name__ == "__main__":
     skipped_df = pd.DataFrame(skipped, columns = ['Subject', 'Session', 
                                                   'ncorrect', 'valid_runs'])
     skipped_df.to_csv(skipped_file, index = False)
+    
+if __name__ == "__main__":
+    
+    parser = argparse.ArgumentParser(description='Run surface-based multivariate roi analysis.')
+    
+    parser.add_argument('--permutate', dest='permutate', action='store_true')
+    parser.add_argument('--overwrite_extract', dest='overwrite_extract', action='store_true')
+    parser.add_argument('--overwrite_scores', dest='overwrite_scores', action='store_true')
+    parser.add_argument('--output_data', dest='output_data', action='store_true')
+    parser.add_argument('--do_prewhitening', dest='do_prewhitening', action='store')
+    parser.add_argument('--suffix', dest='suffix', action='store')
+    parser.add_argument('--labels_file', dest='labels_file', action='store')
+    parser.add_argument('--labels_dir', dest='labels_dir', action='store')
+    parser.add_argument('--effects_name', dest='effects_name', action='store')
+    parser.add_argument('--WD', dest='WD', action='store')
+    parser.add_argument('--num_cores', dest='num_cores', action='store', 
+                        type=int)
+    
+    args = parser.parse_args()
+
+    do_analysis(args.WD, args.permutate, args.overwrite_extract, 
+                args.overwrite_scores, args.output_data, 
+                args.do_prewhitening, args.suffix, args.labels_file, 
+                args.labels_dir, args.effects_name, args.num_cores)

@@ -12,7 +12,9 @@ process/run_pipeline.sh
   -> process/pipeline.sh
   
 # multivariate
-process/surface_roi_analysis.py
+process/multivariate_analyses.sh
+  -> process/surface_roi_analysis.py
+  -> process/scores_across_sessions.py
 
 ###MPRAGE calculation  
   -> process/mprageconvert/create_mp2rage_command.m

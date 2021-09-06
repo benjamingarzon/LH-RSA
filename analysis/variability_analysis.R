@@ -21,10 +21,12 @@ setwd("~/Software/LeftHand/analysis")
 source('./plot_funcs.R')
 source('./load_covariates.R')
 
-meas = 'correlation'
+#meas = 'correlation'
 #meas = 'cosine'
-#meas = 'xnobis'
-suffix0 = 'mask-cross-perm'
+meas = 'xnobis'
+#suffix0 = 'mask-cross-perm'
+#suffix0 = 'mask-cross-runprew'
+suffix0 = 'mask-cross-derivatives'
 suffix1 = '-same'
 suffix = paste0(suffix0, suffix1)
 #suffix = 'mask-cross'
@@ -69,6 +71,8 @@ if (meas == 'xnobis'){
   ylabel = "Cross-nobis distance"
   ylimit = c(-.01, .07)
   ylimit_diff = c(-.01, .01)
+  ylimit = c(-.2, .6)
+  ylimit_diff = c(-.3, .3)
 } 
 
 if (meas == 'cosine'){

@@ -28,9 +28,9 @@ data.mean = data%>%
 
 mymetric = 'xcorrelation'
 mylabels = c('R_SPL', 'R_C1') #'R_C1',
-seqs_train = c('same', 'different')
+#seqs_train = c('same', 'different')
 #seqs_train = c('trained_different', 'untrained_different') #, 'trained_untrained')
-#seqs_train = c('untrained_same') #, 'trained_untrained')
+seqs_train = c('trained_same', 'untrained_same') #, 'trained_untrained')
 
 data.subset = data.mean %>% filter(session_test != session_train &
                                      metric == mymetric & 

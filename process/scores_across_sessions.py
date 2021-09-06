@@ -10,10 +10,13 @@ import numpy as np
 from roi_analysis_funcs import get_across_session_scores, process_scores
 analysis_dir = '/data/lv0/MotorSkill/fmriprep/analysis'
 suffix = 'mask-cross'
+permutate = False
 scores_df = get_across_session_scores(os.path.join(analysis_dir, 
                                 'roi_data'),
                                       suffix,
-                                      num_cores = 20)
+                                      num_cores = 20, 
+                                      selected_labels = ['R_SPL', 'R_C1', 'R_PS'],
+                                      permutate = permutate)
 
 scores_df.to_csv(os.path.join(analysis_dir, 
                                 'surf', 
