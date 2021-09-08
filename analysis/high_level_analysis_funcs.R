@@ -9,7 +9,6 @@ extract_substr = function(x, pattern, start, stop){
 } 
 
 check_empty_data = function(IMAGING_FILE){
-  
   x = system(paste("fslstats -t", IMAGING_FILE, "-a -m"), intern = T)
   notempty = as.numeric(x) != 0
   return(notempty)

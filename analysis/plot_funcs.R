@@ -9,9 +9,11 @@ library(multcomp)
 library(freesurfer)
 library(stringr)
 
+DPI = 10
+
 label_map = function(x){
   labels = list('SMA.label' = 'supplementary motor cortex',
-                         'PS.label'  = 'primary somatosensory cortex',
+                         'PS.label'  = 'primary sensorimotor cortex',
                          'PM.label'  = 'premotor cortex',
                          'SPL.label' = 'superior parietal lobule')
   if (x %in% names(labels)) return(labels[[x]]) else return(x)
@@ -31,7 +33,7 @@ markoutliersIQR = function(x){
 sem = function(x)
   sd(x, na.rm = T) / sqrt(length(x))
 
-plot_activation_data = function(X, title, regressout = F, YMIN = 0, YMAX = 3.5) {
+plot_activation_data = function(X, title, regressout = F, YMIN = 0, YMAX = 4) {
   X = X %>% mutate(WAVE = as.numeric(substring(SUBJECT, 4, 4)), y = y/100)# %>% filter (WAVE> 1) to percent signal change
 
   model = lmer(y ~ 1 + FD + SYSTEM + CONFIGURATION + 
@@ -315,7 +317,7 @@ create_surf_rois = function(DATADIR,
                             THR,
                             PRECOMP_ROI = NULL,
                             wDEPTH = F, 
-                            plot_function = plot_data, annot = NULL) {
+                            plot_function = plot_data, annot = NULL, maxplots = 10) {
   tests = NULL
   rois = NULL
   myplots = NULL
@@ -460,7 +462,7 @@ create_surf_rois = function(DATADIR,
     }
   }
   FIG_DATA = paste(gsub("/", "-", TESTDIR), TESTNAME, 'data', sep = '-')
-  #browser()
+  
   ggsave(
     filename = file.path(FIGS_DIR, paste0(FIG_DATA, '.png')),
     plot = ggarrange(
@@ -469,9 +471,9 @@ create_surf_rois = function(DATADIR,
       ncol = min(NCOL, length(myplots))
     ),
     width = NCOL*10,
-    height = ceiling(length(myplots) / NCOL)*8,
+    height = ceiling(max(length(myplots), maxplots) / NCOL)*8,
     limitsize = F,
-    dpi = 500
+    dpi = DPI
   )
   
   return(list(myplots = myplots, ROI_FILE = ROI_FILE))

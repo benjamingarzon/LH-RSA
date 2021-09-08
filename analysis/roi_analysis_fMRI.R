@@ -15,7 +15,7 @@ source("./plot_funcs.R")
 #FIGS_DIR = '~/Data/LeftHand/Lund1/figs/TrainedCorrect_TrainedIncorrect/'
 
 FIGS_DIR = '~/Data/LeftHand/Lund1/figs/Trained_Untrained/'
-#WD = '/data/lv0/MotorSkill/fmriprep/analysis/higherlevel/TrainedCorrect_TrainedIncorrect/'
+WD = '/data/lv0/MotorSkill/fmriprep/analysis/higherlevel/Trained_Untrained/'
 dir.create(FIGS_DIR)
 
 #################################################################################

@@ -27,12 +27,15 @@ data.mean = data%>%
                                                     val.sem = sem(value))%>% mutate(train_group = paste(seq_train, group))
 
 mymetric = 'xcorrelation'
-mylabels = c('R_SPL', 'R_C1') #'R_C1',
+#mymetric = 'xcosine'
+mymetric = 'xnobis'
+#mymetric = 'xeuclidean'
+mylabels = c('R_SPL', 'R_C1', 'R_PS') #'R_C1',
 #seqs_train = c('same', 'different')
-#seqs_train = c('trained_different', 'untrained_different') #, 'trained_untrained')
+seqs_train = c('trained_different', 'untrained_different', 'trained_untrained')
 seqs_train = c('trained_same', 'untrained_same') #, 'trained_untrained')
 
-data.subset = data.mean %>% filter(session_test != session_train &
+data.subset = data.mean %>% filter(#session_test != session_train &
                                      metric == mymetric & 
                                      label %in% mylabels & 
                                      seq_train %in% seqs_train) 
@@ -85,11 +88,12 @@ myplot = ggplot(data.subset, aes(
 print(myplot)
 
 # some stats
+# in intervention, trained decorrelate fmore the farther they are
 data.subset = data %>% filter(session_test != session_train & 
 #                                session_train == 1 &
                                 metric == mymetric & 
-                                label == 'R_C1' & 
+                                label == 'R_SPL' & 
                                 seq_train %in% seqs_train) 
 
-model = lmer(value ~ session_diff*seq_train*group + (1| subject), data = data.subset)
+model = lmer(value ~ scale(session_diff)*seq_train*group + (1| subject), data = data.subset)
 summary(model)

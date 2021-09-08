@@ -33,10 +33,10 @@ mask_roi = 'mask.nii.gz'
 ########################
 # Set up analyses
 ########################
-collect_data = F
+collect_data = T
 NPROCS = 10
 
-analysis_type = 'surfR'  #volume, surfR/L 
+analysis_type = 'surfL'  #volume, surfR/L 
 
 analysis_name = 'Trained_Untrained'
 conditions = c(1, 2)
@@ -185,7 +185,7 @@ if (collect_data) {
 
 
 
-# check results: freeview -f /usr/local/freesurfer/7.1.1/subjects/fsaverage6/surf/lh.inflated:overlay=INTERCEPT_coef.func.gii
+# check results: freeview -f /usr/local/freesurfer/7.1.1-1/subjects/fsaverage6/surf/lh.inflated:overlay=INTERCEPT_coef.func.gii
 
 # tests for activation maps
 results.quadratic_prereg_groupxtraining = doit(file.path(DATADIR, analysis_type),

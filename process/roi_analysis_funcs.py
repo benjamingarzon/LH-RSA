@@ -264,7 +264,7 @@ def partial_dist(X, y, splits, label1, label2, splitp, distance = cosine):
                  for index1, index2 in index_pairsp ]
         
     if distance == euclidean:
-        return np.mean(dists**2)/X.shape[1]
+        return np.mean(np.array(dists)**2)/X.shape[1]
     else:
         return np.mean(np.arctanh(1-np.array(dists)))
 
@@ -283,7 +283,7 @@ def partial_xdist(X, y, splits, label1, label2, splitp, splitn,
              for indexp, indexn in index_prod ]
 
     if distance == euclidean:
-        return np.mean(dists**2)/X.shape[1]
+        return np.mean(np.array(dists)**2)/X.shape[1]
     else:
         return np.mean(np.arctanh(1-np.array(dists)))
 
@@ -297,23 +297,23 @@ def partial_dist_session(X_1, y_1, label1, X_2, y_2, label2, distance = cosine):
                  for index1, index2 in index_pairsp ]
 
     if distance == euclidean:
-        return np.mean(dists**2)/X_1.shape[1]
+        return np.mean(np.array(dists)**2)/X_1.shape[1]
     else:
         return np.mean(np.arctanh(1-np.array(dists)))
 
 def partial_xnobis_session(X_1, y_1, label1, X_2, y_2, label2):
 
     if label1 == label2:
-        indicesp = np.where(np.logical_and(y_1 == label1))[0]
-        indicesn = np.where(np.logical_and(y_2 == label1))[0]
+        indicesp = np.where(y_1 == label1)[0]
+        indicesn = np.where(y_2 == label1)[0]
         index_pairsp = list(combinations(indicesp, 2))
         index_pairsn = list(combinations(indicesn, 2))
 
     else:
-        indices1p = np.where(np.logical_and(y_1 == label1))[0]
-        indices1n = np.where(np.logical_and(y_2 == label1))[0]
-        indices2p = np.where(np.logical_and(y_1 == label2))[0]
-        indices2n = np.where(np.logical_and(y_2 == label2))[0]
+        indices1p = np.where(y_1 == label1)[0]
+        indices1n = np.where(y_2 == label1)[0]
+        indices2p = np.where(y_1 == label2)[0]
+        indices2n = np.where(y_2 == label2)[0]
 
         index_pairsp = list(product(indices1p, indices2p))
         index_pairsn = list(product(indices1n, indices2n))
@@ -964,7 +964,7 @@ def get_roi_distances(file_1, file_2, permutate = False):
             
     scores = {}
 
-    for mydistance in ['xeuclidean', 'xcosine', 'xcorrelation', 'xnobis']:
+    for mydistance in ['xnobis', 'xeuclidean', 'xcosine', 'xcorrelation']:
 
         metric_value = {}    
 
