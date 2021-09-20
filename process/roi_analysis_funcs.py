@@ -750,22 +750,24 @@ def process(label, subject, session, subjects_dir, analysis_dir, labels_dir,
     targets = sequences.true_sequence.to_numpy() #seq_type.to_numpy()
     seq_train = sequences.seq_train.to_numpy()
     runs = sequences.run.to_numpy()
+    blocks = sequences.block.to_numpy()
     effects = effects[valid, :]
-    
-    targets_perm = np.array(targets, copy = True)
+    effects_perm = effects.copy()
     
     for run in np.unique(runs):
-        targets_perm[runs == run] = \
-            np.random.permutation(targets[runs == run])    
+        for block in np.unique(blocks[runs == run]):
+            indices = np.logical_and(runs == run,  blocks == block)
+            myperm = np.random.permutation(range(np.sum(indices)))
+            effects_perm[indices, :] = effects_perm[indices, :] [myperm, :]
 
     if permutate:
-
         for run in np.unique(runs):
-            myperm = np.random.permutation(range(np.sum(runs == run)))
-            targets[runs == run] = targets[runs == run][myperm]
-            #seq_train[runs == run] = seq_train[runs == run][myperm]
+            for block in np.unique(blocks[runs == run]):
+                indices = np.logical_and(runs == run,  blocks == block)
+                myperm = np.random.permutation(range(np.sum(indices)))            
+                effects[indices, :] = effects[indices, :] [myperm, :]
 
-
+    
     # print("Computing SVM classification for label %s"%label)    
     # SVM
     sequences.loc[:, 'target'] = sequences.true_sequence
@@ -777,7 +779,7 @@ def process(label, subject, session, subjects_dir, analysis_dir, labels_dir,
         clf_acc_trained, clf_acc_untrained,  clf_acc_trained_untrained = \
             fit_clf_separate(effects, targets, runs, df)
     
-        clf_acc_perm = fit_clf(effects, targets_perm, runs)
+        clf_acc_perm = fit_clf(effects_perm, targets, runs)
 
         mean_signal_trained = \
             np.mean(
@@ -789,7 +791,7 @@ def process(label, subject, session, subjects_dir, analysis_dir, labels_dir,
                 axis = 0))
 
     except:  
-        clf_acc, clf_cm_acc, clf_acc_trained, clf_acc_untrained, \
+        clf_acc, clf_acc_trained, clf_acc_untrained, \
             clf_acc_trained_untrained, \
             mean_signal_trained, mean_signal_untrained,\
             clf_acc_perm = [np.nan]*7
@@ -1046,9 +1048,10 @@ def get_subject_scores(subject, label, sessions, myfiles,
 
     return scores
 
-def get_across_session_scores(analysis_dir, suffix, 
+def get_across_session_scores(analysis_dir, suffix, output_path,
                               num_cores = 1, 
                               selected_subjects = None,
+#                              subject_mask_remove = None,
                               selected_labels = None,
                               selected_sessions = None,
                               permutate = False):
@@ -1064,6 +1067,8 @@ def get_across_session_scores(analysis_dir, suffix,
         print(filename)
         if '_%s_'%suffix not in filename:
             continue
+#        if subject_mask_remove in filename:
+#            continue
         subject, sess, _, _, _, hemi, hemil, label = filename.split('_')
         session = int(sess[4])
         label = hemil + '_' + label.split('.')[0]
@@ -1098,5 +1103,7 @@ def get_across_session_scores(analysis_dir, suffix,
         scores = {key: value for key, value \
                   in [z for x in score_list for z in x.items()] + list(scores.items())}
                                           
-    scores_df = process_scores(scores)
+        scores_df = process_scores(scores)
+        scores_df.to_csv(output_path, index = False, float_format = '%.3f')
+
     return scores_df 

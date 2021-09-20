@@ -91,7 +91,7 @@ training.asymptotic = scale(training.asymptotic, center = T, scale = F)/100
 training.level = c(-1, NA, 1, 1, 1, 1, NA)
 training.level = c(-1, 1, 1, NA, NA, NA, NA)
 
-plot(training, training.quadratic, type = "b", xlim = c(-2, 2))
+plot(training, training.quadratic, type = "b")
 points(training, training, type = "b", col = "green")
 points(training, training.asymptotic, type = "b", col = "red")
 

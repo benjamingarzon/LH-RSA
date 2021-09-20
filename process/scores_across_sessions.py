@@ -10,11 +10,17 @@ import numpy as np
 from roi_analysis_funcs import get_across_session_scores, process_scores
 analysis_dir = '/data/lv0/MotorSkill/fmriprep/analysis'
 suffix = 'mask-cross'
-permutate = False
+permutate = False ## fix permutation method
+output_path = os.path.join(analysis_dir, 
+                                'surf', 
+                                'across_session_scores_complete_%s.csv'%(suffix))
+
 scores_df = get_across_session_scores(os.path.join(analysis_dir, 
                                 'roi_data'),
                                       suffix,
-                                      num_cores = 20,
+                                      output_path = output_path,
+                                      num_cores = 25,
+#                                      subject_mask_remove = 'sub-lue1',
 #                                      selected_subjects = ['sub-lue2103', 'sub-lue2203',
 #                                                           'sub-lue3103', 'sub-lue3203',
 #                                                           'sub-lue5103', 'sub-lue5203',
@@ -23,8 +29,3 @@ scores_df = get_across_session_scores(os.path.join(analysis_dir,
 #                                      selected_labels = ['R_SPL', 'R_C1'],
                                       permutate = permutate)
 
-scores_df.to_csv(os.path.join(analysis_dir, 
-                                'surf', 
-                                'across_session_scores_%s.csv'%(suffix)),
-                                index = False,
-                                float_format = '%.3f')

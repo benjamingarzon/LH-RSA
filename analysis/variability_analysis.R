@@ -1,36 +1,15 @@
-rm(list = ls())
 library(dplyr)
 library(ggplot2)
 library(reshape2)
 library(stringr)
 
 # remove motion outliers...?
-
-# difference alpha  trained > untrained increases with time and then goes to 0. More for intervention group
-# check that not explained by noise!!
-# use aroma to denoise??
-# why is clf accuracy so high everywhere??
-# correct for configuration x time
 # correct for FD. FD vs type of 
 # correct for number of correct trials
-# do it for tessellation
-WIDTH = 30
-HEIGHT = 24
-DPI = 1000
-setwd("~/Software/LeftHand/analysis")
-source('./plot_funcs.R')
-source('./load_covariates.R')
 
-#meas = 'correlation'
-#meas = 'cosine'
-meas = 'xnobis'
-#suffix0 = 'mask-cross-perm'
-#suffix0 = 'mask-cross-runprew'
-suffix0 = 'mask-cross-derivatives'
-suffix1 = '-same'
+
+do_variability_analysis = function(meas, suffix0, suffix1) {
 suffix = paste0(suffix0, suffix1)
-#suffix = 'mask-cross'
-sem = function(x) sd(x, na.rm = T)/sqrt(length(x))
 data_file = paste0('/data/lv0/MotorSkill/fmriprep/analysis/surf/roi_scores_', suffix0, '.csv')
 #data_file = '/data/lv0/MotorSkill/fmriprep/analysis/surf/roi_scores_mask-cross.csv'
 #output_file = '/data/lv0/MotorSkill/fmriprep/analysis/surf/clf_acc.csv'
@@ -41,6 +20,9 @@ data = read.table(data_file, header = T, sep = ',') %>% arrange(subject, session
 data$GROUP = "Intervention"
 data$GROUP[grep("sub-lue.2", data$subject)] = "Control"
 
+# remove first wave
+data = data[ -grep('sub-lue1', data$subject), ]
+
 if (meas == 'alpha_PCM'){
   mymeasures = c("alpha_trained_PCM", "alpha_untrained_PCM")
   data$value = data$alpha_trained_PCM - data$alpha_untrained_PCM
@@ -49,6 +31,9 @@ if (meas == 'alpha_PCM'){
 if (meas == 'alpha'){
   mymeasures = c("alpha_trained", "alpha_untrained")
   data$value = data$alpha_trained - data$alpha_untrained
+  ylabel = "Variability score"
+  ylimit = c(1.5, 3)
+  ylimit_diff = c(-.1, .1)
 } 
 
 if (meas == 'clf'){
@@ -60,49 +45,61 @@ if (meas == 'clf'){
 } 
 
 if (meas == 'euclidean'){
-  mymeasures = c("euclidean_trained_different", "euclidean_untrained_different", "euclidean_trained_untrained")
-  data$value = data$euclidean_trained_different - data$euclidean_untrained_different 
-}
+  if (suffix1 == '-same') mymeasures = c("euclidean_trained_same", "euclidean_untrained_same")
+  if (suffix1 == '-different') mymeasures = c("euclidean_trained_different", "euclidean_untrained_different")
+  if (suffix1 == '-all') mymeasures = c("euclidean_trained_same", "euclidean_untrained_same", "euclidean_trained_different", "euclidean_untrained_different", "euclidean_trained_untrained")
+  if (suffix1 == '-same') data$value = data$euclidean_trained_same - data$euclidean_untrained_same 
+  else data$value = data$euclidean_trained_different - data$euclidean_untrained_different
+  ylabel = "Squared euclidean distance"
+  ylimit = c(40, 80)
+  ylimit_diff = c(-2, 2)
+  
+  }
 
 if (meas == 'xnobis'){
-  mymeasures = c("xnobis_trained_same", "xnobis_untrained_same", "xnobis_trained_different", "xnobis_untrained_different", "xnobis_trained_untrained")
-  mymeasures = c("xnobis_trained_different", "xnobis_untrained_different", "xnobis_trained_untrained")
-  data$value = data$xnobis_untrained_same - data$xnobis_trained_same 
+  if (suffix1 == '-same') mymeasures = c("xnobis_trained_same", "xnobis_untrained_same")
+  if (suffix1 == '-different') mymeasures = c("xnobis_trained_different", "xnobis_untrained_different")
+  if (suffix1 == '-all') mymeasures = c("xnobis_trained_same", "xnobis_untrained_same", "xnobis_trained_different", "xnobis_untrained_different", "xnobis_trained_untrained")
+  if (suffix1 == '-same') data$value = data$xnobis_trained_same - data$xnobis_untrained_same 
+  else data$value = data$xnobis_trained_different - data$xnobis_untrained_different
+
   ylabel = "Cross-nobis distance"
-  ylimit = c(-.01, .07)
-  ylimit_diff = c(-.01, .01)
-  ylimit = c(-.2, .6)
-  ylimit_diff = c(-.3, .3)
+  ylimit = c(-.01, .06)
+  ylimit_diff = c(-.02, .02)
 } 
 
 if (meas == 'cosine'){
-  mymeasures = c("cosine_trained_same", "cosine_untrained_same")
-#  mymeasures = c("cosine_trained_same", "cosine_untrained_same", "cosine_trained_different", "cosine_untrained_different", "cosine_trained_untrained")
-  data$value = data$cosine_trained_same - data$cosine_untrained_same 
-  ylabel = "Cosine distance"
-  ylimit = c(.8, 1)
-  ylimit_diff = c(-.01, .02)
+  if (suffix1 == '-same') mymeasures = c("cosine_trained_same", "cosine_untrained_same")
+  if (suffix1 == '-different') mymeasures = c("cosine_trained_different", "cosine_untrained_different")
+  if (suffix1 == '-all') mymeasures = c("cosine_trained_same", "cosine_untrained_same", "cosine_trained_different", "cosine_untrained_different", "cosine_trained_untrained")
+  if (suffix1 == '-same') data$value = data$cosine_trained_same - data$cosine_untrained_same 
+  else data$value = data$cosine_trained_different - data$cosine_untrained_different
+  ylabel = "Cosine (z-scored)"
+  ylimit = c(0, .2)
+  ylimit_diff = c(-.02, .02)
   
   } 
 
 if (meas == 'correlation'){
-#   mymeasures = c("correlation_same", "correlation_different")
-#  mymeasures = c("correlation_trained_same", "correlation_untrained_same", "correlation_trained_different", 
-   #                 "correlation_untrained_different", "correlation_trained_untrained")
-  mymeasures = c("correlation_trained_same", "correlation_untrained_same")
-#  mymeasures = c("correlation_trained_different", "correlation_untrained_different")
-  data$value = data$correlation_trained_same - data$correlation_untrained_same 
-
+  if (suffix1 == '-same') mymeasures = c("correlation_trained_same", "correlation_untrained_same")
+  if (suffix1 == '-different') mymeasures = c("correlation_trained_different", "correlation_untrained_different")
+  if (suffix1 == '-all') mymeasures = c("correlation_trained_same", "correlation_untrained_same", "correlation_trained_different", "correlation_untrained_different", "correlation_trained_untrained")
+  if (suffix1 == '-same') data$value = data$correlation_trained_same - data$correlation_untrained_same 
+  else data$value = data$correlation_trained_different - data$correlation_untrained_different
+  
 #  data$value = data$correlation_trained_different - data$correlation_untrained_different 
-  ylabel = "Correlation distance"
-  ylimit = c(.8, 1)
+  ylabel = "Correlation (z-scored)"
+  ylimit = c(0, 0.2)
   ylimit_diff = c(-.005, .015)
 } 
 
 if (meas == 'mean_signal'){
   mymeasures = c("mean_signal_trained", "mean_signal_untrained")
-
   data$value = data$mean_signal_trained - data$mean_signal_untrained 
+  ylabel = "% signal change"
+  ylimit = c(0, 6)
+  ylimit_diff = c(-3, 3)
+  
 } 
 
 ##mymeasures = c("clf_acc_trained", "clf_acc_untrained")
@@ -145,7 +142,7 @@ data = merge(data, covars.table %>% mutate(subject = paste0('sub-', SUBJECT), se
 data = left_join(data, motion %>% group_by(SUBJECT, TP) %>% 
                    summarise(FD = mean (FD)) %>% mutate(subject = paste0('sub-', SUBJECT), session = TP), 
                  by = c("subject", "session"))
-
+print(mymeasures)
 data.melt = melt(data, 
                  id.vars = c("subject", "session", "GROUP", "hemi", "label", 
                              "FD", "SYSTEM", "CONFIGURATION", "TRAINING", "TRAINING.Q"),
@@ -183,19 +180,7 @@ data.melt$value.corr[data.melt$label == l] = predict(model, data.melt %>% filter
   data.melt$value.corr  = data.melt$value
   
 }
-# myplot = ggplot(data, aes(
-#   x = session,
-#   y = value,
-#   col = group,
-#   group = subject
-# )) + geom_line(size = 0.2, alpha = 0.5) + 
-#   facet_wrap(. ~ label, ncol = 5) + 
-#   theme_lh() + scale_colour_manual(values = myPalette)
-
-#print(myplot)
-
 # average
-
 data.mean = data%>%
   group_by(session, GROUP, label)%>%summarise(val.mean = mean(value, na.rm = T), 
                                        val.sem = sem(value)) 
@@ -221,20 +206,14 @@ myplot = ggplot(data.mean , aes( #%>% filter(hemi == 'rh')
   ylim(ylimit_diff) + 
   theme_lh() + 
   scale_colour_manual(values = myPalette) +
-  theme(legend.title = element_blank(), 
+  theme(legend.title = element_blank(), legend.position = 'bottom',  
         panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank()) #legend.position = 'bottom', 
+        panel.grid.minor = element_blank())
 
 print(myplot)
 
 
 # hemi
-clean_measure_names = function(x){
-  
-    sapply(x, function(z) {
-    z = gsub('acc_', '', z)
-    str_to_title(paste(strsplit(as.character(z), '_')[[1]][-1], collapse = ' '))})
-}
 data.melt = data.melt%>% mutate(MEASURE = clean_measure_names(MEASURE))
 data.mean = data.melt%>%
   group_by(session, GROUP, label, MEASURE)%>%summarise(val.mean = mean(value.corr, na.rm = T), 
@@ -259,9 +238,9 @@ myplot.all = ggplot(data.mean, aes(
   ylim(ylimit) + 
   theme_lh() + 
   scale_colour_manual(values = myPalette) + 
-  theme(text = element_text(size = 8), #legend.position = 'bottom', 
-        legend.title = element_blank(),
-        legend.box = 'vertical',
+  theme(text = element_text(size = 9),
+        legend.title = element_blank(), legend.position = 'bottom', 
+        legend.box = 'horizontal',
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank())
 
@@ -275,6 +254,7 @@ ggsave(
   dpi = DPI,
   units = 'cm'
 )
+
 ggsave(
   file.path(figs_dir, paste(meas, suffix, 'all.png', sep = '-')),
   plot = myplot.all,
@@ -284,33 +264,16 @@ ggsave(
   units = 'cm'
 )
 
-#alpha
-#plot(data$alpha_trained, data$alpha_untrained, pch = 20, cex = 0.2)
-abline(0, 1)
-alphas = dplyr::select(data, c(alpha_trained, alpha_untrained, alpha_trained_PCM, alpha_untrained_PCM))
-alphas = alphas[rowMeans(alphas) > -Inf, ]
-alphas = alphas[alphas$alpha_untrained_PCM > -2, ]
-cor(alphas[complete.cases(alphas), ])
-cor.test(data$alpha_trained, data$alpha_untrained)
-cor.test(data$alpha_trained[!is.infinite(data$alpha_trained_PCM)], data$alpha_trained_PCM[!is.infinite(data$alpha_trained_PCM)])
-cor.test(data$alpha_untrained[!is.infinite(data$alpha_untrained_PCM)], data$alpha_untrained_PCM[!is.infinite(data$alpha_untrained_PCM)])
-cor.test(data$alpha_trained[!is.infinite(data$alpha_trained_PCM)], data$alpha_trained_PCM[!is.infinite(data$alpha_trained_PCM)])
+}
 
-#plot(data$alpha_untrained, data$alpha_untrained_PCM, ylim = c(-2, 4))
-
-# myplot = ggplot(data%>% filter( !label %in% control_labels) %>% group_by(session, group, hemi, CONFIGURATION) %>% 
-#                   summarise(val.mean = mean(value), val.sem = sem(value)), aes(
-#   x = session,
-#   y = val.mean,
-#   ymin = val.mean - val.sem, 
-#   ymax = val.mean + val.sem, 
-#   col = group,
-#   group = group
-# )) + geom_line() + 
-#   geom_point() + 
-#   geom_errorbar() + 
-#   facet_grid(CONFIGURATION ~ hemi) + 
-#   #ylim(0, 1) + 
-#   theme_lh() + scale_colour_manual(values = myPalette)
-# 
-# print(myplot)
+if (T) {
+  WIDTH = 30; HEIGHT = 24; DPI = 1000
+  meas = 'correlation'
+  #meas = 'cosine'
+  #meas = 'euclidean'
+  suffix0 = 'mask-cross-perm'
+  #suffix0 = 'mask-cross-derivatives'
+  #suffix0 = 'mask-cross'
+  suffix1 = '-all'
+  do_variability_analysis(meas, suffix0, suffix1)
+}

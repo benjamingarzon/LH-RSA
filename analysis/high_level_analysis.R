@@ -33,10 +33,10 @@ mask_roi = 'mask.nii.gz'
 ########################
 # Set up analyses
 ########################
-collect_data = T
-NPROCS = 10
+collect_data = F
+NPROCS = 5
 
-analysis_type = 'surfL'  #volume, surfR/L 
+analysis_type = 'surfR'  #volume, surfR/L 
 
 analysis_name = 'Trained_Untrained'
 conditions = c(1, 2)
@@ -187,7 +187,43 @@ if (collect_data) {
 
 # check results: freeview -f /usr/local/freesurfer/7.1.1-1/subjects/fsaverage6/surf/lh.inflated:overlay=INTERCEPT_coef.func.gii
 
+results.quadratic_whole_prereg = doit(file.path(DATADIR, analysis_type),
+                                      image.list,
+                                      testquadraticrun_prereg,
+                                      'tests/quadratic_whole_prereg',
+                                      MASK = mask_whole,
+                                      IMAGES_NAME = 'image_list.txt',
+                                      IMAGING_NAME = 'images.nii.gz',
+                                      conditions = condition.list,
+                                      motion = motion,
+                                      to_gifti = mysurf)
+stophere
 # tests for activation maps
+results.asymptotic.prereg = doit(file.path(DATADIR, analysis_type),
+                               image.list,
+                               testasymptoticrun_prereg,
+                               'tests/asymptotic_prereg',
+                               MASK = mask_roi,
+                               IMAGES_NAME = 'image_list.txt',
+                               IMAGING_NAME = 'images.nii.gz',
+                               conditions = condition.list,
+                               motion = motion,
+                               to_gifti = mysurf)
+
+
+results.comparison.prereg = doit(file.path(DATADIR, analysis_type),
+                                 image.list,
+                                 modelcomparisonrun,
+                                 'tests/comparison_prereg',
+                                 MASK = mask_roi,
+                                 IMAGES_NAME = 'image_list.txt',
+                                 IMAGING_NAME = 'images.nii.gz',
+                                 conditions = condition.list, 
+                                 motion = motion,
+                                 to_gifti = mysurf)
+
+
+
 results.quadratic_prereg_groupxtraining = doit(file.path(DATADIR, analysis_type),
                                 image.list,
                                 testquadraticrun_prereg_groupxtraining,
@@ -198,6 +234,17 @@ results.quadratic_prereg_groupxtraining = doit(file.path(DATADIR, analysis_type)
                                 conditions = condition.list,
                                 motion = motion,
                                 to_gifti = mysurf)
+
+results.asymptotic_prereg_groupxtraining = doit(file.path(DATADIR, analysis_type),
+                                               image.list,
+                                               testasymptoticrun_prereg_groupxtraining,
+                                               'tests/asymptotic_prereg_groupxtraining',
+                                               MASK = mask_roi,
+                                               IMAGES_NAME = 'image_list.txt',
+                                               IMAGING_NAME = 'images.nii.gz',
+                                               conditions = condition.list,
+                                               motion = motion,
+                                               to_gifti = mysurf)
 
 results.quadratic_prereg_groupxconditionxtraining = doit(file.path(DATADIR, analysis_type),
                                                image.list,
@@ -210,19 +257,17 @@ results.quadratic_prereg_groupxconditionxtraining = doit(file.path(DATADIR, anal
                                                motion = motion,
                                                to_gifti = mysurf)
 
-results.quadratic_whole_prereg = doit(file.path(DATADIR, analysis_type),
-                                image.list,
-                                testquadraticrun_prereg,
-                                'tests/quadratic_whole_prereg',
-                                MASK = mask_whole,
-                                IMAGES_NAME = 'image_list.txt',
-                                IMAGING_NAME = 'images.nii.gz',
-                                conditions = condition.list,
-                                motion = motion,
-                                to_gifti = mysurf)
+results.asymptotic_prereg_groupxconditionxtraining = doit(file.path(DATADIR, analysis_type),
+                                                         image.list,
+                                                         testasymptoticrun_prereg_groupxconditionxtraining,
+                                                         'tests/asymptotic_prereg_groupxconditionxtraining',
+                                                         MASK = mask_roi,
+                                                         IMAGES_NAME = 'image_list.txt',
+                                                         IMAGING_NAME = 'images.nii.gz',
+                                                         conditions = condition.list,
+                                                         motion = motion,
+                                                         to_gifti = mysurf)
 
-if (F) {
-  
 results.quadratic.prereg = doit(file.path(DATADIR, analysis_type),
                                 image.list,
                                 testquadraticrun_prereg,
@@ -234,6 +279,32 @@ results.quadratic.prereg = doit(file.path(DATADIR, analysis_type),
                                 motion = motion,
                                 to_gifti = mysurf)
 
+results.asymptotic.prereg = doit(file.path(DATADIR, analysis_type),
+                                image.list,
+                                testasymptoticrun_prereg,
+                                'tests/asymptotic_prereg',
+                                MASK = mask_roi,
+                                IMAGES_NAME = 'image_list.txt',
+                                IMAGING_NAME = 'images.nii.gz',
+                                conditions = condition.list,
+                                motion = motion,
+                                to_gifti = mysurf)
+
+
+
+results.linear.prereg = doit(file.path(DATADIR, analysis_type),
+                             image.list,
+                             testlinearrun_prereg,
+                             'tests/linear_prereg',
+                             MASK = mask_roi,
+                             IMAGES_NAME = 'image_list.txt',
+                             IMAGING_NAME = 'images.nii.gz',
+                             conditions = condition.list,
+                             motion = motion,
+                             to_gifti = mysurf)
+
+  if (F) {
+    
 results.linear = doit(file.path(DATADIR, analysis_type),
                            image.list,
                            testlinearrun,
@@ -279,16 +350,6 @@ results.linear_whole_prereg = doit(file.path(DATADIR, analysis_type),
                                    motion = motion,
                                    to_gifti = mysurf)
 
-results.linear.prereg = doit(file.path(DATADIR, analysis_type),
-                             image.list,
-                             testlinearrun_prereg,
-                             'tests/linear_prereg',
-                             MASK = mask_roi,
-                             IMAGES_NAME = 'image_list.txt',
-                             IMAGING_NAME = 'images.nii.gz',
-                             conditions = condition.list,
-                             motion = motion,
-                             to_gifti = mysurf)
 
 results.linear.prereg_half = doit(file.path(DATADIR, analysis_type),
                                   image.list,

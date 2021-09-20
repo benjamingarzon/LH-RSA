@@ -9,7 +9,20 @@ library(multcomp)
 library(freesurfer)
 library(stringr)
 
-DPI = 10
+DPI = 500 # default
+
+clean_measure_names = function(x, keep_first = F){
+  
+  if (keep_first)
+  sapply(x, function(z) {
+    z = gsub('acc_', '', z)
+    str_to_title(paste(strsplit(as.character(z), '_')[[1]], collapse = ' '))})
+  else
+    sapply(x, function(z) {
+      z = gsub('acc_', '', z)
+      str_to_title(paste(strsplit(as.character(z), '_')[[1]][-1], collapse = ' '))})
+  
+  }
 
 label_map = function(x){
   labels = list('SMA.label' = 'supplementary motor cortex',
@@ -33,7 +46,7 @@ markoutliersIQR = function(x){
 sem = function(x)
   sd(x, na.rm = T) / sqrt(length(x))
 
-plot_activation_data = function(X, title, regressout = F, YMIN = 0, YMAX = 4) {
+plot_activation_data = function(X, title, regressout = F, YMIN = 0, YMAX = 5) {
   X = X %>% mutate(WAVE = as.numeric(substring(SUBJECT, 4, 4)), y = y/100)# %>% filter (WAVE> 1) to percent signal change
 
   model = lmer(y ~ 1 + FD + SYSTEM + CONFIGURATION + 
@@ -41,12 +54,6 @@ plot_activation_data = function(X, title, regressout = F, YMIN = 0, YMAX = 4) {
                  (1 + TRAINING + TRAINING.Q|SUBJECT), data = X)
 
   print(summary(model))
-  
-  
-  model.exp = lmer(y ~ 1 + FD + CONFIGURATION + #  #+ SYSTEM + #
-                 GROUP*(TRAINING) + 
-                 (1 + TRAINING|SUBJECT), data = subset(X, CONDITION == "UntrainedCorrect" & TP < 5))
-  print(summary(model.exp))
   
   print(sum(!is.na(X$y)))
   
@@ -66,7 +73,9 @@ plot_activation_data = function(X, title, regressout = F, YMIN = 0, YMAX = 4) {
   #  mutate(SUBJCON = paste(SUBJECT, CONDITION)) %>% 
   #  group_by(SUBJECT, GROUP, CONDITION) %>% mutate(y.dem = y - mean(y)) %>% ungroup()
   
-  X.sem = X %>% group_by(GROUP, TP, CONDITION) %>% summarise(y.sem = sem(y), y.mean = mean(y, na.rm = T))
+  X.sem = X %>% group_by(GROUP, TP, CONDITION) %>% 
+    summarise(y.sem = sem(y), y.mean = mean(y, na.rm = T)) %>% 
+    mutate(GROUP_CONDITION = paste(GROUP, CONDITION))
   
   #YMIN = min(X.sem$y.mean, na.rm = T)
   #YMAX = max(X.sem$y.mean, na.rm = T)
@@ -81,19 +90,20 @@ plot_activation_data = function(X, title, regressout = F, YMIN = 0, YMAX = 4) {
   #                                  ),
   #                                  alpha = 0.2) + geom_point(alpha = 0.2) 
   
-    X$CONDITION = gsub('Correction', '', X$CONDITION)
-  
+    X.sem$CONDITION = gsub('Correct', '', X.sem$CONDITION)
     myplot =  ggplot() + 
     geom_line(data = X.sem, aes(
       x = TP,
-      group = CONDITION, #GROUP
+      group = GROUP_CONDITION, #GROUP
       col = CONDITION,
+      linetype = GROUP,
       y = y.mean
     )) +
     geom_point(data = X.sem, aes(
       x = TP,
-      group = CONDITION,
+      group = GROUP_CONDITION,
       col = CONDITION,
+      linetype = GROUP,
       y = y.mean
     )) +
     geom_errorbar(data = X.sem,
@@ -101,10 +111,11 @@ plot_activation_data = function(X, title, regressout = F, YMIN = 0, YMAX = 4) {
                     x = TP,
                     ymax = y.mean + y.sem,
                     ymin = y.mean - y.sem,
-                    group = CONDITION,
-                    col = CONDITION
+                    group = GROUP_CONDITION,
+                    col = CONDITION,
+                    linetype = GROUP
                   )) +
-    facet_grid(. ~ GROUP) +
+#    facet_grid(. ~ GROUP) +
     xlab('Test session') +
     ylab('% signal change') + 
     scale_colour_manual(values = myPalette) + theme_lh + 
@@ -317,7 +328,7 @@ create_surf_rois = function(DATADIR,
                             THR,
                             PRECOMP_ROI = NULL,
                             wDEPTH = F, 
-                            plot_function = plot_data, annot = NULL, maxplots = 10) {
+                            plot_function = plot_data, annot = NULL, maxplots = 16) {
   tests = NULL
   rois = NULL
   myplots = NULL
@@ -462,16 +473,19 @@ create_surf_rois = function(DATADIR,
     }
   }
   FIG_DATA = paste(gsub("/", "-", TESTDIR), TESTNAME, 'data', sep = '-')
-  
-  ggsave(
+  NCOL = min(length(myplots), NCOLMAX)
+  nplots = min(length(myplots), maxplots)
+  print(NCOL)
+  print(nplots)
+    ggsave(
     filename = file.path(FIGS_DIR, paste0(FIG_DATA, '.png')),
     plot = ggarrange(
-      plotlist = myplots,
-      nrow = ceiling(length(myplots) / NCOL),
+      plotlist = myplots[seq(nplots)],
+      nrow = ceiling(nplots / NCOL),
       ncol = min(NCOL, length(myplots))
     ),
     width = NCOL*10,
-    height = ceiling(max(length(myplots), maxplots) / NCOL)*8,
+    height = ceiling(nplots / NCOL)*8,
     limitsize = F,
     dpi = DPI
   )
