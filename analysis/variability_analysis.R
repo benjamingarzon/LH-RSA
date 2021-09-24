@@ -13,7 +13,7 @@ suffix = paste0(suffix0, suffix1)
 data_file = paste0('/data/lv0/MotorSkill/fmriprep/analysis/surf/roi_scores_', suffix0, '.csv')
 #data_file = '/data/lv0/MotorSkill/fmriprep/analysis/surf/roi_scores_mask-cross.csv'
 #output_file = '/data/lv0/MotorSkill/fmriprep/analysis/surf/clf_acc.csv'
-output_file = '/data/lv0/MotorSkill/fmriprep/analysis/surf/alpha_diff.csv'
+output_file = paste0('/data/lv0/MotorSkill/fmriprep/analysis/surf/', suffix, '.csv')
 figs_dir = '/data/lv0/MotorSkill/figs/variability'
 data = read.table(data_file, header = T, sep = ',') %>% arrange(subject, session, hemi, label)
 
@@ -51,7 +51,7 @@ if (meas == 'euclidean'){
   if (suffix1 == '-same') data$value = data$euclidean_trained_same - data$euclidean_untrained_same 
   else data$value = data$euclidean_trained_different - data$euclidean_untrained_different
   ylabel = "Squared euclidean distance"
-  ylimit = c(40, 80)
+  ylimit = c(4, 6)
   ylimit_diff = c(-2, 2)
   
   }
@@ -97,7 +97,7 @@ if (meas == 'mean_signal'){
   mymeasures = c("mean_signal_trained", "mean_signal_untrained")
   data$value = data$mean_signal_trained - data$mean_signal_untrained 
   ylabel = "% signal change"
-  ylimit = c(0, 6)
+  ylimit = c(-1, 3)
   ylimit_diff = c(-3, 3)
   
 } 
@@ -115,14 +115,14 @@ output.data = data%>%
 write.table(output.data, file = output_file, sep = ',', col.names = T, row.names = F)
 #stophere
 
-nrois = 5
+nrois = 4
 # check data
 plot(sort(table(data$subject))/nrois/2, las = 2) # how many sessions per subject
 plot(sort(table(data$session))/nrois/2, las = 2) # how many sessions per timepoint
 
 # relabel rois and separate hemispheres
 control_labels = c("R_C1", "L_C1")
-#data = data %>% filter( !label %in% control_labels)
+data = data %>% filter( !label %in% control_labels)
 incomplete_subjects = c("sub-lue5207", "sub-lue3202", "sub-lue1201")
 data$label  = gsub("R_", "Right ", data$label)
 data$label  = gsub("L_", "Left ", data$label)
@@ -143,9 +143,10 @@ data = left_join(data, motion %>% group_by(SUBJECT, TP) %>%
                    summarise(FD = mean (FD)) %>% mutate(subject = paste0('sub-', SUBJECT), session = TP), 
                  by = c("subject", "session"))
 print(mymeasures)
-data.melt = melt(data, 
+
+data.melt = reshape2::melt(data, 
                  id.vars = c("subject", "session", "GROUP", "hemi", "label", 
-                             "FD", "SYSTEM", "CONFIGURATION", "TRAINING", "TRAINING.Q"),
+                             "FD", "SYSTEM", "CONFIGURATION", "TRAINING"), #, "TRAINING.Q, TRAINING.A"
                  variable.name = "MEASURE", 
                  value.name = "value") %>% mutate(SUBJECT = subject, value = as.numeric(value)) %>%
   filter(MEASURE %in% mymeasures) 
@@ -266,14 +267,15 @@ ggsave(
 
 }
 
-if (T) {
+if (F) {
   WIDTH = 30; HEIGHT = 24; DPI = 1000
   meas = 'correlation'
   #meas = 'cosine'
-  #meas = 'euclidean'
+  meas = 'euclidean'
+  #meas = 'clf'
   suffix0 = 'mask-cross-perm'
   #suffix0 = 'mask-cross-derivatives'
-  #suffix0 = 'mask-cross'
+  suffix0 = 'mask-cross'
   suffix1 = '-all'
   do_variability_analysis(meas, suffix0, suffix1)
 }

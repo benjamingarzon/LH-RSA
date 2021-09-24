@@ -22,7 +22,7 @@ names(ylabels) = c('xcorrelation', 'xcosine', 'xnobis', 'xeuclidean')
 ########################
 # Prepare data
 ########################
-data_file = paste0('/data/lv0/MotorSkill/fmriprep/analysis/surf/across_session_scores_', suffix0, '.csv')
+data_file = paste0('/data/lv0/MotorSkill/fmriprep/analysis/surf/across_session_scores_complete_', suffix0, '.csv')
 data = read.table(data_file, header = T, sep = ',')
 
 data$group = "Intervention"
@@ -45,9 +45,10 @@ data$label  = gsub("C1", "Control Region", data$label)
 #data$uni_label  = gsub("Right ", "Average ", data$label)
 #data$uni_label  = gsub("Left ", "Average ", data$uni_label)
 
+
 data.mean = data%>%
   group_by(group, label, session_train, session_test, session_diff, metric, seq_train)%>% 
-  mutate(value = 1 - ifisherz(value)) %>%
+#  mutate(value = 1 - ifisherz(value)) %>%
   dplyr::summarise(val.mean = mean(value, na.rm = T), val.sem = sem(value))%>% 
   mutate(train_group = paste(seq_train, group))
 
@@ -144,8 +145,8 @@ data.subset = data %>% filter(session_test != session_train &
 
 # are the matrices symetric?
 if (suffix1 == '-all') {
-model = lmer(value ~ scale(session_diff)*seq_train*group + (1| subject), data = data.subset)
-summary(model)
+#model = lmer(value ~ scale(session_diff)*seq_train*group + (1| subject), data = data.subset)
+#summary(model)
 
 data.cmd.all = NULL
 #for (mylabel in unique(data.mean$label)){
@@ -281,8 +282,9 @@ if (T) {
   HEIGHT = 24
   DPI = 1000
   mymetric = 'xcorrelation'
+  mymetric = 'xnobis'
   suffix0 = 'mask-cross'
-  suffix1 = '-all'
+  suffix1 = '-different'
   mylabels = c('Right SPL', 'Right PS', 'Right PM', 'Left PM', 'Left SPL') #, 'Right Control Region')
   do_session_variability_analysis(mymetric, suffix0, suffix1, mylabels)
 }

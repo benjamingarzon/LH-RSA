@@ -36,7 +36,7 @@ mask_roi = 'mask.nii.gz'
 collect_data = F
 NPROCS = 5
 
-analysis_type = 'surfR'  #volume, surfR/L 
+analysis_type = 'surfL'  #volume, surfR/L 
 
 analysis_name = 'Trained_Untrained'
 conditions = c(1, 2)
@@ -186,6 +186,67 @@ if (collect_data) {
 
 
 # check results: freeview -f /usr/local/freesurfer/7.1.1-1/subjects/fsaverage6/surf/lh.inflated:overlay=INTERCEPT_coef.func.gii
+
+
+results.asymptotic_prereg_groupxtraining = doit(file.path(DATADIR, analysis_type),
+                                                image.list,
+                                                testasymptoticrun_prereg_groupxtraining,
+                                                'tests/asymptotic_prereg_groupxtraining',
+                                                MASK = mask_roi,
+                                                IMAGES_NAME = 'image_list.txt',
+                                                IMAGING_NAME = 'images.nii.gz',
+                                                conditions = condition.list,
+                                                motion = motion,
+                                                to_gifti = mysurf)
+
+results.asymptotic_prereg_omni = doit(file.path(DATADIR, analysis_type),
+                                                image.list,
+                                                testasymptoticrun_prereg_omni,
+                                                'tests/asymptotic_prereg_omni',
+                                                MASK = mask_roi,
+                                                IMAGES_NAME = 'image_list.txt',
+                                                IMAGING_NAME = 'images.nii.gz',
+                                                conditions = condition.list,
+                                                motion = motion,
+                                                to_gifti = mysurf)
+
+stophere
+results.testgeneralization_prereg = doit(file.path(DATADIR, analysis_type),
+                                       image.list,
+                                       testgeneralization_prereg,
+                                       'tests/generalization_prereg',
+                                       MASK = mask_roi,
+                                       IMAGES_NAME = 'image_list.txt',
+                                       IMAGING_NAME = 'images.nii.gz',
+                                       conditions = condition.list,
+                                       motion = motion,
+                                       to_gifti = mysurf)
+
+
+stophere
+results.testfirstsessionaverage = doit(file.path(DATADIR, analysis_type),
+                                      image.list,
+                                      testfirstsessionaverage_prereg,
+                                      'tests/firstsessionaverage_prereg',
+                                      MASK = mask_whole,
+                                      IMAGES_NAME = 'image_list.txt',
+                                      IMAGING_NAME = 'images.nii.gz',
+                                      conditions = condition.list,
+                                      motion = motion,
+                                      to_gifti = mysurf)
+
+
+results.asymptotic_whole_prereg = doit(file.path(DATADIR, analysis_type),
+                                       image.list,
+                                       testasymptoticrun_prereg,
+                                       'tests/asymptotic_whole_prereg',
+                                       MASK = mask_whole,
+                                       IMAGES_NAME = 'image_list.txt',
+                                       IMAGING_NAME = 'images.nii.gz',
+                                       conditions = condition.list,
+                                       motion = motion,
+                                       to_gifti = mysurf)
+
 
 results.quadratic_whole_prereg = doit(file.path(DATADIR, analysis_type),
                                       image.list,
@@ -365,8 +426,9 @@ results.linear.prereg_half = doit(file.path(DATADIR, analysis_type),
 }
 
 # sync folders
-#mydir=TrainedCorrect_TrainedIncorrect
-#for name in comparison_prereg comparison_whole_prereg linear_prereg linear linear_whole_prereg linear_prereg_half quadratic_prereg quadratic_whole_prereg quadratic_prereg_groupxtraining quadratic_prereg_groupxconditionxtraining; 
+#mydir=Trained_Untrained
+#for name in comparison_prereg comparison_whole_prereg linear_prereg linear linear_whole_prereg linear_prereg_half quadratic_prereg quadratic_whole_prereg quadratic_prereg_groupxtraining quadratic_prereg_groupxconditionxtraining;# 
+#for name in asymptotic_prereg_groupxtraining asymptotic_prereg_groupxconditionxtraining;# 
 #do 
 #ln -s /data/lv0/MotorSkill/fmriprep/analysis/higherlevel/$mydir/surfL/tests/$name /data/lv0/MotorSkill/fmriprep/analysis/higherlevel/$mydir/surf/tests/${name}.lh
 #ln -s /data/lv0/MotorSkill/fmriprep/analysis/higherlevel/$mydir/surfR/tests/$name /data/lv0/MotorSkill/fmriprep/analysis/higherlevel/$mydir/surf/tests/${name}.rh

@@ -16,10 +16,10 @@ WIDTH = 30; HEIGHT = 24; DPI = 1000
 ########################
 if(T) {
 
-for (suffix0 in c('mask-cross', 'mask-cross-derivatives')) { #mask-cross-derivatives-perm, 'mask-cross-perm',
+for (suffix0 in c('mask-cross', 'mask-cross-perm')) { #mask-cross-derivatives-perm, 'mask-cross-perm',
   print(suffix0)
-#  for (measure in c( 'xnobis', 'cosine', 'correlation', 'euclidean', 'mean_signal', 'alpha', 'clf')){
-  for (measure in c( 'clf')){
+  for (measure in c( 'xnobis', 'cosine', 'correlation', 'euclidean', 'mean_signal', 'alpha', 'clf')){
+#  for (measure in c( 'clf')){
       do_variability_analysis(measure, suffix0, '-all')
     
   }
@@ -38,7 +38,7 @@ for (suffix0 in c('mask-cross', 'mask-cross-derivatives')) { #mask-cross-derivat
 mylabels = c('Right PM', 'Right SPL', 'Right PS') #'Right Control Region', , 'Right SMA'
 #, 'Left PM', 'Left Control Region',  'Left SPL', 'Left PS', 'Left SMA')
 
-for (suffix0 in c('mask-cross')) { #mask-cross-derivatives-perm, 'mask-cross-perm', , 'mask-cross-derivatives'
+for (suffix0 in c('mask-cross', 'mask-cross-perm')) { #mask-cross-derivatives-perm, 'mask-cross-perm', , 'mask-cross-derivatives'
   for (measure in c('xcosine', 'xcorrelation'))  { #'xnobis', 
     do_session_variability_analysis(measure, suffix0, '-all', mylabels)
     do_session_variability_analysis(measure, suffix0, '-same', mylabels)

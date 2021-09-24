@@ -46,14 +46,21 @@ markoutliersIQR = function(x){
 sem = function(x)
   sd(x, na.rm = T) / sqrt(length(x))
 
-plot_activation_data = function(X, title, regressout = F, YMIN = 0, YMAX = 5) {
+plot_activation_data = function(X, title, regressout = F, YMIN = 0, YMAX = 4) {
   X = X %>% mutate(WAVE = as.numeric(substring(SUBJECT, 4, 4)), y = y/100)# %>% filter (WAVE> 1) to percent signal change
 
+  if(F){
   model = lmer(y ~ 1 + FD + SYSTEM + CONFIGURATION + 
-                 GROUP*CONDITION*(TRAINING + TRAINING.Q) +
-                 (1 + TRAINING + TRAINING.Q|SUBJECT), data = X)
+                 GROUP*CONDITION*(TRAINING + TRAINING.A) +
+                 (1 + TRAINING + TRAINING.A|SUBJECT), data = X)
 
-  print(summary(model))
+  print(summary(model.untrained))
+  }
+  
+  model.untrained = lmer(y ~ 1 + FD + SYSTEM + CONFIGURATION + 
+                 GROUP*(TRAINING + TRAINING.A) +
+                 (1 + TRAINING + TRAINING.A|SUBJECT), data = subset(X, WAVE > 1 & CONDITION == 'UntrainedCorrect'))
+  print(summary(model.untrained)$coefficients[c(7, 10, 11), ])
   
   print(sum(!is.na(X$y)))
   
@@ -119,8 +126,13 @@ plot_activation_data = function(X, title, regressout = F, YMIN = 0, YMAX = 5) {
     xlab('Test session') +
     ylab('% signal change') + 
     scale_colour_manual(values = myPalette) + theme_lh + 
-    theme(legend.position = "bottom", legend.title = element_blank()) + 
-    ggtitle(title) + ylim(YMIN, YMAX) 
+    ggtitle(title) + ylim(YMIN, YMAX) +
+    theme(legend.position = "bottom", 
+          legend.title = element_blank(), 
+          plot.title = element_text(hjust = 0.5),
+          axis.text=element_text(size=18),
+          axis.title=element_text(size=20, face="bold"))
+    
     if (YMIN < 0 ) myplot = myplot + geom_hline(yintercept = 0, size = 0.2)  
     
   return(myplot)
@@ -326,6 +338,7 @@ create_surf_rois = function(DATADIR,
                             radius,
                             MASK_NAME,
                             THR,
+                            MAXTHR, 
                             PRECOMP_ROI = NULL,
                             wDEPTH = F, 
                             plot_function = plot_data, annot = NULL, maxplots = 16) {
@@ -434,7 +447,8 @@ create_surf_rois = function(DATADIR,
       if (!is.null(annot)) {
         annot.lh = paste0('annot=', annot[['lh']],':annot_outline=1')
         annot.rh = paste0('annot=', annot[['rh']],':annot_outline=1')
-      }
+      } else
+      { annot.lh = annot.rh = '' }
       # plot maps
       command = paste(
         "./show_surface.sh",
@@ -442,7 +456,7 @@ create_surf_rois = function(DATADIR,
         tests['lh'],
         tests['rh'],
         THR,
-        1,
+        MAXTHR,
         FIG_MAP,
         inflated.lh,
         inflated.rh,

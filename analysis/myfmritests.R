@@ -2,6 +2,134 @@
 export_funcs = c('testlinearrun', 'testquadraticrun', 'testasymptoticrun') # export it to imagelmmr
 
 # asymptotic tests
+testgeneralization_prereg = function(y, X, ALTERNATIVE = 'greater', WAVES = seq(2, 5), select_contrasts = seq(3))
+{ 
+  var.names = c("INTERCEPT", "FD", "SYSTEMMTx8", "CONFIGURATION2", "CONFIGURATION3", "CONFIGURATION4",
+                "GROUPExp", 
+                "TRAINING", "TRAINING.A",
+                "GROUPExp_x_TRAINING", "GROUPExp_x_TRAINING.A")
+  
+  contrast.names = c("GROUPExp_x_TRAINING-", "GROUPExp_x_TRAINING.A-", "GROUPExp-")
+  
+  c.1        = c(rep(0, 9), -1, 0)
+  c.2        = c(rep(0, 10), -1)
+  c.3        = c(rep(0, 6), -1, rep(0, 4))
+
+  cont.mat = rbind(c.1, c.2, c.3)
+  
+  cont.mat = cont.mat[select_contrasts, ]
+  contrast.names = contrast.names[select_contrasts]
+  
+  colnames(cont.mat) = var.names
+  rownames(cont.mat) = contrast.names
+  
+  tags = c(paste0(var.names, '_coef'),
+           paste0(contrast.names, '_coef'),
+           paste0(var.names, '_tstat'),
+           paste0(contrast.names, '_tstat'),
+           paste0(var.names, '_p'),
+           paste0(contrast.names, '_p'))
+  
+  X$y = y
+  model = lmer(y ~ 1 + FD + SYSTEM + CONFIGURATION + GROUP*(TRAINING + TRAINING.A) + 
+                 + (1 + TRAINING|SUBJECT), data = subset(X, WAVE %in% WAVES & CONDITION == 'UntrainedCorrect')) # + TRAINING.A
+  
+  tryCatch({
+    
+    coefs = fixef(model)
+    pvalues = summary(model)$coefficients[ , "Pr(>|t|)"]
+    tstats = summary(model)$coefficients[ , "t value"]
+    glh = glht(model, linfct = cont.mat, alternative=ALTERNATIVE) 
+    contrast.pvalues = summary(glh)$test$pvalues
+    contrast.coefs = coef(glh)
+    contrast.tstats = summary(glh)$test$tstat
+    val = c(coefs, contrast.coefs, tstats, contrast.tstats, pvalues, contrast.pvalues)
+    
+    sumglh = summary(glh, test = Ftest())
+    val = c(val, sumglh$test$fstat,  sumglh$test$pvalue)
+    names(val) = c(tags, 'OmniF_tstat', 'Omni_p') 
+    return(val)
+    
+  },
+  
+  error = function(cond){
+    # something went wrong, save special values
+    pvalues = rep(2, length(var.names))
+    coefs = rep(0, length(var.names))
+    tstats = rep(0, length(var.names))
+    contrast.pvalues = rep(2, length(contrast.names))
+    contrast.coefs = rep(0, length(contrast.names))
+    contrast.tstats = rep(0, length(contrast.names))
+    val = c(coefs, contrast.coefs, tstats, contrast.tstats, pvalues, contrast.pvalues)
+    val = c(val, 0, 0)
+    names(val) = c(tags, 'OmniF_tstat', 'Omni_p')
+    return(val)
+    
+  }
+  )
+  
+}
+
+testfirstsessionaverage_prereg = function(y, X, ALTERNATIVE = 'greater', WAVES = seq(2, 5))
+{ 
+  var.names = c("INTERCEPT", "FD", "CONFIGURATION2", "CONFIGURATION3", "CONFIGURATION4")
+  
+  contrast.names = c("INTERCEPT")
+  
+  c.1        = c(1, rep(0, 4))
+  
+  cont.mat = rbind(c.1)
+  
+  colnames(cont.mat) = var.names
+  rownames(cont.mat) = contrast.names
+  
+  tags = c(paste0(var.names, '_coef'),
+           paste0(contrast.names, '_coef'),
+           paste0(var.names, '_tstat'),
+           paste0(contrast.names, '_tstat'),
+           paste0(var.names, '_p'),
+           paste0(contrast.names, '_p'))
+  
+  X$y = y
+
+  model = lmer(y ~ 1 + FD + CONFIGURATION + (1 |SUBJECT), 
+               data = subset(X, WAVE %in% WAVES & TP == 1)) 
+  
+  tryCatch({
+    
+    coefs = fixef(model)
+    pvalues = summary(model)$coefficients[ , "Pr(>|t|)"]
+    tstats = summary(model)$coefficients[ , "t value"]
+    glh = glht(model, linfct = cont.mat, alternative=ALTERNATIVE) 
+    contrast.pvalues = summary(glh)$test$pvalues
+    contrast.coefs = coef(glh)
+    contrast.tstats = summary(glh)$test$tstat
+    val = c(coefs, contrast.coefs, tstats, contrast.tstats, pvalues, contrast.pvalues)
+    
+    names(val) = tags
+    return(val)
+    
+  },
+  
+  error = function(cond){
+    # something went wrong, save special values
+    pvalues = rep(2, length(var.names))
+    coefs = rep(0, length(var.names))
+    tstats = rep(0, length(var.names))
+    contrast.pvalues = rep(2, length(contrast.names))
+    contrast.coefs = rep(0, length(contrast.names))
+    contrast.tstats = rep(0, length(contrast.names))
+    val = c(coefs, contrast.coefs, tstats, contrast.tstats, pvalues, contrast.pvalues)
+    names(val) = tags
+    return(val)
+    
+  }
+  )
+  
+}
+
+
+# asymptotic tests
 testasymptoticrun = function(y, X, ALTERNATIVE = 'greater', WAVES = seq(5), select_contrasts = seq(4))
 { 
   var.names = c("INTERCEPT", "FD", "SYSTEMMTx8", "CONFIGURATION2", "CONFIGURATION3", "CONFIGURATION4",
@@ -82,11 +210,15 @@ testasymptoticrun_prereg  = function(y, X, ALTERNATIVE = 'greater') {
 }
 
 testasymptoticrun_prereg_groupxtraining  = function(y, X, ALTERNATIVE = 'greater') {
-  return( testasymptoticrun(y, X, ALTERNATIVE, WAVES = c(2, 3, 4, 5), select_contrasts = c(1, 2, 5)))
+  return( testasymptoticrun(y, X, ALTERNATIVE, WAVES = c(2, 3, 4, 5), select_contrasts = c(1, 2)))
 }
 
 testasymptoticrun_prereg_groupxconditionxtraining  = function(y, X, ALTERNATIVE = 'greater') {
   return( testasymptoticrun(y, X, ALTERNATIVE, WAVES = c(2, 3, 4, 5), select_contrasts = c(3, 4, 6)))
+}
+
+testasymptoticrun_prereg_omni  = function(y, X, ALTERNATIVE = 'greater') {
+  return( testasymptoticrun(y, X, ALTERNATIVE, WAVES = c(2, 3, 4, 5), select_contrasts = c(1, 2, 3, 4, 6)))
 }
 
 

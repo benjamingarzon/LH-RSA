@@ -9,7 +9,6 @@ WD='/data/lv0/MotorSkill/'
 num_cores=10
 # cross-validated & permutated
 python surface_roi_analysis.py --WD=$WD \
-    --overwrite_scores \
     --output_data \
     --do_prewhitening=session \
     --suffix=mask-cross-perm \

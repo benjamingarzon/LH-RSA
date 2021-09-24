@@ -32,7 +32,7 @@ from itertools import combinations, product
 import random
 from collections import defaultdict, ChainMap
 from joblib import Parallel, delayed
-
+import time
 
 sys.path.append('/home/xgarzb@GU.GU.SE/Software/')
 import PcmPy as pcm
@@ -248,9 +248,9 @@ pls_ovo = OneVsOneClassifier(pls)
 
 balanced_scorer = make_scorer(balanced_accuracy_score)
 
-def partial_dist(X, y, splits, label1, label2, splitp, distance = cosine):
+def partial_dist(X, y, splits, label1, label2, splitp, distance = cosine, 
+                 n_sample = None):
     
-
     if label1 == label2:
         indicesp = np.where(np.logical_and(y == label1, splits == splitp))[0]
         index_pairsp = list(combinations(indicesp, 2))
@@ -260,6 +260,10 @@ def partial_dist(X, y, splits, label1, label2, splitp, distance = cosine):
         indices2p = np.where(np.logical_and(y == label2, splits == splitp))[0]
         index_pairsp = list(product(indices1p, indices2p))
     
+    if n_sample is not None:
+        if n_sample < len(index_pairsp):
+            index_pairsp = random.sample(index_pairsp, k = n_sample)
+            
     dists = [distance(X[index1, :], X[index2, :]) \
                  for index1, index2 in index_pairsp ]
         
@@ -287,38 +291,52 @@ def partial_xdist(X, y, splits, label1, label2, splitp, splitn,
     else:
         return np.mean(np.arctanh(1-np.array(dists)))
 
-def partial_dist_session(X_1, y_1, label1, X_2, y_2, label2, distance = cosine):
+def partial_dist_session(X_1, y_1, splitp, label1, X_2, y_2, splitn, label2, 
+                         splits_1, splits_2,
+                         distance = cosine, 
+                         n_sample = None):
     
-    indices1p = np.where(y_1 == label1)[0]
-    indices2p = np.where(y_2 == label2)[0]
+    indices1p = np.where(np.logical_and(y_1 == label1, splits_1 == splitp))[0]
+    indices2p = np.where(np.logical_and(y_2 == label2, splits_2 == splitn))[0]
     index_pairsp = list(product(indices1p, indices2p))
 
+    if n_sample is not None:
+        if n_sample < len(index_pairsp):
+            index_pairsp = random.sample(index_pairsp, k = n_sample)
+            
     dists = [distance(X_1[index1, :], X_2[index2, :]) \
                  for index1, index2 in index_pairsp ]
 
     if distance == euclidean:
         return np.mean(np.array(dists)**2)/X_1.shape[1]
     else:
-        return np.mean(np.arctanh(1-np.array(dists)))
+        return np.mean(np.arctanh(1 - np.array(dists)))
 
-def partial_xnobis_session(X_1, y_1, label1, X_2, y_2, label2):
+def partial_xnobis_session(X_1, y_1, splitp, label1, X_2, y_2, splitn, label2,
+                           splits_1, splits_2, n_sample = None):
 
     if label1 == label2:
-        indicesp = np.where(y_1 == label1)[0]
-        indicesn = np.where(y_2 == label1)[0]
+        
+        indicesp = np.where(np.logical_and(y_1 == label1, splits_1 == splitp))[0]
+        indicesn = np.where(np.logical_and(y_2 == label1, splits_2 == splitn))[0]
         index_pairsp = list(combinations(indicesp, 2))
         index_pairsn = list(combinations(indicesn, 2))
 
     else:
-        indices1p = np.where(y_1 == label1)[0]
-        indices1n = np.where(y_2 == label1)[0]
-        indices2p = np.where(y_1 == label2)[0]
-        indices2n = np.where(y_2 == label2)[0]
+        indices1p = np.where(np.logical_and(y_1 == label1, splits_1 == splitp))[0]
+        indices1n = np.where(np.logical_and(y_2 == label1, splits_2 == splitn))[0]
+        indices2p = np.where(np.logical_and(y_1 == label2, splits_1 == splitp))[0]
+        indices2n = np.where(np.logical_and(y_2 == label2, splits_2 == splitn))[0]
 
         index_pairsp = list(product(indices1p, indices2p))
         index_pairsn = list(product(indices1n, indices2n))
 
     index_prod = list(product(index_pairsp, index_pairsn))
+
+    if n_sample is not None:
+        #print(f"++++{len(index_prod)}")
+        if n_sample < len(index_prod):
+            index_prod = random.sample(index_prod, k = n_sample)
 
     dists = [np.dot(X_1[indexp[0], :] -  X_1[indexp[1], :], 
                     X_2[indexn[0], :] -  X_2[indexn[1], :]) \
@@ -327,7 +345,8 @@ def partial_xnobis_session(X_1, y_1, label1, X_2, y_2, label2):
     return np.mean(dists)/X_1.shape[1]
 
 
-def partial_xnobis(X, y, splits, label1, label2, splitp, splitn, n_sample = None):
+def partial_xnobis(X, y, splits, label1, label2, splitp, splitn, 
+                   n_sample = None):
 
     if label1 == label2:
         indicesp = np.where(np.logical_and(y == label1, splits == splitp))[0]
@@ -344,6 +363,7 @@ def partial_xnobis(X, y, splits, label1, label2, splitp, splitn, n_sample = None
         index_pairsn = list(product(indices1n, indices2n))
 
     index_prod = list(product(index_pairsp, index_pairsn))
+    
     if n_sample is not None:
         if n_sample < len(index_prod):
             index_prod = random.sample(index_prod, k = n_sample)
@@ -355,7 +375,7 @@ def partial_xnobis(X, y, splits, label1, label2, splitp, splitn, n_sample = None
     return np.mean(dists)/X.shape[1]
 
   
-def compute_distance(X, y, df, splits, dist_type = 'xnobis'):
+def compute_distance(X, y, df, splits, dist_type = 'xnobis', n_sample = None):
     labels = np.unique(y)
     n_labels = len(labels)
     usplits = np.unique(splits)
@@ -370,7 +390,8 @@ def compute_distance(X, y, df, splits, dist_type = 'xnobis'):
                     for i2, label2 in enumerate(labels):
                             dist[i1, i2, j, k] = partial_xnobis(X, y, splits, 
                                                                   label1, label2, 
-                                                                  splitp, splitn)
+                                                                  splitp, splitn,
+                                                                  n_sample)
         dist = np.mean(dist, axis = 3) # across training splits 
 
     distances = {
@@ -393,7 +414,8 @@ def compute_distance(X, y, df, splits, dist_type = 'xnobis'):
                             dist[i1, i2, j, k] = partial_xdist(X, y, splits, 
                                                                   label1, label2, 
                                                                   splitp, splitn,                                                                  
-                                                                  distances[dist_type])
+                                                                  distances[dist_type],
+                                                                  n_sample)
         dist = np.mean(dist, axis = 3) # across training splits 
 
     if dist_type in ['correlation', 'cosine', 'euclidean']:
@@ -407,7 +429,8 @@ def compute_distance(X, y, df, splits, dist_type = 'xnobis'):
                                                            splits, 
                                                            label1, label2, 
                                                            splitp, 
-                                                           distances[dist_type])
+                                                           distances[dist_type], 
+                                                           n_sample)
                         
     dist = np.mean(dist, axis = 2) # across validation splits
     if False:
@@ -445,17 +468,26 @@ def compute_distance(X, y, df, splits, dist_type = 'xnobis'):
            dist_trained_untrained,
            labels)
 
-def compute_distance_session(X_1, y_1, X_2, y_2, df_1, df_2, dist_type = 'xcosine'):
+def compute_distance_session(X_1, y_1, X_2, y_2,
+                             df_1, df_2, 
+                             splits1, splits2, dist_type = 'xcosine',
+                             n_sample = None):
     
     labels1 = np.unique(y_1)
     labels2 = np.unique(y_2)
     n_labels1 = len(labels1)
     n_labels2 = len(labels2)
 
+    usplits1 = np.unique(splits1)
+    usplits2 = np.unique(splits2)
+    
     mapping1 = pd.Series(df_1.seq_train.values, index=df_1.target) 
     mapping2 = pd.Series(df_2.seq_train.values, index=df_2.target) 
 
-    dist = np.zeros((n_labels1, n_labels2)) + np.nan
+#    dist = np.zeros((n_labels1, n_labels2)) + np.nan
+    dist = np.zeros((n_labels1, n_labels2, len(usplits1), len(usplits2))) + \
+    np.nan
+
     distances = {
         'xcorrelation': correlation,
         'xcosine': cosine,
@@ -465,21 +497,36 @@ def compute_distance_session(X_1, y_1, X_2, y_2, df_1, df_2, dist_type = 'xcosin
     list_untrained_same, list_untrained_different, \
     list_trained_untrained = [], [], [], [], [], [], []
     
+    
+
     for i1, label1 in enumerate(labels1):
         for i2, label2 in enumerate(labels2):
-            if dist_type == 'xnobis':
+            for j, splitp in enumerate(usplits1):
+                for k, splitn in enumerate(usplits2):
+
+                    if dist_type == 'xnobis':
                 
-                dist[i1, i2] = partial_xnobis_session(X_1, y_1, 
-                                                 label1, 
-                                                 X_2, y_2, 
-                                                 label2)
-            else:
-                dist[i1, i2] = partial_dist_session(X_1, y_1, 
-                                                 label1, 
-                                                 X_2, y_2, 
-                                                 label2,
-                                                 distances[dist_type])
-                
+                        dist[i1, i2] = partial_xnobis_session(X_1, y_1, splitp, 
+                                                         label1, 
+                                                         X_2, y_2, splitn,
+                                                         label2, 
+                                                         splits1, splits2,
+                                                         n_sample)
+                    else:
+                        dist[i1, i2] = partial_dist_session(X_1, y_1, splitp,
+                                                         label1, 
+                                                         X_2, y_2, splitn,
+                                                         label2,
+                                                         splits1, splits2,
+                                                         distances[dist_type],
+                                                         n_sample)
+
+    dist = np.nanmean(dist, axis = 3) 
+    dist = np.nanmean(dist, axis = 2) 
+
+    for i1, label1 in enumerate(labels1):
+        for i2, label2 in enumerate(labels2):
+                        
             if label1 == label2:
                 # same type
                 list_same.append(dist[i1, i2])    
@@ -943,7 +990,7 @@ def get_group(subject):
     else:
         return 'Control'        
     
-def get_roi_distances(file_1, file_2, permutate = False):
+def get_roi_distances(file_1, file_2, permutate = False, n_sample = None):
     
     target_col = 'true_sequence'
     data_1, ntrials1, nvalid1, nruns1 = get_correct(pd.read_csv(file_1))
@@ -968,6 +1015,7 @@ def get_roi_distances(file_1, file_2, permutate = False):
 
     for mydistance in ['xnobis', 'xeuclidean', 'xcosine', 'xcorrelation']:
 
+        start = time.time()
         metric_value = {}    
 
         if permutate:
@@ -979,7 +1027,8 @@ def get_roi_distances(file_1, file_2, permutate = False):
     
             if file_1 == file_2:
                 results = compute_distance(X_1, y_1, df_1, splits = data_1.run,
-                                              dist_type = mydistance)
+                                              dist_type = mydistance, 
+                                              n_sample = n_sample)
             else:
 
                 data_2, ntrials2, nvalid2, nruns2 = get_correct(pd.read_csv(file_2))
@@ -992,8 +1041,14 @@ def get_roi_distances(file_1, file_2, permutate = False):
                     for run in np.unique(data_2.run):
                         myperm = np.random.permutation(range(np.sum(data_2.run == run)))
                         y_2[data_2.run == run] = y_2[data_2.run == run][myperm]
+                        
                 results = compute_distance_session(X_1, y_1, X_2, y_2, df_1, df_2, 
-                                                   dist_type = mydistance)
+                                                   data_1.run, data_2.run,
+                                                   dist_type = mydistance,
+                                                   n_sample = n_sample)
+
+            end = time.time()
+            print(f"Estimating {mydistance} took {end - start} seconds" )
                 
         except:
            results = [np.nan]*9
@@ -1028,7 +1083,8 @@ def process_scores(scores):
     return(score_df)
 
 def get_subject_scores(subject, label, sessions, myfiles, 
-                       selected_sessions = None, permutate = False):
+                       selected_sessions = None, permutate = False, 
+                       n_sample = None):
 
     scores = defaultdict(list) 
 
@@ -1044,7 +1100,8 @@ def get_subject_scores(subject, label, sessions, myfiles,
             file_2 = myfiles[(subject, label, session_2)]
             
             scores[index] = get_roi_distances(file_1, file_2, 
-                                              permutate = permutate)
+                                              permutate = permutate,
+                                              n_sample =  n_sample)
 
     return scores
 
@@ -1054,7 +1111,8 @@ def get_across_session_scores(analysis_dir, suffix, output_path,
 #                              subject_mask_remove = None,
                               selected_labels = None,
                               selected_sessions = None,
-                              permutate = False):
+                              permutate = False,
+                              n_sample = None):
     
     file_list = glob(os.path.join(analysis_dir, '*'))
     subjects = []
@@ -1098,7 +1156,8 @@ def get_across_session_scores(analysis_dir, suffix, output_path,
                                            sessions,
                                            myfiles, 
                                            selected_sessions,
-                                           permutate = permutate) for subject in subjects)
+                                           permutate = permutate,
+                                           n_sample = n_sample) for subject in subjects)
                                       
         scores = {key: value for key, value \
                   in [z for x in score_list for z in x.items()] + list(scores.items())}

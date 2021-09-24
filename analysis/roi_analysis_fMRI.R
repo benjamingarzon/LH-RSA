@@ -37,86 +37,121 @@ annot=list('lh'='/data/lv0/MotorSkill/labels/subject/fsaverage6/label/lh.motor.r
 aparc=list('lh'='/data/lv0/MotorSkill/labels/subject/fsaverage6/label/lh.aparc.annot',
            'rh'='/data/lv0/MotorSkill/labels/subject/fsaverage6/label/rh.aparc.annot')
 
-THR = 0.975
-
 DATADIR = file.path(WD, 'surf/')
 NCOLMAX = 4
 
+MAXTHR = 3
+THR = 1
 MASK_NAME = 'mask_prereg.nii.gz'
 TESTDIR = 'tests/comparison_prereg'
 TESTNAME = 'Best'
-THR = 0
-myplots.surf.comparison_prereg = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, 
-                                                  plot_function = plot_activation_data)
+#myplots.surf.comparison_prereg = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, MAXTHR, 
+#                                                  plot_function = plot_activation_data)
 
+MAXTHR = 1
+THR = 0.975
+if (F) {
+# asymptotic
+
+MASK_NAME = 'mask_prereg.nii.gz'
+TESTDIR = 'tests/asymptotic_prereg_groupxconditionxtraining'
+TESTNAME = 'Omni_p_fdr'
+myplots.surf.groupxconditionxtraining = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, MAXTHR, 
+                                                         plot_function = plot_activation_data, annot = annot)
+
+  
+# asymptotic
+MASK_NAME = 'mask_prereg.nii.gz'
+TESTDIR = 'tests/asymptotic_prereg_groupxtraining'
+TESTNAME = 'Omni_p_fdr'
+myplots.surf.groupxtraining = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, MAXTHR, 
+                                               plot_function = plot_activation_data, annot = annot)
+
+MASK_NAME = 'mask_prereg.nii.gz'
+TESTDIR = 'tests/generalization_prereg'
+TESTNAME = 'Omni_p_fdr'
+myplots.surf.groupxtraining = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, MAXTHR, 
+                                               plot_function = plot_activation_data, annot = annot)
+
+}
+
+MASK_NAME = 'mask_whole.nii.gz'
+TESTDIR = 'tests/asymptotic_whole_prereg'
+TESTNAME = 'INTERCEPT_p_fdr'
+myplots.surf.intercept = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, MAXTHR, 
+                                          plot_function = plot_activation_data)
+
+MASK_NAME = 'mask_whole.nii.gz'
+TESTDIR = 'tests/asymptotic_whole_prereg'
+TESTNAME = 'TRAINING_p_fdr'
+myplots.surf.intercept = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, MAXTHR, 
+                                          plot_function = plot_activation_data)
 stophere
+# quadratic
 MASK_NAME = 'mask_prereg.nii.gz'
 TESTDIR = 'tests/quadratic_prereg_groupxtraining'
 TESTNAME = 'Omni_p_fdr'
-myplots.surf.omni = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, 
+myplots.surf.groupxtraining = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, MAXTHR, 
                                      plot_function = plot_activation_data, annot = annot)
-
-stophere
-MASK_NAME = 'mask_prereg.nii.gz'
-TESTDIR = 'tests/quadratic_prereg'
-TESTNAME = 'GROUPExp_x_CONDITIONUnt_p_fdr'
-myplots.surf.group_x_condition = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, 
-                                     plot_function = plot_activation_data, annot = annot)
-
 
 MASK_NAME = 'mask_prereg.nii.gz'
 TESTDIR = 'tests/quadratic_prereg_groupxconditionxtraining'
 TESTNAME = 'Omni_p_fdr'
-myplots.surf.omni = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, 
+myplots.surf.groupxconditionxtraining = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, MAXTHR, 
                                      plot_function = plot_activation_data, annot = annot)
 
+MASK_NAME = 'mask_whole.nii.gz'
+TESTDIR = 'tests/quadratic_whole_prereg'
+TESTNAME = 'INTERCEPT_p_fdr'
+myplots.surf.intercept = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, MAXTHR, 
+                                          plot_function = plot_activation_data, annot = aparc)
 
-MASK_NAME = 'mask_prereg.nii.gz'
-TESTDIR = 'tests/quadratic_prereg'  
-TESTNAME = 'Omni_p_fdr'
-myplots.surf.omni = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, 
-                                     plot_function = plot_activation_data, annot = annot)
 
 stophere
 
 MASK_NAME = 'mask_whole.nii.gz'
 TESTDIR = 'tests/quadratic_whole_prereg'
-TESTNAME = 'INTERCEPT_p_fdr'
-myplots.surf.intercept = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, 
-                                          plot_function = plot_activation_data, annot = aparc)
-
-MASK_NAME = 'mask_whole.nii.gz'
-TESTDIR = 'tests/quadratic_whole_prereg'
 TESTNAME = 'TRAINING_p_fdr'
-myplots.surf.training = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, 
+myplots.surf.training = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, MAXTHR, 
                                          plot_function = plot_activation_data, annot = aparc)
+
+MASK_NAME = 'mask_prereg.nii.gz'
+TESTDIR = 'tests/quadratic_prereg'  
+TESTNAME = 'Omni_p_fdr'
+myplots.surf.omni = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, MAXTHR, 
+                                     plot_function = plot_activation_data, annot = annot)
 
 ############################################
 
+#MASK_NAME = 'mask_prereg.nii.gz'
+#TESTDIR = 'tests/quadratic_prereg'
+#TESTNAME = 'GROUPExp_x_CONDITIONUnt_p_fdr'
+#myplots.surf.group_x_condition = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, MAXTHR, 
+#                                     plot_function = plot_activation_data, annot = annot)
 
 
 #MASK_NAME = 'mask_prereg.nii.gz'
 #TESTDIR = 'tests/linear_prereg'
 #TESTNAME = 'INTERCEPT_p_fdr'
-#myplots.surf.intercept = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, 
+#myplots.surf.intercept = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, MAXTHR, 
 #                                          plot_function = plot_activation_data, annot = annot)
 
 MASK_NAME = 'mask_whole.nii.gz'
 TESTDIR = 'tests/quadratic_whole_prereg'
 TESTNAME = 'Omni_p_fdr'
-myplots.surf.omni = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, 
+myplots.surf.omni = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, MAXTHR, 
                                           plot_function = plot_activation_data, annot = aparc)
 
 MASK_NAME = 'mask_whole.nii.gz'
 TESTDIR = 'tests/quadratic_whole_prereg'
 TESTNAME = 'INTERCEPT_p_fdr'
-myplots.surf.intercept = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, 
+myplots.surf.intercept = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, MAXTHR, 
                                           plot_function = plot_activation_data, annot = aparc)
 
 MASK_NAME = 'mask_whole.nii.gz'
 TESTDIR = 'tests/quadratic_whole_prereg'
 TESTNAME = 'TRAINING_p_fdr'
-myplots.surf.training = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, 
+myplots.surf.training = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, MAXTHR, 
                                           plot_function = plot_activation_data, annot = aparc)
 
 stophere
@@ -124,7 +159,7 @@ stophere
 MASK_NAME = 'mask_whole.nii.gz'
 TESTDIR = 'tests/linear_whole_prereg'
 TESTNAME = 'TRAINING_p'
-myplots.surf.training = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, 
+myplots.surf.training = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, MAXTHR, 
                                          plot_function = plot_activation_data, annot = aparc)
 
 
@@ -132,7 +167,7 @@ myplots.surf.training = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, r
 TESTDIR = 'tests/linear_prereg'  
 TESTNAME = 'GROUPExp_x_CONDITIONUnt_p_fdr'
 THR = 0.975
-myplots.surf.group_x_condition = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, 
+myplots.surf.group_x_condition = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, MAXTHR, 
                                          plot_function = plot_activation_data, annot = annot)
 
 
@@ -141,20 +176,20 @@ stophere
 TESTDIR = 'tests/linear'  # no clusters
 TESTNAME = 'GROUPExp_x_CONDITIONUnt_x_TRAINING_p'
 THR = 0.975
-myplots.surf.group_x_training = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, 
+myplots.surf.group_x_training = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, MAXTHR, 
                                          plot_function = plot_activation_data, annot = annot)
 
 stophere
 TESTDIR = 'tests/linear_prereg'
 TESTNAME = 'CONDITIONUnt_p_fdr'
 THR = 0.95
-#myplots.surf.condition = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, 
+#myplots.surf.condition = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, MAXTHR, 
 #                                          plot_function = plot_activation_data, annot = annot)
 
 TESTDIR = 'tests/linear_prereg'
 TESTNAME = 'TRAINING_p_fdr'
 THR = 0.95
-#myplots.surf.training = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, 
+#myplots.surf.training = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, MAXTHR, 
 #                                         plot_function = plot_activation_data, annot = annot)
 
 
@@ -166,11 +201,11 @@ if (F) {
   
   TESTDIR = 'tests/linear'
   TESTNAME = 'GROUPExp_x_CONDITIONUnt_x_TRAINING_p' #'TRAINING_p_fdr'
-  myplots.vol.training = create_vol_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, 
+  myplots.vol.training = create_vol_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, MAXTHR, 
                                          plot_function = plot_activation_data)
   TESTDIR = 'tests/linear'
   TESTNAME = 'CONDITIONUnt_p' #'TRAINING_p_fdr'
-  myplots.vol.training = create_vol_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, 
+  myplots.vol.training = create_vol_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, MAXTHR, 
                                          plot_function = plot_activation_data)
   
   
@@ -178,7 +213,7 @@ if (F) {
   DATADIR = file.path(WD, 'volume/')
   TESTDIR = 'tests/linear'
   TESTNAME = 'GROUPExp_x_CONDITIONUnt_x_TRAINING_p' #'TRAINING_p_fdr'
-  myplots.vol.training = create_vol_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, 
+  myplots.vol.training = create_vol_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, MAXTHR, 
                                          plot_function = plot_activation_data)
   
 }

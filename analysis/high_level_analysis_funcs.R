@@ -52,6 +52,7 @@ doit = function(WD, IMAGES, MYTEST, OD,
   print(paste("Excluding ", length(excluded), "observations, with these complete subjects:"))
   print(DATA.GROUPED$SUBJECT)
   View(DATA)  
+
   # replicate DATA for each condition
   results = list()
   results = vbanalysis(
