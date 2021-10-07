@@ -15,6 +15,8 @@ figs_dir = '/data/lv0/MotorSkill/figs/session_variability'
 if (suffix1 == '-same') seqs_train = c('trained_same', 'untrained_same')
 if (suffix1 == '-different') seqs_train = c('trained_different', 'untrained_different', 'trained_untrained')
 if (suffix1 == '-all') seqs_train = c('trained_same', 'untrained_same', 'trained_different', 'untrained_different', 'trained_untrained')
+if (suffix1 == '-trained') seqs_train = c('trained_same', 'trained_different')
+if (suffix1 == '-untrained') seqs_train = c('untrained_same', 'untrained_different')
 
 ylabels = c('Correlation (z-scored)', 'Cosine (z-scored)', 'Cross-nobis distance', 'Squared euclidean distance')
 names(ylabels) = c('xcorrelation', 'xcosine', 'xnobis', 'xeuclidean')
@@ -137,11 +139,11 @@ ggsave(
 
 # Some statistics
 # in intervention, trained decorrelate fmore the farther they are
-data.subset = data %>% filter(session_test != session_train & 
-#                                session_train == 1 &
-                                metric == mymetric & 
-                                label == 'Left PS' & 
-                                seq_train %in% c("trained_different", "untrained_different") )
+# data.subset = data %>% filter(session_test != session_train & 
+# #                                session_train == 1 &
+#                                 metric == mymetric & 
+#                                 label == 'Left PS' & 
+#                                 seq_train %in% c("trained_different", "untrained_different") )
 
 # are the matrices symetric?
 if (suffix1 == '-all') {
@@ -163,63 +165,95 @@ data.mds$val.mean.train = data.mds$val.mean
 data.mds$val.mean.test = data.mds.2$val.mean
 data.mds$val.mean = 0.5*(data.mds$val.mean.train + data.mds$val.mean.test)
 
-mysessions = seq(7)
+mysessions = seq(6)
+#mysessions = c(1, 4, 7)
+#mysessions = c(1, 3, 4)
 NSESSIONS = length(mysessions)
-sim.mat = matrix(0, NSESSIONS*6, NSESSIONS*6)
-for (mygroup in c('Control', 'Intervention')) {
+NSEQS = 6
+sim.mat = matrix(0, NSESSIONS*NSEQS, NSESSIONS*NSEQS)
+for (mygroup in c( 'Intervention', 'Control')) {
   for (sess_train in seq(NSESSIONS))
   {
     for (sess_test in seq(NSESSIONS)){
       mydata = subset(data.mds, session_train == mysessions[sess_train] & session_test == mysessions[sess_test])
-      block = matrix(0, 6, 6)
-      
+      block = matrix(0, NSEQS, NSEQS)
       trained_same = mydata$val.mean[mydata$seq_train == 'trained_same' & mydata$group == mygroup ]
       trained_different = mydata$val.mean[mydata$seq_train == 'trained_different' & mydata$group == mygroup ]
       untrained_same = mydata$val.mean[mydata$seq_train == 'untrained_same' & mydata$group == mygroup ]
       untrained_different = mydata$val.mean[mydata$seq_train == 'untrained_different' & mydata$group == mygroup ]
       trained_untrained = mydata$val.mean[mydata$seq_train == 'trained_untrained' & mydata$group == mygroup ]
 
-      if (sess_test != sess_train) {
-        block[1, 1] = block[2, 2] = block[5, 5] = trained_same
+      if (NSEQS == 6) {
+        if (sess_test != sess_train) {
+          block[1, 1] = block[2, 2] = block[5, 5] = trained_same
+          if (length(untrained_same)>0){
+            block[3, 3] = block[4, 4] = block[6, 6] = untrained_same
+          } else {
+            block[3, 3] = block[4, 4] = block[6, 6] = untrained_different
+          }
+        } 
+        block[1, 2] = trained_same
+        
+        block[1:2, 3] = trained_untrained
+        
+        block[1:2, 4] = trained_untrained
+        
         if (length(untrained_same)>0){
-          block[3, 3] = block[4, 4] = block[6, 6] = untrained_same
+          block[3, 4] = untrained_same
         } else {
-          block[3, 3] = block[4, 4] = block[6, 6] = untrained_different
+          block[3, 4] = untrained_different
         }
-      } 
-      block[1, 2] = trained_same
+        
+        block[1:2, 5] = trained_different
+        block[3:4, 5] = trained_untrained
+        
+        block[1:2, 6] = trained_untrained
+        block[3:4, 6] = untrained_different
+        block[5, 6] = trained_untrained
 
-      block[1:2, 3] = trained_untrained
-
-      block[1:2, 4] = trained_untrained
-      
-      if (length(untrained_same)>0){
-        block[3, 4] = untrained_same
+        block = block + t(block) - diag(diag(block))
+        seq_types = c('trained_A1', 'trained_A2', 'untrained_C1', 'untrained_C2', 'trained_B', 'untrained_D')
+        
       } else {
-        block[3, 4] = untrained_different
-      }
+        if (sess_test != sess_train) {
+          block[1, 1] = trained_same
+          if (length(untrained_same)>0){
+                block[2, 2] = untrained_same
+          } else {
+                block[2, 2] = untrained_different
+          }
+        } 
+        block[1, 2] = trained_untrained
 
-      block[1:2, 5] = trained_different
-      block[3:4, 5] = trained_untrained
+        block = block + t(block) - diag(diag(block))
+        seq_types = c('trained', 'untrained')
+        
+      }
       
-      block[1:2, 6] = trained_untrained
-      block[3:4, 6] = untrained_different
-      block[5, 6] = trained_untrained
-      
-      block = block + t(block)
-      seq_types = c('trained_A1', 'trained_A2', 'untrained_C1', 'untrained_C2', 'trained_B', 'untrained_D')
-      sim.mat[((sess_train - 1)*6 + 1) : ((sess_train - 1)*6 + 6),
-              ((sess_test - 1)*6 + 1) : ((sess_test - 1)*6 + 6)] = block
-    }
-  }
+      sim.mat[((sess_train - 1)*NSEQS + 1) : ((sess_train - 1)*NSEQS + NSEQS),
+              ((sess_test - 1)*NSEQS + 1) : ((sess_test - 1)*NSEQS + NSEQS)] = block
+
+
+      #print(sim.mat[1, seq(6) *6 +1])
+      #print(sim.mat[3, seq(6) *6 +3])
+
+    } # sess_train
+  } #sess_test
+#  hist(as.numeric(sim.mat))
+#  View(sim.mat)
   dist.mat = 1 - ifisherz(sim.mat)
   dist.mat[eye(nrow(dist.mat)) == 1] = 0
+  colnames(dist.mat) = row.names(dist.mat) = rep(seq_types, length(mysessions))
   ncoord = 2
-  cmd = cmdscale(dist.mat, k = ncoord, eig = T)
+  
+#  cmd = Rtsne(dist.mat, is_distance = T, dims = ncoord, perplexity = 13) 
+#  data.cmd = as.data.frame(cmd$Y)
+  cmd = cmdscale(dist.mat, k = ncoord, eig = T, add = F)
+#  cmd = isoMDS(dist.mat, k = ncoord)
   data.cmd = as.data.frame(cmd$points)
   colnames(data.cmd) = c('x', 'y', 'z')[1:ncoord]
   data.cmd$seq_types = rep(seq_types, NSESSIONS)
-  data.cmd$session = as.vector(sapply(mysessions, function(x) rep(x, 6)))
+  data.cmd$session = as.vector(sapply(mysessions, function(x) rep(x, NSEQS)))
 
   data.cmd$label = mylabel
   data.cmd$group = mygroup
@@ -230,7 +264,7 @@ for (mygroup in c('Control', 'Intervention')) {
 
 
 # reference everyone to origin
-if (T)
+if (F)
 {for (group in unique(data.cmd.all$group)){
  for (label in unique(data.cmd.all$label)){
     for (seq_type in unique(data.cmd.all$seq_types)) {
@@ -249,7 +283,7 @@ data.cmd.all$seq_types[data.cmd.all$seq_types == 'untrained_D' & data.cmd.all$se
 View(data.cmd.all)
 
 myplot.prog = ggplot(data.cmd.all, aes(x = x, y = y, col = session, group = seq_types, shape = seq_types)) + 
- # axes_3D() + 
+#  axes_3D() + 
   geom_path() + 
   geom_point(size = 4) + 
 #  stat_3D(size = 4) + 
@@ -282,9 +316,12 @@ if (T) {
   HEIGHT = 24
   DPI = 1000
   mymetric = 'xcorrelation'
-  mymetric = 'xnobis'
-  suffix0 = 'mask-cross'
-  suffix1 = '-different'
-  mylabels = c('Right SPL', 'Right PS', 'Right PM', 'Left PM', 'Left SPL') #, 'Right Control Region')
+  mymetric = 'xcosine'
+  #mymetric = 'xnobis'
+  suffix0 = 'mask-cross-runprew'
+#  suffix0 = 'mask-cross'
+  suffix1 = '-all'
+#  suffix1 = '-different'
+  mylabels = c('Right SPL', 'Right PS', 'Right PM', 'Left PM', 'Left SPL', 'Left PS') #, 'Right Control Region')
   do_session_variability_analysis(mymetric, suffix0, suffix1, mylabels)
 }

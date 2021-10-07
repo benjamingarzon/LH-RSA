@@ -11,6 +11,27 @@ library(stringr)
 
 DPI = 500 # default
 
+ff = function(x){
+  ifelse(!is.na(as.numeric(x)),   
+         ifelse (abs(as.numeric(x)) >= 0.001,  
+                 format(round(as.numeric(x), 3), digits = 3, nsmall= 3, scientific = F),
+                 ifelse(abs(as.numeric(x)) > 1e-10 ,
+                        format(as.numeric(x), digits = 3, nsmall= 3, scientific = T), "< 1e-10")), 
+         x)
+  
+}
+
+writetofile = function(mylines, myfile){
+  fileConn = file(myfile, open = "a")
+  writeLines(mylines, con = fileConn)
+  close(fileConn)
+}
+
+
+get_coefs = function(model, par){
+  info = summary(model)$coefficients[par, ]
+}
+
 clean_measure_names = function(x, keep_first = F){
   
   if (keep_first)
@@ -36,7 +57,7 @@ hemi_map = list('lh' = 'left',
                 'rh' = 'right')
 
 theme_lh = theme_classic(base_size = 13, base_family = "Arial") 
-myPalette = c("red", "blue", "green", "yellow", "black")
+myPalette = c("red", "blue", "green4", "yellow", "black")
 
 
 markoutliersIQR = function(x){

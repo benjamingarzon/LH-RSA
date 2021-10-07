@@ -21,14 +21,14 @@ import os
 import argparse
 import numpy as np
 from glob import glob
-from roi_analysis_funcs import process, gather_results
+from roi_analysis_funcs import process, gather_results, distance_metrics
 import seaborn as sns
 import matplotlib.pyplot as plt
     
 
 def do_analysis(WD, PERMUTATE, overwrite_extract, overwrite_scores, output_data, 
                 do_prewhitening, suffix, labels_file, labels_dir, 
-                effects_name, num_cores):
+                effects_name, num_cores, n_sample):
     
     subjects_dir = os.path.join(WD, 'fmriprep', 'freesurfer')
 
@@ -106,7 +106,8 @@ def do_analysis(WD, PERMUTATE, overwrite_extract, overwrite_scores, output_data,
                                                       roi_data_file,
                                                       do_prewhitening = do_prewhitening,
                                                       overwrite_extract = overwrite_extract, 
-                                                      permutate = PERMUTATE)
+                                                      permutate = PERMUTATE, 
+                                                      n_sample = n_sample)
                                                      for label in labels)
             
             mycols = ['subject', 'session', 'hemi', 'label', 'resnorm',
@@ -117,44 +118,15 @@ def do_analysis(WD, PERMUTATE, overwrite_extract, overwrite_scores, output_data,
             'G_hat_trained',
             'G_hat_untrained',
             'clf_acc', 
-            'clf_acc_perm', 
             'clf_acc_trained', 
             'clf_acc_untrained',
             'clf_acc_trained_untrained',
-            'xnobis_same', 
-            'xnobis_different', 
-            'xnobis_trained_same', 
-            'xnobis_trained_different', 
-            'xnobis_untrained_same', 
-            'xnobis_untrained_different', 
-            'xnobis_trained_untrained',
-            'cosine_same', 
-            'cosine_different', 
-            'cosine_trained_same', 
-            'cosine_trained_different', 
-            'cosine_untrained_same', 
-            'cosine_untrained_different', 
-            'cosine_trained_untrained',
-            'correlation_same', 
-            'correlation_different', 
-            'correlation_trained_same', 
-            'correlation_trained_different', 
-            'correlation_untrained_same', 
-            'correlation_untrained_different', 
-            'correlation_trained_untrained',
-            'euclidean_same', 
-            'euclidean_different', 
-            'euclidean_trained_same', 
-            'euclidean_trained_different', 
-            'euclidean_untrained_same', 
-            'euclidean_untrained_different', 
-            'euclidean_trained_untrained',
             'mean_signal_trained',
             'mean_signal_untrained',
             'valid',
             'valid_runs',
             'ncolumns',
-            'roi_size']
+            'roi_size'] + distance_metrics
             results = pd.DataFrame(processed_list, columns = mycols)
             results.to_csv(results_file, index = False, float_format = '%.3f')
     
@@ -166,7 +138,10 @@ def do_analysis(WD, PERMUTATE, overwrite_extract, overwrite_scores, output_data,
                                     index = False,
                                     float_format = '%.3f')
         
-
+    skipped_df = pd.DataFrame(skipped, columns = ['Subject', 'Session', 
+                                                  'ncorrect', 'valid_runs'])
+    skipped_df.to_csv(skipped_file, index = False)
+    
     plt.figure()    
     ax = sns.boxplot(x = 'label', 
                 y = 'clf_acc', 
@@ -174,12 +149,12 @@ def do_analysis(WD, PERMUTATE, overwrite_extract, overwrite_scores, output_data,
                 data = results_all)
     ax.set_ylim([0, 0.5])
 
-    plt.figure()    
-    ax = sns.boxplot(x = 'label', 
-                y = 'clf_acc_perm', 
-                hue = 'hemi', 
-                data = results_all)
-    ax.set_ylim([0, 0.5])
+#    plt.figure()    
+#    ax = sns.boxplot(x = 'label', 
+#                y = 'clf_acc_perm', 
+#                hue = 'hemi', 
+#                data = results_all)
+#    ax.set_ylim([0, 0.5])
 
     plt.figure()    
     ax = sns.boxplot(x = 'session', 
@@ -195,9 +170,7 @@ def do_analysis(WD, PERMUTATE, overwrite_extract, overwrite_scores, output_data,
     ax.set_ylim([-.1, .3])
     results_all.groupby(['session', 'label']).max().clf_acc.max()
     
-    skipped_df = pd.DataFrame(skipped, columns = ['Subject', 'Session', 
-                                                  'ncorrect', 'valid_runs'])
-    skipped_df.to_csv(skipped_file, index = False)
+
     
 if __name__ == "__main__":
     
@@ -215,10 +188,13 @@ if __name__ == "__main__":
     parser.add_argument('--WD', dest='WD', action='store')
     parser.add_argument('--num_cores', dest='num_cores', action='store', 
                         type=int)
+    parser.add_argument('--n_sample', dest='n_sample', action='store', 
+                        type=int)
     
     args = parser.parse_args()
 
     do_analysis(args.WD, args.permutate, args.overwrite_extract, 
                 args.overwrite_scores, args.output_data, 
                 args.do_prewhitening, args.suffix, args.labels_file, 
-                args.labels_dir, args.effects_name, args.num_cores)
+                args.labels_dir, args.effects_name, args.num_cores, 
+                args.n_sample)

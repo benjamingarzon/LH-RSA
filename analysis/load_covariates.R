@@ -129,7 +129,7 @@ last_trials.diff = merge(last_trials.diff, covars.table, by = c("SUBJECT", "TP")
 model.variability = lmer(sdMT.log.untrained_trained ~ 1 + GROUP*TRAINING + GROUP*TRAINING.Q + CONFIGURATION +  (1 + TRAINING + TRAINING.Q|SUBJECT),
                          data = subset(last_trials.diff)) #, GROUP == "Experimental")) #  (1|CONFIGURATION)
 
-print(summary(model.variability))
+#print(summary(model.variability))
 
 # average variability
 theme_lh <- function () { 

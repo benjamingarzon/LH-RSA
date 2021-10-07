@@ -1,3 +1,6 @@
+
+##### remove zero cols from computations?
+
 rm(list = ls())
 
 setwd("~/Software/LeftHand/analysis")
@@ -14,11 +17,55 @@ WIDTH = 30; HEIGHT = 24; DPI = 1000
 ########################
 # Variability analysis
 ########################
-if(T) {
+# some selected figures
+for (suffix0 in c('mask-cross-runprew', 'mask-cross-runprew-perm')) {
+  if (T){
+ do_variability_analysis('xcorrelation', suffix0, '-same', par = c('GROUPIntervention'), analysis_type = 'groupxtraining')
+ do_variability_analysis('xcorrelation', suffix0, '-same', par = c('MEASUREUntrained Same'))
+ do_variability_analysis('xcorrelation', suffix0, '-same', par = c('GROUPIntervention:MEASUREUntrained Same'))
+ do_variability_analysis('xcorrelation', suffix0, '-different', par = c('GROUPIntervention'), analysis_type = 'groupxtraining')
+ do_variability_analysis('xcorrelation', suffix0, '-different', par = c('MEASUREUntrained Different'))
+ do_variability_analysis('xcorrelation', suffix0, '-different', par = c('GROUPIntervention:MEASUREUntrained Different'))
+  }
+#  do_variability_analysis('xcorrelation', suffix0, '-untrained', par_diff = '(Intercept)', 
+#                          ylimit_diff = c(-2e-3, 5e-3))
+  
+ do_variability_analysis('xnobis', suffix0, '-same', 
+                         par = c('TRAINING'),
+                         odd = c('Trained Same'), 
+                         analysis_type = 'training')
+
+ do_variability_analysis('xnobis', suffix0, '-same', 
+                        par = c('GROUPIntervention:TRAINING'), 
+                        odd = c('Trained Same'), 
+                        analysis_type = 'groupxtraining')
+
+  do_variability_analysis('xnobis', suffix0, '-different', par = c('TRAINING'), 
+                          odd = c('Trained Different', 'Untrained Different'), 
+                          analysis_type = 'training')
+  do_variability_analysis('xnobis', suffix0, '-different', par = c('GROUPIntervention:TRAINING'), 
+                          odd = c('Trained Different', 'Untrained Different'),
+                          analysis_type = 'groupxtraining')
+#  do_variability_analysis('xnobis', suffix0, '-different', par = c('GROUPIntervention'), 
+#                          odd = c('Trained Different', 'Untrained Different'),
+#                          analysis_type = 'groupxtraining'))
+
+  do_variability_analysis('xnobis', suffix0, '-untrained', par_diff = '(Intercept)', 
+                          ylimit_diff = c(-.05, .05))
+  
+#  do_variability_analysis('xnobis', suffix0, '-different', par = c('MEASUREUntrained Different'), odd = 'Trained Different')
+#  do_variability_analysis('xnobis', suffix0, '-different', par = c('GROUPIntervention:MEASUREUntrained Different'), odd = 'Trained Different')
+#  do_variability_analysis('xnobis', suffix0, '-different', par = c('MEASURETrained Untrained'), odd = 'Untrained Different')
+#  do_variability_analysis('xnobis', suffix0, '-different', par = c('GROUPIntervention:MEASURETrained Untrained'), odd = 'Untrained Different')
+}
+
+
+stophere
+if(F) {
 
 for (suffix0 in c('mask-cross', 'mask-cross-perm')) { #mask-cross-derivatives-perm, 'mask-cross-perm',
   print(suffix0)
-  for (measure in c( 'xnobis', 'cosine', 'correlation', 'euclidean', 'mean_signal', 'alpha', 'clf')){
+  for (measure in c( 'xnobis', 'xcosine', 'xcorrelation', 'xeuclidean', 'mean_signal', 'alpha', 'clf')){
 #  for (measure in c( 'clf')){
       do_variability_analysis(measure, suffix0, '-all')
     
@@ -31,7 +78,7 @@ for (suffix0 in c('mask-cross', 'mask-cross-perm')) { #mask-cross-derivatives-pe
 }
 
 }
-
+stophere
 ########################
 # Session variability analysis
 ########################

@@ -9,7 +9,7 @@ import os
 import numpy as np
 from roi_analysis_funcs import get_across_session_scores, process_scores
 analysis_dir = '/data/lv0/MotorSkill/fmriprep/analysis'
-suffix = 'mask-cross'
+suffix = 'mask-cross-runprew'
 permutate = False ## fix permutation method
 n_sample = 10
 output_path = os.path.join(analysis_dir, 

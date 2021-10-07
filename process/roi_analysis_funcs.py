@@ -34,6 +34,13 @@ from collections import defaultdict, ChainMap
 from joblib import Parallel, delayed
 import time
 
+distance_names = ['xnobis', 'xnobiscosine', 'xnobisprod', 'xnobisratio',
+                     'xeuclidean', 'xcorrelation', 'xcosine']
+metric_names = ['same', 'different', 'trained_same', \
+                'trained_different', 'untrained_same', \
+                'untrained_different', 'trained_untrained']
+distance_metrics = [ '%s_%s'%(x, y) for x in distance_names for y in metric_names ]
+    
 sys.path.append('/home/xgarzb@GU.GU.SE/Software/')
 import PcmPy as pcm
 
@@ -215,7 +222,6 @@ balanced_scorer = make_scorer(balanced_accuracy_score)
 
 svc0 = Pipeline([
         ('variancethreshold', VarianceThreshold()),
-#        ('pca', PCA(n_components = 5)),
         ('standardscaler', StandardScaler()),
         ('anova', SelectKBest(f_classif, k = MINFEATURES)), # 
         ('svc', SVC(kernel='linear'))
@@ -342,11 +348,11 @@ def partial_xnobis_session(X_1, y_1, splitp, label1, X_2, y_2, splitn, label2,
                     X_2[indexn[0], :] -  X_2[indexn[1], :]) \
              for indexp, indexn in index_prod ]
            
-    return np.mean(dists)/X_1.shape[1]
+    return np.nanmean(dists)/X_1.shape[1]
 
 
 def partial_xnobis(X, y, splits, label1, label2, splitp, splitn, 
-                   n_sample = None):
+                   n_sample = None, dist_type = 'xnobis'):
 
     if label1 == label2:
         indicesp = np.where(np.logical_and(y == label1, splits == splitp))[0]
@@ -367,12 +373,29 @@ def partial_xnobis(X, y, splits, label1, label2, splitp, splitn,
     if n_sample is not None:
         if n_sample < len(index_prod):
             index_prod = random.sample(index_prod, k = n_sample)
-                
-    dists = [np.dot(X[indexp[0], :] -  X[indexp[1], :], 
-                    X[indexn[0], :] -  X[indexn[1], :]) \
-             for indexp, indexn in index_prod ]
-           
-    return np.mean(dists)/X.shape[1]
+
+    if dist_type == 'xnobis':
+        dists = [np.dot(X[indexp[0], :] -  X[indexp[1], :], 
+                        X[indexn[0], :] -  X[indexn[1], :])/X.shape[1] \
+                 for indexp, indexn in index_prod ]
+
+    if dist_type == 'xnobiscosine':
+        dists = [cosine(X[indexp[0], :] -  X[indexp[1], :], 
+                        X[indexn[0], :] -  X[indexn[1], :]) \
+                 for indexp, indexn in index_prod ]
+
+    if dist_type == 'xnobisprod':
+        dists = [np.sqrt(np.linalg.norm(X[indexp[0], :] -  X[indexp[1], :])* 
+                 np.linalg.norm(X[indexn[0], :] -  X[indexn[1], :])) \
+                 for indexp, indexn in index_prod ]
+
+    if dist_type == 'xnobisratio':
+        dists = [np.linalg.norm(X[indexp[0], :] -  X[indexp[1], :])/\
+                 np.linalg.norm(X[indexn[0], :] -  X[indexn[1], :]) \
+                 for indexp, indexn in index_prod ]
+        dists = [ 1.0/x if x > 1 else x for x in dists ]
+            
+    return np.nanmean(dists)
 
   
 def compute_distance(X, y, df, splits, dist_type = 'xnobis', n_sample = None):
@@ -380,7 +403,7 @@ def compute_distance(X, y, df, splits, dist_type = 'xnobis', n_sample = None):
     n_labels = len(labels)
     usplits = np.unique(splits)
 
-    if dist_type == 'xnobis':
+    if 'xnobis' in dist_type:
 
         dist = np.zeros((n_labels, n_labels, len(usplits), len(usplits)-1))
     
@@ -391,7 +414,8 @@ def compute_distance(X, y, df, splits, dist_type = 'xnobis', n_sample = None):
                             dist[i1, i2, j, k] = partial_xnobis(X, y, splits, 
                                                                   label1, label2, 
                                                                   splitp, splitn,
-                                                                  n_sample)
+                                                                  n_sample, 
+                                                                  dist_type)
         dist = np.mean(dist, axis = 3) # across training splits 
 
     distances = {
@@ -416,7 +440,7 @@ def compute_distance(X, y, df, splits, dist_type = 'xnobis', n_sample = None):
                                                                   splitp, splitn,                                                                  
                                                                   distances[dist_type],
                                                                   n_sample)
-        dist = np.mean(dist, axis = 3) # across training splits 
+        dist = np.nanmean(dist, axis = 3) # across training splits 
 
     if dist_type in ['correlation', 'cosine', 'euclidean']:
 
@@ -432,31 +456,46 @@ def compute_distance(X, y, df, splits, dist_type = 'xnobis', n_sample = None):
                                                            distances[dist_type], 
                                                            n_sample)
                         
-    dist = np.mean(dist, axis = 2) # across validation splits
+    dist = np.nanmean(dist, axis = 2) # across validation splits
     if False:
         plt.figure()
         plt.imshow(dist, cmap = 'jet')
         
-    dist_same = np.mean(np.diag(dist))
-    dist_different = np.mean(dist[np.eye(n_labels)==0])
-    
     mapping = pd.Series(df.seq_train.values, index=df.target) 
  
-    dist_trained = dist[mapping == 'trained', :][:, mapping == 'trained']
-    dist_untrained = dist[mapping == 'untrained', :][:, mapping == 'untrained']
-    dist_trained_untrained = np.vstack(
-        (dist[mapping == 'trained', :][:, mapping == 'untrained'],
-         dist[mapping == 'untrained', :][:, mapping == 'trained'])
-        )
-
-    elem_trained = np.eye(dist_trained.shape[0]) == 0
-    elem_untrained = np.eye(dist_untrained.shape[0]) == 0
+    list_same, list_different, list_trained_same, list_trained_different, \
+    list_untrained_same, list_untrained_different, \
+    list_trained_untrained = [], [], [], [], [], [], []
     
-    dist_trained_same = np.mean(np.diag(dist_trained))
-    dist_trained_different = np.mean(dist_trained[elem_trained])
-    dist_untrained_same = np.mean(np.diag(dist_untrained))
-    dist_untrained_different = np.mean(dist_untrained[elem_untrained])
-    dist_trained_untrained = np.mean(dist_trained_untrained)
+    for i1, label1 in enumerate(labels):
+        for i2, label2 in enumerate(labels):
+                        
+            if label1 == label2:
+                # same type
+                list_same.append(dist[i1, i2])    
+                if mapping[label1] == 'trained':
+                    list_trained_same.append(dist[i1, i2])
+                else:
+                    list_untrained_same.append(dist[i1, i2])
+            else:
+                # different type
+                list_different.append(dist[i1, i2])
+                if mapping[label1] == mapping[label2]:
+                    if mapping[label1] == 'trained':
+                        list_trained_different.append(dist[i1, i2])
+                    else:
+                        list_untrained_different.append(dist[i1, i2])
+                else:
+                    list_trained_untrained.append(dist[i1, i2])
+    dist_same = np.nanmean(list_same)
+    dist_different = np.nanmean(list_different)
+    dist_trained_same = np.nanmean(list_trained_same)
+    dist_trained_different = np.nanmean(list_trained_different)
+    dist_untrained_same = np.nanmean(list_untrained_same) \
+        if len(list_untrained_same)> 0 else np.nan
+    dist_untrained_different = np.nanmean(list_untrained_different)
+    dist_trained_untrained = np.nanmean(list_trained_untrained)
+
          
     return(dist, 
            dist_same, 
@@ -484,7 +523,6 @@ def compute_distance_session(X_1, y_1, X_2, y_2,
     mapping1 = pd.Series(df_1.seq_train.values, index=df_1.target) 
     mapping2 = pd.Series(df_2.seq_train.values, index=df_2.target) 
 
-#    dist = np.zeros((n_labels1, n_labels2)) + np.nan
     dist = np.zeros((n_labels1, n_labels2, len(usplits1), len(usplits2))) + \
     np.nan
 
@@ -493,12 +531,7 @@ def compute_distance_session(X_1, y_1, X_2, y_2,
         'xcosine': cosine,
         'xeuclidean': euclidean
                  }         
-    list_same, list_different, list_trained_same, list_trained_different, \
-    list_untrained_same, list_untrained_different, \
-    list_trained_untrained = [], [], [], [], [], [], []
     
-    
-
     for i1, label1 in enumerate(labels1):
         for i2, label2 in enumerate(labels2):
             for j, splitp in enumerate(usplits1):
@@ -506,14 +539,14 @@ def compute_distance_session(X_1, y_1, X_2, y_2,
 
                     if dist_type == 'xnobis':
                 
-                        dist[i1, i2] = partial_xnobis_session(X_1, y_1, splitp, 
+                        dist[i1, i2, j, k] = partial_xnobis_session(X_1, y_1, splitp, 
                                                          label1, 
                                                          X_2, y_2, splitn,
                                                          label2, 
                                                          splits1, splits2,
                                                          n_sample)
                     else:
-                        dist[i1, i2] = partial_dist_session(X_1, y_1, splitp,
+                        dist[i1, i2, j, k] = partial_dist_session(X_1, y_1, splitp,
                                                          label1, 
                                                          X_2, y_2, splitn,
                                                          label2,
@@ -524,6 +557,10 @@ def compute_distance_session(X_1, y_1, X_2, y_2,
     dist = np.nanmean(dist, axis = 3) 
     dist = np.nanmean(dist, axis = 2) 
 
+    list_same, list_different, list_trained_same, list_trained_different, \
+    list_untrained_same, list_untrained_different, \
+    list_trained_untrained = [], [], [], [], [], [], []
+    
     for i1, label1 in enumerate(labels1):
         for i2, label2 in enumerate(labels2):
                         
@@ -548,14 +585,14 @@ def compute_distance_session(X_1, y_1, X_2, y_2,
     if False:
         plt.figure()
         plt.imshow(dist, cmap = 'jet')
-    dist_same = np.mean(list_same)
-    dist_different = np.mean(list_different)
-    dist_trained_same = np.mean(list_trained_same)
-    dist_trained_different = np.mean(list_trained_different)
-    dist_untrained_same = np.mean(list_untrained_same) \
+    dist_same = np.nanmean(list_same)
+    dist_different = np.nanmean(list_different)
+    dist_trained_same = np.nanmean(list_trained_same)
+    dist_trained_different = np.nanmean(list_trained_different)
+    dist_untrained_same = np.nanmean(list_untrained_same) \
         if len(list_untrained_same)> 0 else np.nan
-    dist_untrained_different = np.mean(list_untrained_different)
-    dist_trained_untrained = np.mean(list_trained_untrained)
+    dist_untrained_different = np.nanmean(list_untrained_different)
+    dist_trained_untrained = np.nanmean(list_trained_untrained)
          
     return(dist, 
            dist_same, 
@@ -571,7 +608,7 @@ def compute_distance_session(X_1, y_1, X_2, y_2,
 
 def fit_clf(X, y, splits = None, cl = svc_ovo):
     
-    if True:
+    if False:
         # with grid_search
         cl_cv = GridSearchCV(estimator = cl, 
                               param_grid = param_grid0, 
@@ -694,7 +731,7 @@ def prewhiten(betas, cov_ledoit_sqrt):
 def process(label, subject, session, subjects_dir, analysis_dir, labels_dir, 
             sequences, effects_file, roi_data_file, do_prewhitening = None, 
             overwrite_extract = False,
-            permutate = False):
+            permutate = False, n_sample = None):
             
     hemi = 'rh' if label.startswith('R_') else 'lh'
     mylabel = project_label(label, hemi, subject, 
@@ -731,33 +768,46 @@ def process(label, subject, session, subjects_dir, analysis_dir, labels_dir,
     
     effects_orig = effects.copy()
     effects = effects[:, ~constant_columns]
-    
-    if do_prewhitening == 'session':
-        # prewhiten the data
-        residual_file_list = [os.path.join(analysis_dir, subject, 
-                                     'ses-%d'%session, 
-                                     'run%d'%run,
-                                     'res4d_LSA_%d.nii.gz'%run) \
-                              for run in np.unique(sequences.run)]
-        cov_ledoit_sqrt = get_cov_ledoit(residual_file_list, nifti_masker, 
-                                         constant_columns)
-        for run in np.unique(sequences.run):
-            effects[sequences.run == run, :], prewhiten_ok = prewhiten(
-                effects[sequences.run == run, :], cov_ledoit_sqrt)        
-
-    if do_prewhitening == 'run':
-        # prewhiten the data
-        for run in np.unique(sequences.run):
-            residual_file = os.path.join(analysis_dir, subject, 
+   
+    mean_signal_trained = \
+        np.mean(
+            np.mean(effects[np.logical_and(
+                sequences.seq_train.to_numpy() == 'trained', valid), :],
+                    axis = 0))
+    mean_signal_untrained = \
+        np.mean(
+            np.mean(effects[np.logical_and(
+                sequences.seq_train.to_numpy() == 'untrained', valid), :], 
+            axis = 0))
+    try:
+        if do_prewhitening == 'session':
+            # prewhiten the data
+            residual_file_list = [os.path.join(analysis_dir, subject, 
                                          'ses-%d'%session, 
                                          'run%d'%run,
-                                         'res4d_LSA_%d.nii.gz'%run)
-            cov_ledoit_sqrt = get_cov_ledoit([residual_file], nifti_masker, 
+                                         'res4d_LSA_%d.nii.gz'%run) \
+                                  for run in np.unique(sequences.run)]
+            cov_ledoit_sqrt = get_cov_ledoit(residual_file_list, nifti_masker, 
                                              constant_columns)
-            effects[sequences.run == run, :], prewhiten_ok = prewhiten(
-                effects[sequences.run == run, :], cov_ledoit_sqrt)        
+            for run in np.unique(sequences.run):
+                effects[sequences.run == run, :], prewhiten_ok = prewhiten(
+                    effects[sequences.run == run, :], cov_ledoit_sqrt)        
+    
+        if do_prewhitening == 'run':
+            # prewhiten the data
+            for run in np.unique(sequences.run):
+                residual_file = os.path.join(analysis_dir, subject, 
+                                             'ses-%d'%session, 
+                                             'run%d'%run,
+                                             'res4d_LSA_%d.nii.gz'%run)
+                cov_ledoit_sqrt = get_cov_ledoit([residual_file], nifti_masker, 
+                                                 constant_columns)
+                effects[sequences.run == run, :], prewhiten_ok = prewhiten(
+                    effects[sequences.run == run, :], cov_ledoit_sqrt)        
 
-            
+    except:
+        print('Prewhitening failed')
+        
     effects_orig = effects_orig*0
     effects_orig[:, ~constant_columns] = effects
     
@@ -820,81 +870,37 @@ def process(label, subject, session, subjects_dir, analysis_dir, labels_dir,
     sequences.loc[:, 'target'] = sequences.true_sequence
     df = sequences[['target', 'seq_train']].drop_duplicates()
     
-    try:
+    #try:
+    if False:
         clf_acc = fit_clf(effects, targets, runs)
     
         clf_acc_trained, clf_acc_untrained,  clf_acc_trained_untrained = \
             fit_clf_separate(effects, targets, runs, df)
     
-        clf_acc_perm = fit_clf(effects_perm, targets, runs)
-
-        mean_signal_trained = \
-            np.mean(
-                np.mean(effects[sequences.seq_train.to_numpy() == 'trained' , :], 
-                        axis = 0))
-        mean_signal_untrained = \
-            np.mean(
-                np.mean(effects[sequences.seq_train.to_numpy() == 'untrained' , :], 
-                axis = 0))
-
-    except:  
+        #clf_acc_perm = fit_clf(effects_perm, targets, runs)
+    else:
+#    except:  
         clf_acc, clf_acc_trained, clf_acc_untrained, \
-            clf_acc_trained_untrained, \
-            mean_signal_trained, mean_signal_untrained,\
-            clf_acc_perm = [np.nan]*7
-    
-    try:
-        xnobis, xnobis_same, xnobis_different, xnobis_trained_same, \
-            xnobis_trained_different, xnobis_untrained_same, \
-            xnobis_untrained_different, xnobis_trained_untrained, \
-            labels = compute_distance(effects, targets, df, splits = runs,
-                                      dist_type = 'xnobis')
-        print("xnobis: same %f, different %f"%(xnobis_same, xnobis_different)) 
-    
-    except:
-        xnobis_same, xnobis_different, xnobis_trained_same, \
-        xnobis_trained_different, xnobis_untrained_same, \
-        xnobis_untrained_different, xnobis_trained_untrained = [np.nan]*7
+            clf_acc_trained_untrained = [np.nan]*4
+            
+    dist_results_list = [] 
+    for dist_type in distance_names:
 
-    try:
-        cosine_mat, cosine_same, cosine_different, cosine_trained_same, \
-            cosine_trained_different, cosine_untrained_same, \
-            cosine_untrained_different, cosine_trained_untrained, \
-            labels = compute_distance(effects, targets, df, splits = runs,
-                                      dist_type = 'xcosine')
-        print("cosine: same %f, different %f"%(cosine_same, cosine_different)) 
-
-    except:
-        cosine_same, cosine_different, cosine_trained_same, \
-        cosine_trained_different, cosine_untrained_same, \
-        cosine_untrained_different, cosine_trained_untrained = [np.nan]*7
-
-    try:
-        correlation_mat, correlation_same, correlation_different, correlation_trained_same, \
-            correlation_trained_different, correlation_untrained_same, \
-            correlation_untrained_different, correlation_trained_untrained, \
-            labels = compute_distance(effects, targets, df, splits = runs,
-                                      dist_type = 'xcorrelation')
-    
-    except:
-        correlation_same, correlation_different, correlation_trained_same, \
-        correlation_trained_different, correlation_untrained_same, \
-        correlation_untrained_different, correlation_trained_untrained = [np.nan]*7
-
-    try:
-        euclidean_mat, euclidean_same, euclidean_different, euclidean_trained_same, \
-            euclidean_trained_different, euclidean_untrained_same, \
-            euclidean_untrained_different, euclidean_trained_untrained, \
-            labels = compute_distance(effects, targets, df, splits = runs,
-                                      dist_type = 'xeuclidean')
-    
-    except:
-        euclidean_same, euclidean_different, euclidean_trained_same, \
-        euclidean_trained_different, euclidean_untrained_same, \
-        euclidean_untrained_different, euclidean_trained_untrained = [np.nan]*7
-
-    try: 
+        try:
+            dist_list, *dist_results, \
+                labels = compute_distance(effects, targets, df, splits = runs,
+                                          dist_type = dist_type, n_sample = n_sample)
+                
+            #print("%s: same %f, different %f"%(dist_type, dist_results[0], 
+            #                                   dist_results[1])) 
         
+        except:
+            dist_results = [np.nan]*7
+
+        dist_results_list.extend(dist_results)
+
+    #try: 
+    if False:
         # compute the different indices
         XG = second_moment(sequences)
         theta, resnorm = fit_second_moment(effects.copy(), XG)
@@ -906,7 +912,8 @@ def process(label, subject, session, subjects_dir, analysis_dir, labels_dir,
 
         alpha_trained_PCM = theta_PCM[5]
         alpha_untrained_PCM = theta_PCM[6]
-    except:
+    else:
+#    except:
         alpha_trained, alpha_untrained, alpha_trained_PCM,\
             alpha_untrained_PCM, resnorm, \
             G_hat_trained, G_hat_untrained = [np.nan]*7
@@ -919,44 +926,15 @@ def process(label, subject, session, subjects_dir, analysis_dir, labels_dir,
             G_hat_trained,
             G_hat_untrained,
             clf_acc,
-            clf_acc_perm,
             clf_acc_trained, 
             clf_acc_untrained,
             clf_acc_trained_untrained,
-            xnobis_same, 
-            xnobis_different, 
-            xnobis_trained_same, 
-            xnobis_trained_different, 
-            xnobis_untrained_same, 
-            xnobis_untrained_different, 
-            xnobis_trained_untrained,
-            cosine_same, 
-            cosine_different, 
-            cosine_trained_same, 
-            cosine_trained_different, 
-            cosine_untrained_same, 
-            cosine_untrained_different, 
-            cosine_trained_untrained,
-            correlation_same, 
-            correlation_different, 
-            correlation_trained_same, 
-            correlation_trained_different, 
-            correlation_untrained_same, 
-            correlation_untrained_different, 
-            correlation_trained_untrained,
-            euclidean_same, 
-            euclidean_different, 
-            euclidean_trained_same, 
-            euclidean_trained_different, 
-            euclidean_untrained_same, 
-            euclidean_untrained_different, 
-            euclidean_trained_untrained,
             mean_signal_trained, 
             mean_signal_untrained,
             nvalid, 
             nruns,
             effects.shape[1], 
-            constant_columns.shape[0]))
+            constant_columns.shape[0]) + tuple(dist_results_list))
 
 def gather_results(analysis_dir, suffix):
     files = glob(os.path.join(analysis_dir, 'sub-*', 'ses-*', 
@@ -1013,7 +991,7 @@ def get_roi_distances(file_1, file_2, permutate = False, n_sample = None):
             
     scores = {}
 
-    for mydistance in ['xnobis', 'xeuclidean', 'xcosine', 'xcorrelation']:
+    for mydistance in distance_names:
 
         start = time.time()
         metric_value = {}    
@@ -1052,11 +1030,7 @@ def get_roi_distances(file_1, file_2, permutate = False, n_sample = None):
                 
         except:
            results = [np.nan]*9
-            
-        metric_names = ['same', 'different', 'trained_same', \
-                'trained_different', 'untrained_same', \
-                'untrained_different', 'trained_untrained']
-            
+                     
         for i, metric_name in enumerate(metric_names):
             metric_value[metric_name] = results[i + 1]
             
