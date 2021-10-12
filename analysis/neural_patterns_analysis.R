@@ -27,8 +27,9 @@ for (suffix0 in c('mask-cross-runprew', 'mask-cross-runprew-perm')) {
  do_variability_analysis('xcorrelation', suffix0, '-different', par = c('MEASUREUntrained Different'))
  do_variability_analysis('xcorrelation', suffix0, '-different', par = c('GROUPIntervention:MEASUREUntrained Different'))
   }
-#  do_variability_analysis('xcorrelation', suffix0, '-untrained', par_diff = '(Intercept)', 
-#                          ylimit_diff = c(-2e-3, 5e-3))
+  
+ do_variability_analysis('xcorrelation', suffix0, '-untrained', par_diff = '(Intercept)', 
+                          ylimit_diff = c(-2e-3, 5e-3))
   
  do_variability_analysis('xnobis', suffix0, '-same', 
                          par = c('TRAINING'),
@@ -51,7 +52,7 @@ for (suffix0 in c('mask-cross-runprew', 'mask-cross-runprew-perm')) {
 #                          analysis_type = 'groupxtraining'))
 
   do_variability_analysis('xnobis', suffix0, '-untrained', par_diff = '(Intercept)', 
-                          ylimit_diff = c(-.05, .05))
+                          ylimit_diff = c(-.08, .04))
   
 #  do_variability_analysis('xnobis', suffix0, '-different', par = c('MEASUREUntrained Different'), odd = 'Trained Different')
 #  do_variability_analysis('xnobis', suffix0, '-different', par = c('GROUPIntervention:MEASUREUntrained Different'), odd = 'Trained Different')

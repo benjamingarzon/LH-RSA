@@ -15,7 +15,7 @@ import re, os
 annot_lh = '/data/lv0/MotorSkill/parcellations/fs_LR_32/Icosahedron-162.fsaverage.L.annot'
 annot_rh = '/data/lv0/MotorSkill/parcellations/fs_LR_32/Icosahedron-162.fsaverage.R.annot'
 
-metric = 'svm_acc' #'crossnobis'
+metric = 'tess-cross-runprewxnobis' #'crossnobis'
 output_lh = '/data/lv0/MotorSkill/fmriprep/analysis/surf/lh.%s.map'%metric
 output_rh = '/data/lv0/MotorSkill/fmriprep/analysis/surf/rh.%s.map'%metric
 results_file = '/data/lv0/MotorSkill/fmriprep/analysis/surf/%s.csv'%metric
@@ -42,19 +42,20 @@ def project_results_annot(annot, results_file, file_like, hemi = 'R'):
             
         w = np.where(labels == mylabel.encode('utf-8'))[0]
         if (len(w) > 0):            
-            output[values == w] = round(row.value_perm, 4)
-            print(row.label, mylabel, w, round(row.value_perm, 4))
+            output[values == w] = round(row.value, 4)
+            print(row.label, mylabel, w, round(row.value, 4))
         
     write_morph_data(file_like = file_like, values = output)
 
 project_results_annot(annot_lh, results_file, output_lh, hemi = 'L')
 project_results_annot(annot_rh, results_file, output_rh, hemi = 'R')
-os.system("""freeview -f """
-          """/usr/local/freesurfer/7.1.1-1/subjects/fsaverage/surf/rh.inflated:"""
-          """overlay=/data/lv0/MotorSkill/fmriprep/analysis/surf/rh.svm_acc.map:"""
-          """annot=/data/lv0/MotorSkill/parcellations/fs_LR_32/Icosahedron-162.fsaverage.R.annot:annot_outline=1 """
-          """/usr/local/freesurfer/7.1.1-1/subjects/fsaverage/surf/lh.inflated:"""
-          """overlay=/data/lv0/MotorSkill/fmriprep/analysis/surf/lh.svm_acc.map:"""
-          """annot=/data/lv0/MotorSkill/parcellations/fs_LR_32/Icosahedron-162.fsaverage.L.annot:annot_outline=1""")
+command = """freeview -f 
+/usr/local/freesurfer/7.1.1-1/subjects/fsaverage/surf/rh.inflated:
+overlay=%s:
+annot=/data/lv0/MotorSkill/parcellations/fs_LR_32/Icosahedron-162.fsaverage.R.annot:annot_outline=1 
+/usr/local/freesurfer/7.1.1-1/subjects/fsaverage/surf/lh.inflated:
+overlay=%s:
+annot=/data/lv0/MotorSkill/parcellations/fs_LR_32/Icosahedron-162.fsaverage.L.annot:annot_outline=1"""%(output_rh, output_lh)
 
+os.system(command.replace('\n', ''))
 #freeview -f /usr/local/freesurfer/7.1.1-1/subjects/fsaverage/surf/lh.inflated:overlay=/data/lv0/MotorSkill/labels/GlasserParc/lh.test:annot=lh.HCP-MMP1.annot 

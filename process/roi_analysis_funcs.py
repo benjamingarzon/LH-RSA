@@ -870,16 +870,16 @@ def process(label, subject, session, subjects_dir, analysis_dir, labels_dir,
     sequences.loc[:, 'target'] = sequences.true_sequence
     df = sequences[['target', 'seq_train']].drop_duplicates()
     
-    #try:
-    if False:
-        clf_acc = fit_clf(effects, targets, runs)
+    try:
+#    if False:
+        
+        clf_acc = np.nan # not used #fit_clf(effects, targets, runs)
     
         clf_acc_trained, clf_acc_untrained,  clf_acc_trained_untrained = \
             fit_clf_separate(effects, targets, runs, df)
     
-        #clf_acc_perm = fit_clf(effects_perm, targets, runs)
-    else:
-#    except:  
+#    else:
+    except:  
         clf_acc, clf_acc_trained, clf_acc_untrained, \
             clf_acc_trained_untrained = [np.nan]*4
             
@@ -899,8 +899,8 @@ def process(label, subject, session, subjects_dir, analysis_dir, labels_dir,
 
         dist_results_list.extend(dist_results)
 
-    #try: 
-    if False:
+    try: 
+#    if False:
         # compute the different indices
         XG = second_moment(sequences)
         theta, resnorm = fit_second_moment(effects.copy(), XG)
@@ -912,8 +912,8 @@ def process(label, subject, session, subjects_dir, analysis_dir, labels_dir,
 
         alpha_trained_PCM = theta_PCM[5]
         alpha_untrained_PCM = theta_PCM[6]
-    else:
-#    except:
+#    else:
+    except:
         alpha_trained, alpha_untrained, alpha_trained_PCM,\
             alpha_untrained_PCM, resnorm, \
             G_hat_trained, G_hat_untrained = [np.nan]*7
@@ -986,6 +986,8 @@ def get_roi_distances(file_1, file_2, permutate = False, n_sample = None):
     data_1 = data_1.dropna(subset = feature_cols)
     y_1 = data_1[target_col].values
     X_1 = data_1[feature_cols].values
+    constant_columns = np.all(X_1[1:] == X_1[:-1], axis=0)
+    X_1 = X_1[:, ~constant_columns]
     data_1.loc[:, 'target']  = data_1.true_sequence
     df_1 = data_1[['target', 'seq_train']].drop_duplicates()
             
@@ -1014,6 +1016,7 @@ def get_roi_distances(file_1, file_2, permutate = False, n_sample = None):
                 data_2.loc[:, 'target']  = data_2.true_sequence
                 y_2 = data_2[target_col].values
                 X_2 = data_2[feature_cols].values
+                X_2 = X_2[:, ~constant_columns]
                 df_2 = data_2[['target', 'seq_train']].drop_duplicates()
                 if permutate:
                     for run in np.unique(data_2.run):

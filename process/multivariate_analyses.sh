@@ -1,15 +1,15 @@
 #!/bin/sh
 #suffix='tess' # whole brain using tessellation
-labels_file='/home/xgarzb@GU.GU.SE/Software/LeftHand/masks/mask_tessellation162_parcels.txt'
-labels_dir='/data/lv0/MotorSkill/labels/fsaverage/tessellation162'
-base_suffix=tess-cross
+#labels_file='/home/xgarzb@GU.GU.SE/Software/LeftHand/masks/mask_tessellation162_parcels.txt'
+#labels_dir='/data/lv0/MotorSkill/labels/fsaverage/tessellation162'
+#base_suffix=tess-cross
 
-#labels_file='/home/xgarzb@GU.GU.SE/Software/LeftHand/masks/motor_roi_parcels.txt'
-#labels_dir='/data/lv0/MotorSkill/labels/fsaverage'
-#base_suffix=mask-cross
+labels_file='/home/xgarzb@GU.GU.SE/Software/LeftHand/masks/motor_roi_parcels.txt'
+labels_dir='/data/lv0/MotorSkill/labels/fsaverage'
+base_suffix=mask-cross
 
 WD='/data/lv0/MotorSkill/'
-num_cores=35
+num_cores=10
 n_sample=100
 
 # cross-validated
@@ -22,7 +22,21 @@ python surface_roi_analysis.py --WD=$WD \
     --labels_file=$labels_file \
     --labels_dir=$labels_dir \
     --effects_name=effects.nii.gz \
-    --n_sample=$n_sample &
+    --n_sample=$n_sample 
+    
+python surface_roi_analysis.py --WD=$WD \
+    --overwrite_scores \
+    --output_data \
+    --do_prewhitening=run \
+    --suffix=${base_suffix}-runprew-perm \
+    --num_cores=$num_cores \
+    --labels_file=$labels_file \
+    --labels_dir=$labels_dir \
+    --effects_name=effects.nii.gz \
+    --n_sample=$n_sample \
+    --permutate  &
+
+#    --just_gather \
 
 exit 1
 

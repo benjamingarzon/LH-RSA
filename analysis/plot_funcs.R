@@ -57,7 +57,8 @@ hemi_map = list('lh' = 'left',
                 'rh' = 'right')
 
 theme_lh = theme_classic(base_size = 13, base_family = "Arial") 
-myPalette = c("red", "blue", "green4", "yellow", "black")
+myPalette = c("red", "green4", "blue", "yellow", "black")
+myPalette2 = c("red", "blue")
 
 
 markoutliersIQR = function(x){
@@ -152,7 +153,7 @@ plot_activation_data = function(X, title, regressout = F, YMIN = 0, YMAX = 4) {
           legend.title = element_blank(), 
           plot.title = element_text(hjust = 0.5),
           axis.text=element_text(size=18),
-          axis.title=element_text(size=20, face="bold"))
+          axis.title=element_text(size=20, face="bold", family = "Arial"))
     
     if (YMIN < 0 ) myplot = myplot + geom_hline(yintercept = 0, size = 0.2)  
     

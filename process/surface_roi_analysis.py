@@ -28,7 +28,7 @@ import matplotlib.pyplot as plt
 
 def do_analysis(WD, PERMUTATE, overwrite_extract, overwrite_scores, output_data, 
                 do_prewhitening, suffix, labels_file, labels_dir, 
-                effects_name, num_cores, n_sample):
+                effects_name, num_cores, n_sample, just_gather):
     
     subjects_dir = os.path.join(WD, 'fmriprep', 'freesurfer')
 
@@ -43,6 +43,10 @@ def do_analysis(WD, PERMUTATE, overwrite_extract, overwrite_scores, output_data,
     # open label file
     labels = np.genfromtxt(labels_file, dtype = 'str').tolist()
     skipped = []
+    
+    if just_gather:
+        paths = []
+        
     # iterate across paths
     for path in paths:
 
@@ -190,6 +194,7 @@ if __name__ == "__main__":
                         type=int)
     parser.add_argument('--n_sample', dest='n_sample', action='store', 
                         type=int)
+    parser.add_argument('--just_gather', dest='just_gather', action='store_true')
     
     args = parser.parse_args()
 
@@ -197,4 +202,4 @@ if __name__ == "__main__":
                 args.overwrite_scores, args.output_data, 
                 args.do_prewhitening, args.suffix, args.labels_file, 
                 args.labels_dir, args.effects_name, args.num_cores, 
-                args.n_sample)
+                args.n_sample, args.just_gather)

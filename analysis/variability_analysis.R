@@ -289,11 +289,11 @@ do_variability_analysis = function(meas, suffix0, suffix1, par = NULL,
   #mymeasures = c("crossnobis_trained", "crossnobis_untrained") #c("mean_signal_trained", "mean_signal_untrained") #c("alpha_trained", "alpha_untrained")
   
   # save it 
-  output.data = data%>%
-    group_by(label)%>%
-    summarise(value=mean(value)) %>% arrange(-value) #, value_perm = mean(value_perm)
+#  output.data = data%>%
+#    group_by(label)%>%
+#    summarise(value=mean(value)) %>% arrange(-value) #, value_perm = mean(value_perm)
   
-  write.table(output.data, file = output_file, sep = ',', col.names = T, row.names = F)
+#  write.table(output.data, file = output_file, sep = ',', col.names = T, row.names = F)
 
   nrois = 4
   # check data
@@ -380,7 +380,7 @@ do_variability_analysis = function(meas, suffix0, suffix1, par = NULL,
     ylimit_diff = c(min(data.mean$ymin), max(data.mean$ymax))
     ylimit_diff = ylimit_diff + diff(ylimit_diff)*c(-.05, .05)
   }
-  myplot = ggplot(data.mean , aes( #%>% filter(hemi == 'rh')
+  myplot = ggplot(data.mean , aes(
     x = session,
     y = val.mean,
     ymin = ymin, 
@@ -396,7 +396,7 @@ do_variability_analysis = function(meas, suffix0, suffix1, par = NULL,
     ylim(ylimit_diff) + 
     geom_hline(yintercept = 0, size = 0.3, linetype = 2) + 
     theme_lh() + 
-    scale_colour_manual(values = myPalette) +
+    scale_colour_manual(values = myPalette2) +
     theme(legend.title = element_blank(), legend.position = 'bottom',  
           panel.grid.major = element_blank(),
           panel.grid.minor = element_blank(),
@@ -424,7 +424,8 @@ do_variability_analysis = function(meas, suffix0, suffix1, par = NULL,
     ylimit = ylimit + diff(ylimit)*c(-.05, .05)
     
   }  
-  
+
+  if(length(table(data.mean$MEASURE)) == 2) myPalette = myPalette2
   myplot.all = ggplot(data.mean, aes(
     x = session,
     y = val.mean,
