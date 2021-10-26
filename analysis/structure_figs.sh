@@ -11,6 +11,12 @@ LH_LABEL=$HOMEDIR/Data/LeftHand/Lund1/labels/fsaverage/lh.somatomotor-mask.label
 #mri_cor2label --i $HOMEDIR/Data/LeftHand/Lund1/labels/fsaverage/rh.somatomotor-mask.func.gii --id 1 --l $HOMEDIR/Data/LeftHand/Lund1/labels/fsaverage/rh.somatomotor-mask.label --sd $HOMEDIR/Data/LeftHand/Lund1/labels/subject/ --surf fsaverage rh white
 #mri_cor2label --i $HOMEDIR/Data/LeftHand/Lund1/labels/fsaverage/lh.somatomotor-mask.func.gii --id 1 --l $HOMEDIR/Data/LeftHand/Lund1/labels/fsaverage/lh.somatomotor-mask.label --sd $HOMEDIR/Data/LeftHand/Lund1/labels/subject/ --surf fsaverage lh white
 
+# 0. Reliability T1
+WD=$HOMEDIR/Data/LeftHand/Lund1/freesurfer/results/tests/T1
+$HOMEDIR/Software/LeftHand/analysis/show_surface.sh $FIGS_DIR $WD/reliability.lh/ICC.func.gii $WD/reliability.rh/ICC.func.gii 0.2 0.9 reliability-T1 $LH_INFLATED $RH_INFLATED $LH_LABEL $RH_LABEL
+
+exit 1
+
 # 1. Reliability cortical thickness
 WD=$HOMEDIR/Data/LeftHand/Lund1/freesurfer/results/tests/thickness
 $HOMEDIR/Software/LeftHand/analysis/show_surface.sh $FIGS_DIR $WD/reliability.lh/ICC.func.gii $WD/reliability.rh/ICC.func.gii 0.5 1 reliability-thickness $LH_INFLATED $RH_INFLATED $LH_LABEL $RH_LABEL

@@ -19,7 +19,7 @@ LABEL_R=${10}
 
 cd $WD
 
-if [ '$LABEL_L' == '' ]; then
+if [ "$LABEL_L" == "" ]; then
 
 freeview -f $SURF_L:overlay=$OVERLAY_L:overlay_threshold=$THR_L,$THR_H:overlay_color='colorwheel','inverse' \
 -viewport 3D -cam azimuth 180 elevation 0 -zoom 2 -ss ${FIG}_L_medial

@@ -30,12 +30,12 @@ plot_data = function(X, title, YLABEL = 'GMV', wDEPTH = F) {
     
     #browser()
     XX = X
-    intercept = fixef(model)[1]
-    XX$FD = 0
-    XX$SYSTEM = levels(X$SYSTEM)[1]
-    XX$y = predict(model, XX) + resid(model) # remove effect of motion and system
-    XX$y.baseline = predict(model, XX %>% mutate(TRAINING = min(X$TRAINING), TRAINING.Q =  min(X$TRAINING.Q)))
-    XX$y.dem = XX$y #100*(XX$y - XX$y.baseline)/XX$y.baseline
+    #intercept = fixef(model)[1]
+    #XX$FD = 0
+    #XX$SYSTEM = levels(X$SYSTEM)[1]
+    #XX$y = predict(model, XX) + resid(model) # remove effect of motion and system
+    #XX$y.baseline = predict(model, XX %>% mutate(TRAINING = min(X$TRAINING), TRAINING.Q =  min(X$TRAINING.Q)))
+    XX$y.dem = X$y #100*(XX$y - XX$y.baseline)/XX$y.baseline
     #XX$y.pred = predict(model, XX)
     #XX$y.orig = X$y
     #print(ggplot(XX, aes(x = TP, col = GROUP, group = SUBJECT)) + 
@@ -58,8 +58,6 @@ plot_data = function(X, title, YLABEL = 'GMV', wDEPTH = F) {
   print(sum(!is.na(X$y)))
   
   #X = X %>% filter(SYSTEM=='Classic')
-  #browser()
-  #browser()
   K = ifelse(wDEPTH, 20, 5)
   X = XX
   # X = XX %>% group_by(SUBJECT) %>% dplyr::mutate(TP.baseline = min(TP), n = sum(!is.na(y))) %>% filter(TP.baseline == 1) %>%
@@ -74,7 +72,7 @@ plot_data = function(X, title, YLABEL = 'GMV', wDEPTH = F) {
     YMAX = YMAX - 0.3 * (YMAX - YMIN)
     #YMIN = -10
     #YMAX = 10
-    X.sem = X %>% group_by(TP, WAVE, GROUP) %>% dplyr::summarise(y.mean = mean(y.dem, na.rm = T),
+    X.sem = X %>% group_by(TP, GROUP) %>% dplyr::summarise(y.mean = mean(y.dem, na.rm = T),
                                                            y.sem = sem(y.dem))
     myplot = ggplot(NULL) +  geom_line(data = X,
                                          aes(
@@ -84,7 +82,7 @@ plot_data = function(X, title, YLABEL = 'GMV', wDEPTH = F) {
                                            y = y.dem
                                          ),
                                          alpha = 0.2) + geom_point(alpha = 0.2)
-    myplot =  myplot + 
+    myplot =   ggplot(NULL)  + #myplot + 
       geom_line(data = X.sem, aes(
         x = TP,
         group = GROUP,
@@ -106,7 +104,7 @@ plot_data = function(X, title, YLABEL = 'GMV', wDEPTH = F) {
                       col = GROUP
                     )) +
       scale_colour_manual(values = myPalette) + theme_lh + 
-      theme(legend.position = "bottom", legend.title = element_blank()) + facet_grid(WAVE ~ .) + 
+      theme(legend.position = "bottom", legend.title = element_blank()) + # facet_grid(WAVE ~ .) + 
       xlab('Scanning session') + 
       ylab(YLABEL) + 
       scale_x_continuous(breaks = seq(7)) + 
@@ -159,7 +157,7 @@ create_vol_rois = function(DATADIR,
                            MASK_NAME,
                            THR, 
                            YLABEL,
-                           redraw = T) {
+                           redraw = T, MAXROIS = 16) {
   tests = NULL
   rois = NULL
   myplots = NULL
@@ -188,8 +186,8 @@ create_vol_rois = function(DATADIR,
   roimask <- readNIfTI(ROI_FILE)
   if (sum(roimask) == 0)
     return(NULL)
-  
-  for (myroi in seq(dim(roimask)[4])) {
+  MAXROIS = max(dim(roimask)[4], MAXROIS)
+  for (myroi in seq(MAXROIS)) {
     title = paste('ROI', myroi, sep = '-')
     print(
       "###############################################################################"
@@ -276,7 +274,7 @@ create_surf_rois = function(DATADIR,
     else {
       print("No results file found.") 
       next
-      }
+    }
     mask <- fast_readnii(MASK_FILE)
     roimask <- readNIfTI(ROI_FILE)
     if (sum(roimask) == 0)

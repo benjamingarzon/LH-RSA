@@ -11,26 +11,32 @@ cat("\014")
 setwd("~/Software/LeftHand/analysis")
 source("./plot_funcs.R")
 
-NCOL = 4
+NCOL = 6
 
 FIGS_DIR = '~/Data/LeftHand/Lund1/figs/structure'
 dir.create(FIGS_DIR)
 
-GMV_LABEL = '% increase in GMV'
-THICKNESS_LABEL = '% increase in cortical thickness'
+GMV_LABEL = 'GMV (a. u.)' #% increase in GMV'
+THICKNESS_LABEL = 'Cortical thickness (mm)' # % increase in cortical thickness'
 #################################################################################
 # VBM
 radius = 4
 DISTANCE = 10
 DATADIR = '~/Data/LeftHand/Lund1/cat12/'
-TESTDIR = 'tests/quadratic'
 MASK_NAME = 'mask.nii.gz'
-TESTNAME = 'Omni_p'
-THR=0.99
-REDRAW = F
+THR=0.95
+REDRAW = T
 
+TESTDIR = 'tests/linear'
+TESTNAME = 'GROUP_x_TRAINING+_p'
 myplots.VBM = create_vol_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, GMV_LABEL, redraw = REDRAW)
 
+
+TESTDIR = 'tests/linear'
+TESTNAME = 'GROUP+_p'
+myplots.VBM = create_vol_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, GMV_LABEL, redraw = REDRAW)
+
+stophere
 #################################################################################
 # thickness
 
@@ -48,12 +54,23 @@ radius=5
 DATADIR = '/home/share/MotorSkill/freesurfer/results/'
 
 MASK_NAME = 'mask.nii.gz'
-THR = 0.95
+THR = 0.975
 
 # thickness linear
-TESTDIR = 'tests/thickness/quadratic'
-TESTNAME = 'Omni_p'
-myplots.thickness.Omni_p = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, THICKNESS_LABEL, redraw = REDRAW)
+TESTDIR = 'tests/thickness/linear'
+TESTNAME = 'GROUP_x_TRAINING_p'
+myplots.thickness.GROUP_x_TRAINING_p = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, THICKNESS_LABEL, redraw = REDRAW)
+
+TESTNAME = 'GROUP_p'
+myplots.thickness.GROUP_p = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, THICKNESS_LABEL, redraw = REDRAW)
+
+stophere
+
+# thickness comparison
+TESTDIR = 'tests/thickness/comparison'
+TESTNAME = 'Best'
+myplots.thickness.comparison = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, THICKNESS_LABEL, redraw = REDRAW)
+
 
 stophere
 #################################################################################

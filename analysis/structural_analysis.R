@@ -19,7 +19,7 @@ source('./mytests.R')
 source('./structural_analysis_funcs.R')
 
 SUBJECTS_DIR = '~/Data/LeftHand/Lund1/freesurfer/'
-NPROCS = 35
+NPROCS = 30
 
 source('./load_covariates.R')
 
@@ -57,12 +57,6 @@ remove_outliers = F
 ###############################################################
 # Do it
 ###############################################################
-# tests T1 x 3 depths, put together as 1 test, 2 hemispheres, quadratic model and linear vs quadratic test
-# tests thickness, 2 hemispheres, quadratic model and linear vs quadratic test
-# cat 12 volume, quadratic model and linear vs quadratic test
-# tests fMRI volume, quadratic model and linear vs quadratic test
-# tests fMRI, 2 hemispheres, quadratic model and linear vs quadratic test
-# tests FMRI multivariate
 
 #####################
 # cat12
@@ -70,7 +64,7 @@ remove_outliers = F
 
 DATADIR = '/home/benjamin.garzon/Data/LeftHand/Lund1/cat12'
 
-if (T){
+if (F){
 #results.reliability.cat =
 doit(
   DATADIR,
@@ -84,7 +78,6 @@ doit(
   shuffle_by = shuffle_by
 )
   
-# compute only within the mask and plot histograms
 doit(
     DATADIR,
     reliability,
@@ -96,8 +89,6 @@ doit(
     NPERMS = NPERMS,
     shuffle_by = shuffle_by
   )
-  
-# make a histogram of reliability
   
 #results.quadratic.cat =
 doit(
@@ -111,6 +102,20 @@ doit(
   NPERMS = NPERMS,
   shuffle_by = shuffle_by
 )
+
+#results.linear.cat =
+doit(
+  DATADIR,
+  testlinear,
+  'tests/linear',
+  MASK = vbm.mask,
+  IMAGES_LIST = 'image_list.txt',
+  IMAGING_NAME = vbm.data,
+  upsample = upsample,
+  NPERMS = NPERMS,
+  shuffle_by = shuffle_by
+)
+
 #results.comparison.cat =
 doit(
   DATADIR,
@@ -131,6 +136,7 @@ doit(
 
 DATADIR = '/home/benjamin.garzon/Data/LeftHand/Lund1/freesurfer/results'
 
+if (F){
 #results.thickness.reliability.rh =
 doit(
   DATADIR,
@@ -215,6 +221,34 @@ doit(
   shuffle_by = shuffle_by
 )
 
+#results.thickness.linear.rh =
+doit(
+  DATADIR,
+  testlinear,
+  'tests/thickness/linear.rh',
+  MASK = rh.mask,
+  IMAGES_LIST = 'rh.thickness.txt',
+  IMAGING_NAME = 'rh.thickness.nii.gz',
+  to_gifti = rh.gii,
+  alpha = alphavertex,
+  NPERMS = NPERMS,
+  shuffle_by = shuffle_by
+)
+
+#results.thickness.linear.lh =
+doit(
+  DATADIR,
+  testlinear,
+  'tests/thickness/linear.lh',
+  MASK = lh.mask,
+  IMAGES_LIST = 'lh.thickness.txt',
+  IMAGING_NAME = 'lh.thickness.nii.gz',
+  to_gifti = lh.gii,
+  alpha = alphavertex,
+  NPERMS = NPERMS,
+  shuffle_by = shuffle_by
+)
+
 #results.thickness.comparison.rh =
 doit(
   DATADIR,
@@ -243,14 +277,16 @@ doit(
   shuffle_by = shuffle_by
 )
 
-stophere
+}
 
 #####################
 # T1 values
 #####################
-
+#quadratic
 # right
-results.T1.quadratic.rh = doit(
+if (F) {
+#results.T1.quadratic.rh = 
+doit(
   DATADIR,
   testquadratic_depth,
   'tests/T1/quadratic.rh',
@@ -278,6 +314,40 @@ doit(
   shuffle_by = shuffle_by
 )
 
+# linear
+#right
+#results.T1.linear.rh = 
+doit(
+  DATADIR,
+  testlinear_depth,
+  'tests/T1/linear.rh',
+  MASK = rh.mask,
+  IMAGES_LIST = 'rh.T1.txt',
+  IMAGING_NAME = 'rh.T1.nii.gz',
+  to_gifti = rh.gii,
+  alpha = alphavertex,
+  NPERMS = NPERMS,
+  shuffle_by = shuffle_by
+)
+
+#left
+#results.T1.linear.lh = 
+doit(
+  DATADIR,
+  testlinear_depth,
+  'tests/T1/linear.lh',
+  MASK = lh.mask,
+  IMAGES_LIST = 'lh.T1.txt',
+  IMAGING_NAME = 'lh.T1.nii.gz',
+  to_gifti = lh.gii,
+  alpha = alphavertex,
+  NPERMS = NPERMS,
+  shuffle_by = shuffle_by
+)
+
+}
+#model comparison
+#right
 #results.T1.modelcomparison.rh = 
 doit(
   DATADIR,
@@ -292,11 +362,73 @@ doit(
   shuffle_by = shuffle_by
 )
 
+#left
 #results.T1.modelcomparison.lh = 
 doit(
   DATADIR,
   modelcomparison_depth,
   'tests/T1/comparison.lh',
+  MASK = lh.mask,
+  IMAGES_LIST = 'lh.T1.txt',
+  IMAGING_NAME = 'lh.T1.nii.gz',
+  to_gifti = lh.gii,
+  alpha = alphavertex,
+  NPERMS = NPERMS,
+  shuffle_by = shuffle_by
+)
+
+#reliability
+#right
+
+#results.T1.reliability.rh =
+doit(
+  DATADIR,
+  reliability_depth,
+  'tests/T1/reliability.rh',
+  MASK = rh.cortex.mask,
+  IMAGES_LIST = 'rh.T1.txt',
+  IMAGING_NAME = 'rh.T1.nii.gz',
+  to_gifti = rh.gii,
+  alpha = alphavertex,
+  NPERMS = NPERMS,
+  shuffle_by = shuffle_by
+)
+
+#results.T1.reliability.lh =
+doit(
+  DATADIR,
+  reliability_depth,
+  'tests/T1/reliability-mask.rh',
+  MASK = rh.mask,
+  IMAGES_LIST = 'rh.T1.txt',
+  IMAGING_NAME = 'rh.T1.nii.gz',
+  to_gifti = rh.gii,
+  alpha = alphavertex,
+  NPERMS = NPERMS,
+  shuffle_by = shuffle_by
+)
+
+#left
+#results.T1.reliability.lh =
+doit(
+  DATADIR,
+  reliability_depth,
+  'tests/T1/reliability.lh',
+  MASK = lh.cortex.mask,
+  IMAGES_LIST = 'lh.T1.txt',
+  IMAGING_NAME = 'lh.T1.nii.gz',
+  to_gifti = lh.gii,
+  alpha = alphavertex,
+  NPERMS = NPERMS,
+  shuffle_by = shuffle_by
+)
+
+#left
+#results.T1.reliability.lh =
+doit(
+  DATADIR,
+  reliability_depth,
+  'tests/T1/reliability-mask.lh',
   MASK = lh.mask,
   IMAGES_LIST = 'lh.T1.txt',
   IMAGING_NAME = 'lh.T1.nii.gz',

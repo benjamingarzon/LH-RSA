@@ -14,7 +14,7 @@ structural_analysis_univariate = function(WD, MYTEST, OD,
                 to_gifti = '', 
                 NPERMS = 0, 
                 alpha = 0.05,
-                shuffle_by = NULL, upsample = NULL, remove_outliers = T)
+                shuffle_by = NULL, upsample = NULL, remove_outliers = F)
 {
   
   setwd(WD)
