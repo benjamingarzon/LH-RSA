@@ -328,6 +328,71 @@ testquadratic_depth = function(y, X, ALTERNATIVE = 'greater')
   
 }
 
+testquadratic_depth = function(y, X, ALTERNATIVE = 'greater')
+{
+  var.names = c("INTERCEPT", "FD", "SYSTEM", "DEPTH", "GROUP" , "TRAINING", "TRAINING.Q", "GROUP_x_TRAINING", "GROUP_x_TRAINING.Q")
+  
+  contrast.names = c(
+    "GROUP_x_TRAINING+", 
+    "GROUP_x_TRAINING.Q+" 
+  )
+  
+  c.1        = c(0, 0, 0, 0, 0, 0, 0,  1,  0)
+  c.2        = c(0, 0, 0, 0, 0, 0,  0,  0,  1)
+  
+  cont.mat = rbind(c.1, c.2)
+  colnames(cont.mat) = var.names
+  rownames(cont.mat) = contrast.names
+  
+  tags = c(paste0(var.names, '_coef'),
+           paste0(contrast.names, '_coef'),
+           paste0(var.names, '_tstat'),
+           paste0(contrast.names, '_tstat'),
+           paste0(var.names, '_p'),
+           paste0(contrast.names, '_p'))
+  
+  X$y = y
+  X = subset(X, DEPTH < 1)
+  
+  tryCatch({ 
+    model = lmer(y ~ 1 + FD + SYSTEM + DEPTH + GROUP*(TRAINING + TRAINING.Q) + (1 |SUBJECT), data = X)
+    model_type = 1
+    
+    coefs = fixef(model)
+    pvalues = summary(model)$coefficients[ , "Pr(>|t|)"]
+    tstats = summary(model)$coefficients[ , "t value"]
+    glh = glht(model, linfct = cont.mat, alternative=ALTERNATIVE)
+    contrast.pvalues = as.numeric(summary(glh)$test$pvalues)
+    contrast.coefs = coef(glh)
+    contrast.tstats = summary(glh)$test$tstat
+    names(contrast.pvalues) = names(contrast.coefs)
+    val = c(coefs, contrast.coefs, tstats, contrast.tstats, pvalues, contrast.pvalues)
+    
+    sumglh = summary(glh, test = Ftest())
+    val = c(val, sumglh$test$fstat, sumglh$test$SSH, sumglh$test$pvalue, model_type)
+    names(val) = c(tags, 'OmniF_tstat', 'Omni_coef', 'Omni_p', 'modeltype_coef')
+    
+    return(val)
+    
+  },
+  
+  error = function(cond){
+    # something went wrong, save special values
+    pvalues = rep(2, length(var.names))
+    coefs = rep(0, length(var.names))
+    contrast.pvalues = rep(2, length(contrast.names))
+    contrast.coefs = rep(0, length(contrast.names))
+    val = c(coefs, contrast.coefs, pvalues, contrast.pvalues)
+    val = c(val, rep(0, 3), -1)
+    names(val) = c(tags, 'OmniF_tstat', 'Omni_coef', 'Omni_p', 'modeltype_coef')
+    return(val)
+    
+  }
+  )
+  
+}
+
+
 testlinear_depth = function(y, X, ALTERNATIVE = 'greater')
 {
   var.names = c("INTERCEPT", "FD", "SYSTEM", "DEPTH", "GROUP" , "TRAINING", "GROUP_x_TRAINING")

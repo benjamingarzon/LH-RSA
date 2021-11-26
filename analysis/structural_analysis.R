@@ -282,8 +282,37 @@ doit(
 #####################
 # T1 values
 #####################
-#quadratic
+#asymptotic
 # right
+
+doit(
+  DATADIR,
+  testasymptotic_depth,
+  'tests/T1/asymptotic.rh',
+  MASK = rh.mask,
+  IMAGES_LIST = 'rh.T1.txt',
+  IMAGING_NAME = 'rh.T1.nii.gz',
+  to_gifti = rh.gii,
+  alpha = alphavertex,
+  NPERMS = NPERMS,
+  shuffle_by = shuffle_by
+)
+
+#left
+#results.T1.asymptotic.lh = 
+doit(
+  DATADIR,
+  testasymptotic_depth,
+  'tests/T1/asymptotic',
+  MASK = lh.mask,
+  IMAGES_LIST = 'lh.T1.txt',
+  IMAGING_NAME = 'lh.T1.nii.gz',
+  to_gifti = lh.gii,
+  alpha = alphavertex,
+  NPERMS = NPERMS,
+  shuffle_by = shuffle_by
+)
+
 if (F) {
 #results.T1.quadratic.rh = 
 doit(

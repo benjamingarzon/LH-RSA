@@ -29,14 +29,14 @@ REDRAW = T
 
 TESTDIR = 'tests/linear'
 TESTNAME = 'GROUP_x_TRAINING+_p'
-myplots.VBM = create_vol_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, GMV_LABEL, redraw = REDRAW)
+#myplots.VBM = create_vol_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, GMV_LABEL, redraw = REDRAW)
 
 
 TESTDIR = 'tests/linear'
 TESTNAME = 'GROUP+_p'
-myplots.VBM = create_vol_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, GMV_LABEL, redraw = REDRAW)
+#myplots.VBM = create_vol_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, GMV_LABEL, redraw = REDRAW)
 
-stophere
+
 #################################################################################
 # thickness
 
@@ -59,10 +59,23 @@ THR = 0.975
 # thickness linear
 TESTDIR = 'tests/thickness/linear'
 TESTNAME = 'GROUP_x_TRAINING_p'
-myplots.thickness.GROUP_x_TRAINING_p = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, THICKNESS_LABEL, redraw = REDRAW)
+#myplots.thickness.GROUP_x_TRAINING_p = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, THICKNESS_LABEL, redraw = REDRAW)
 
 TESTNAME = 'GROUP_p'
-myplots.thickness.GROUP_p = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, THICKNESS_LABEL, redraw = REDRAW)
+#myplots.thickness.GROUP_p = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, THICKNESS_LABEL, redraw = REDRAW)
+
+# T1 asymptotic
+
+DATADIR = '/home/share/MotorSkill/freesurfer/results/'
+TESTDIR = 'tests/T1/quadratic'
+TESTNAME = 'GROUP_x_TRAINING_p'
+myplots.T1.GROUP_x_TRAINING_p = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, THICKNESS_LABEL, redraw = REDRAW)
+
+TESTNAME = 'GROUP_x_TRAINING.Q_p'
+myplots.T1.GROUP_x_TRAINING.Q_p = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, THICKNESS_LABEL, redraw = REDRAW)
+
+TESTNAME = 'GROUP_p'
+myplots.T1.GROUP_p = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, THICKNESS_LABEL, redraw = REDRAW)
 
 stophere
 
