@@ -467,19 +467,20 @@ def test_do_analysis():
     labels_file='/home/xgarzb@GU.GU.SE/Software/LeftHand/masks/motor_roi_parcels.txt'
     labels_dir='/data/lv0/MotorSkill/labels/fsaverage'
     WD='/data/lv0/MotorSkill/'
-    permutate = True
+    permutate = False
     overwrite_extract = False
     overwrite_scores = True
     output_data = False 
     do_prewhitening = True
-    suffix = 'roi-mask-perm'
+    suffix = 'roi-mask'
     effects_name = 'effects.nii.gz' 
     num_cores = 1
     
     do_analysis(WD, permutate, overwrite_extract, 
                 overwrite_scores, output_data, 
                 do_prewhitening, suffix, labels_file, 
-                labels_dir, effects_name, num_cores)
+                labels_dir, effects_name, num_cores, None, 
+                False)
 #test_prewhiten()
 #sequences = test_getcorrect()
 #T_ind, theta, G_hat_trained, G_hat_untrained = test_PCM()

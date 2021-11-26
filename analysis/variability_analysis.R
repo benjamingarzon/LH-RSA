@@ -4,19 +4,24 @@ library(reshape2)
 library(stringr)
 library(lme4)
 library(lmerTest)
+library(mgcv)
 
+k.SESS = 7
+k.CONFIG = 7
+smooth = "tp"
 # remove motion outliers...?
 # correct for FD. FD vs type of 
 # correct for number of correct trials
 
-do_tests = function(mydata, par, myfile, odd, analysis_type = 'groupxtrainingxmeasure', output_text = F){
-  
+do_tests = function(mydata, par, myfile, odd, analysis_type = 'groupxtrainingxmeasure', output_text = F, use_GAM = T){
+
   unlink(myfile)
   mydata = mydata %>% filter(! MEASURE %in% odd)
   labels = sort(unique(mydata$label))
   groups = unique(mydata$GROUP)
   infos = NULL
   mylines = c(par)
+  if (!use_GAM){
   for (l in labels) {
     if (analysis_type == 'groupxtrainingxmeasure') 
       model = lmer(value ~ 1 + FD + SYSTEM + CONFIGURATION + (GROUP*TRAINING*MEASURE) + (1 |subject), data = mydata %>% 
@@ -27,11 +32,64 @@ do_tests = function(mydata, par, myfile, odd, analysis_type = 'groupxtrainingxme
     if (analysis_type == 'training') 
       model = lmer(value ~ 1 + FD + SYSTEM + CONFIGURATION + TRAINING + (1 |subject), data = mydata %>% 
                      filter(label == l))
+    if (analysis_type == 'groupxmeasure') 
+      model = lmer(value ~ 1 + FD + SYSTEM + CONFIGURATION + GROUP*MEASURE + (1 |subject), data = mydata %>% 
+                     filter(label == l))
     if(isSingular(model)) {
       print(myfile)
       print(summary(model))
+      
     }
+
     infos = rbind(infos, summary(model)$coefficients[par, ])
+  }
+  
+  } else {
+    # use GAM
+    for (l in labels) {
+      #print(l)
+      if (analysis_type == 'groupxtrainingxmeasure') 
+        model = gam(value ~ 1 + FD + SYSTEM + CONFIGURATION + (GROUP*TRAINING*MEASURE) +
+                      s(subject, bs = "re") +
+                      s(TRAINING, by = interaction(GROUP, MEASURE), k = k.SESS, bs = smooth),
+                    data = mydata %>% filter(label == l) %>% mutate(subject = factor(subject)), 
+                    method = 'REML')
+      
+      if (analysis_type == 'groupxmeasure') 
+      model = gam(value ~ 1 + FD + SYSTEM + CONFIGURATION + (GROUP*MEASURE) +
+                             s(subject, bs = "re") +
+                             s(TRAINING, by = interaction(GROUP, MEASURE), k = k.SESS, bs = smooth),
+                           data = mydata %>% filter(label == l) %>% mutate(subject = factor(subject)), 
+      method = 'REML')
+      #gam.check(model)
+      
+      if (analysis_type == 'groupxtraining') 
+        model = gam(value ~ 1 + FD + SYSTEM + CONFIGURATION + (GROUP*TRAINING) +
+                      s(subject, bs = "re") +
+                      s(TRAINING, by = interaction(GROUP), k = k.SESS, bs = smooth), 
+                    data = mydata %>% filter(label == l) %>% mutate(subject = factor(subject)), 
+                    method = 'REML')
+      
+      if (analysis_type == 'training') 
+        model = gam(value ~ 1 + FD + SYSTEM + CONFIGURATION + TRAINING +
+                      s(subject, bs = "re") +
+                      s(TRAINING, by = interaction(GROUP), k = k.SESS, bs = smooth), 
+                    data = mydata %>% filter(label == l) %>% mutate(subject = factor(subject)), 
+                    method = 'REML')
+      #print(summary(model))
+      
+      mysum = summary(model, freq = T)
+      p.table = mysum$p.table
+      p.table = cbind(p.table, df = df.residual(model))
+      p.table = p.table[, c('Estimate', 'Std. Error', 'df', 't value', 'Pr(>|t|)')]
+      infos = rbind(infos, p.table[par, ])
+    }
+    
+    #print(
+    #  ggplot(unpaced_trials.wrong, aes(x = sess_num, y = wrong_trials.pred, col = group)) + geom_point() + geom_line() +
+    #    facet_grid(CONFIGURATION.SIMPLE ~ seq_train)
+    #)
+    
   }
   
   infos = cbind(infos, p.adjust(infos[, 'Pr(>|t|)'], method = 'fdr'))
@@ -73,13 +131,14 @@ do_tests_diff = function(mydata, par_diff, myfile, output_text = F){
   infos = NULL
   for (g in groups) {
     for (l in labels) {
+      
       model = lmer(value ~ 1 + FD + SYSTEM + CONFIGURATION + (1 |subject), data = mydata %>% filter(label == l, GROUP == g))
       infos = rbind(infos, summary(model)$coefficients[par_diff, ])
       if(isSingular(model)) {
         print(myfile)
         print(summary(model))
         }
-      
+
     }
     groupmodel = lmer(value ~ 1 + FD + SYSTEM + CONFIGURATION + (1 |subject), data = mydata %>% filter( GROUP == g))
     info = summary(groupmodel)$coefficients[par_diff, ]
@@ -128,9 +187,13 @@ do_variability_analysis = function(meas, suffix0, suffix1, par = NULL,
                                    ylimit_diff = NULL, 
                                    odd = "Trained Untrained",
                                    analysis_type = 'groupxtrainingxmeasure',
-                                   remove_wave = NULL) {
+                                   remove_wave = NULL, 
+                                   add_legend = F) {
+  legend.position = c(0.12, 0.9)
+  legend.position.diff = c(0.12, 0.1)
   suffix = paste0(suffix0, suffix1)
   data_file = paste0('/data/lv0/MotorSkill/fmriprep/analysis/surf/roi_scores_', suffix0, '.csv')
+  print(paste(meas, suffix))
   #data_file = '/data/lv0/MotorSkill/fmriprep/analysis/surf/roi_scores_mask-cross.csv'
   #output_file = '/data/lv0/MotorSkill/fmriprep/analysis/surf/clf_acc.csv'
   output_file = paste0('/data/lv0/MotorSkill/fmriprep/analysis/surf/', suffix, '.csv')
@@ -140,6 +203,7 @@ do_variability_analysis = function(meas, suffix0, suffix1, par = NULL,
   data$GROUP = "Intervention"
   data$GROUP[grep("sub-lue.2", data$subject)] = "Control"
   
+  browser()
   # remove particular  wave
   if (!is.null(remove_wave)) data = data[ -grep(paste0('sub-lue', remove_wave), data$subject), ]
   
@@ -151,7 +215,8 @@ do_variability_analysis = function(meas, suffix0, suffix1, par = NULL,
   if (meas == 'alpha'){
     mymeasures = c("alpha_trained", "alpha_untrained")
     data$value = data$alpha_trained - data$alpha_untrained
-    ylabel = "Variability score"
+    ylabel = "Variability index"
+    ylabel_diff = "Difference in variability score"
   } 
   
   if (meas == 'valid'){
@@ -161,9 +226,13 @@ do_variability_analysis = function(meas, suffix0, suffix1, par = NULL,
   } 
   
   if (meas == 'clf'){
-    mymeasures = c("clf_acc_trained", "clf_acc_untrained") #, "clf_acc_trained_untrained")
+    if (suffix1 == '-all') mymeasures = c("clf_acc_trained", "clf_acc_untrained", "clf_acc_trained_untrained")
+    if (suffix1 == '-different') mymeasures = c("clf_acc_trained", "clf_acc_untrained")
     data$value = data$clf_acc_trained - data$clf_acc_untrained
     ylabel = "Classification accuracy"
+    ylabel_diff = "Difference in classification accuracy"
+    legend.position = c(0.12, 0.85)
+    
   } 
   
   if (meas == 'xeuclidean'){
@@ -190,7 +259,8 @@ do_variability_analysis = function(meas, suffix0, suffix1, par = NULL,
     if (suffix1 == '-all') data$value = data$xnobis_trained_different - data$xnobis_untrained_different
     
     ylabel = "Cross-nobis dissimilarity"
-    ylabel_diff = "Difference in cross-nobis dissimilarity (same - different type)"
+    ylabel_diff = "Difference in cross-nobis dissimilarity\n(same - different type)"
+    legend.position = 'bottom'
   } 
   
   if (meas == 'xnobisratio'){
@@ -245,6 +315,16 @@ do_variability_analysis = function(meas, suffix0, suffix1, par = NULL,
     
     ylabel = "Cross-nobis product"
   } 
+
+  if (meas == 'xnobis_grouped'){
+    browser()
+    if (suffix1 == '-different') mymeasures = c("xnobis_grouped_trained_different", "xnobis_grouped_untrained_different", "xnobis_grouped_trained_untrained")
+    if (suffix1 == '-different') data$value = data$xnobis_grouped_trained_different - data$xnobis_grouped_untrained_different
+
+    ylabel = "Cross-nobis dissimilarity"
+    ylabel_diff = "Difference in cross-nobis dissimilarity\n(same - different type)"
+    legend.position = 'bottom'
+  } 
   
   if (meas == 'xcosine'){
     if (suffix1 == '-same') mymeasures = c("xcosine_trained_same", "xcosine_untrained_same")
@@ -271,7 +351,77 @@ do_variability_analysis = function(meas, suffix0, suffix1, par = NULL,
     
     #  data$value = data$correlation_trained_different - data$correlation_untrained_different 
     ylabel = "Correlation (z-scored)"
-    ylabel_diff = "Difference in (z-scored) correlation  (same - different type)"
+    ylabel_diff = "Difference in (z-scored) correlation\n(same - different type)"
+    legend.position = 'bottom'
+  } 
+
+  if (meas == 'xcorrelation_unbiased'){
+    if (suffix1 == '-different') mymeasures = c("xcorrelation_unbiased_trained_different", "xcorrelation_unbiased_untrained_different",
+                                                "xcorrelation_unbiased_trained_untrained")
+    if (suffix1 == '-different') data$value = data$xcorrelation_unbiased_trained_different - data$xcorrelation_unbiased_untrained_different
+
+    ylabel = "Correlation (z-scored)"
+    ylabel_diff = "Difference in (z-scored) correlation\n(trained - untrained type)"
+    legend.position = 'bottom'
+  } 
+
+  if (meas == 'xcorrelation_grouped'){
+
+    if (suffix1 == '-different') mymeasures = c("xcorrelation_grouped_trained_different", "xcorrelation_grouped_untrained_different",
+                                                "xcorrelation_grouped_trained_untrained")
+    if (suffix1 == '-different') data$value = data$xcorrelation_grouped_trained_different - data$xcorrelation_grouped_untrained_different
+    
+    ylabel = "Correlation (z-scored)"
+    ylabel_diff = "Difference in (z-scored) correlation\n(trained - untrained)"
+    legend.position = 'bottom'
+  } 
+  
+  if (meas == 'xproduct_unbiased'){
+    if (suffix1 == '-same') mymeasures = c("xproduct_unbiased_trained_same", "xproduct_unbiased_untrained_same")
+    if (suffix1 == '-untrained') mymeasures = c("xproduct_unbiased_untrained_same", "xproduct_unbiased_untrained_different")
+    if (suffix1 == '-trained') mymeasures = c("xproduct_unbiased_trained_same", "xproduct_unbiased_trained_different")
+    if (suffix1 == '-different') mymeasures = c("xproduct_unbiased_trained_different", "xproduct_unbiased_untrained_different",
+                                                "xproduct_unbiased_trained_untrained")
+    if (suffix1 == '-all') mymeasures = c("xproduct_unbiased_trained_same", "xproduct_unbiased_untrained_same", "xproduct_unbiased_trained_different", "xproduct_unbiased_untrained_different", "xproduct_unbiased_trained_untrained")
+    
+    if (suffix1 == '-same') data$value = data$xproduct_unbiased_trained_same - data$xproduct_unbiased_untrained_same 
+    if (suffix1 == '-trained') data$value = data$xproduct_unbiased_trained_same - data$xproduct_unbiased_trained_different
+    if (suffix1 == '-untrained') data$value = data$xproduct_unbiased_untrained_same- data$xproduct_unbiased_untrained_different
+    if (suffix1 == '-different') data$value = data$xproduct_unbiased_trained_different - data$xproduct_unbiased_untrained_different
+    if (suffix1 == '-all') data$value = data$xproduct_unbiased_trained_different - data$xproduct_unbiased_untrained_different
+    
+    #  data$value = data$correlation_trained_different - data$correlation_untrained_different 
+    ylabel = "Scalar product"
+    ylabel_diff = "Difference in scalar product\n(trained - untrained)"
+    legend.position = 'bottom'
+  } 
+
+  
+  if (meas == 'xproduct_grouped'){
+    if (suffix1 == '-same') mymeasures = c("xproduct_grouped_trained_same", "xproduct_grouped_untrained_same")
+    if (suffix1 == '-untrained') mymeasures = c("xproduct_grouped_untrained_same", "xproduct_grouped_untrained_different")
+    if (suffix1 == '-trained') mymeasures = c("xproduct_grouped_trained_same", "xproduct_grouped_trained_different")
+    if (suffix1 == '-different') mymeasures = c("xproduct_grouped_trained_different", "xproduct_grouped_untrained_different",
+                                                "xproduct_grouped_trained_untrained")
+    if (suffix1 == '-all') mymeasures = c("xproduct_grouped_trained_same", "xproduct_grouped_untrained_same", "xproduct_grouped_trained_different", "xproduct_grouped_untrained_different", "xproduct_grouped_trained_untrained")
+    
+    if (suffix1 == '-same') data$value = data$xproduct_grouped_trained_same - data$xproduct_grouped_untrained_same 
+    if (suffix1 == '-trained') data$value = data$xproduct_grouped_trained_same - data$xproduct_grouped_trained_different
+    if (suffix1 == '-untrained') data$value = data$xproduct_grouped_untrained_same- data$xproduct_grouped_untrained_different
+    if (suffix1 == '-different') data$value = data$xproduct_grouped_trained_different - data$xproduct_grouped_untrained_different
+    if (suffix1 == '-all') data$value = data$xproduct_grouped_trained_different - data$xproduct_grouped_untrained_different
+    
+    #  data$value = data$correlation_trained_different - data$correlation_untrained_different 
+    if (suffix1 == '-same') {
+      browser()
+        ylabel = "Cross-validated variance"
+        ylabel_diff = "Difference in cross-validated variance estimate \n(trained - untrained)"
+    } else {
+      ylabel = "Scalar product"
+      ylabel_diff = "Difference in scalar product"
+      
+    }
+    legend.position = 'bottom'
     
   } 
   
@@ -303,7 +453,7 @@ do_variability_analysis = function(meas, suffix0, suffix1, par = NULL,
   # relabel rois and separate hemispheres
   control_labels = c("R_C1", "L_C1")
   data = data %>% filter( !label %in% control_labels)
-  incomplete_subjects = c("sub-lue5207", "sub-lue3203")
+  incomplete_subjects = c("sub-lue5207", "sub-lue3203") # too few timepoints
   data$label  = gsub("R_", "Right ", data$label)
   data$label  = gsub("L_", "Left ", data$label)
   data$label  = gsub("C1", "Control Region", data$label)
@@ -330,9 +480,7 @@ do_variability_analysis = function(meas, suffix0, suffix1, par = NULL,
                              variable.name = "MEASURE", 
                              value.name = "value") %>% mutate(SUBJECT = subject, value = as.numeric(value)) %>%
     filter(MEASURE %in% mymeasures) 
-  
-  # relabel measures 
-  
+
   
   # model the data + as.factor(CONFIGURATION)*as.factor(session)
   #
@@ -387,7 +535,7 @@ do_variability_analysis = function(meas, suffix0, suffix1, par = NULL,
     ymax = ymax, 
     col = GROUP,
     group = GROUP
-  )) + geom_line() + 
+  )) + geom_line(size = 1) + 
     geom_point() + 
     geom_errorbar() + 
     facet_wrap(. ~ label, ncol = nrois) + 
@@ -397,21 +545,26 @@ do_variability_analysis = function(meas, suffix0, suffix1, par = NULL,
     geom_hline(yintercept = 0, size = 0.3, linetype = 2) + 
     theme_lh() + 
     scale_colour_manual(values = myPalette2) +
-    theme(legend.title = element_blank(), legend.position = 'bottom',  
+    theme(legend.title = element_blank(),
           panel.grid.major = element_blank(),
           panel.grid.minor = element_blank(),
-          legend.text=element_text(size=18),
+          legend.text=element_text(size=14, face="bold"),
+          legend.box = 'vertical',
+          legend.margin = ggplot2::margin(1, 1, 1, 1, unit = "pt"),
           axis.text=element_text(size=18),
           axis.title=element_text(size=20, face="bold"),
-          strip.text.x = element_text(size = 20, face="bold"))
+          strip.text.x = element_text(size = 20, face="bold"),
+          strip.background = element_blank())
   
-  
+  if (add_legend) myplot = myplot + theme(legend.position = legend.position.diff)
+  else myplot = myplot + theme(legend.position = "none")
   
   print(myplot)
   
   
   # hemi
   data.melt = data.melt%>% mutate(MEASURE = clean_measure_names(MEASURE))
+  
   data.mean = data.melt%>%
     group_by(session, GROUP, label, MEASURE)%>%summarise(val.mean = mean(value.corr, na.rm = T), 
                                                          val.sem = sem(value.corr))%>% 
@@ -435,7 +588,7 @@ do_variability_analysis = function(meas, suffix0, suffix1, par = NULL,
     group = group_measure,
     linetype = GROUP
   )) + 
-    geom_line(size = 0.6) + 
+    geom_line(size = 1) + 
     geom_point() + 
     geom_errorbar() + 
     facet_wrap(. ~label, ncol = nrois) + 
@@ -445,15 +598,19 @@ do_variability_analysis = function(meas, suffix0, suffix1, par = NULL,
     theme_lh() + 
     scale_colour_manual(values = myPalette) + 
     theme(text = element_text(size = 9),
-          legend.title = element_blank(), legend.position = 'bottom', 
-          legend.box = 'horizontal',
+          strip.background = element_blank(),
+          legend.title = element_blank(),
+          legend.box = 'vertical',
+          legend.margin = ggplot2::margin(1, 1, 1, 1, unit = "pt"),
           panel.grid.major = element_blank(),
           panel.grid.minor = element_blank(),
-          legend.text=element_text(size=18),
+          legend.text=element_text(size=16),
           axis.text=element_text(size=18),
           axis.title=element_text(size=20, face="bold"),
           strip.text.x = element_text(size = 20, face="bold"))
   
+  if (add_legend) myplot.all = myplot.all + theme(legend.position = legend.position)
+  else myplot.all = myplot.all + theme(legend.position = "none")
   
   print(myplot.all)
   

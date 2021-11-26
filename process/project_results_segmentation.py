@@ -15,7 +15,8 @@ import re, os
 annot_lh = '/data/lv0/MotorSkill/parcellations/fs_LR_32/Icosahedron-162.fsaverage.L.annot'
 annot_rh = '/data/lv0/MotorSkill/parcellations/fs_LR_32/Icosahedron-162.fsaverage.R.annot'
 
-metric = 'tess-cross-runprewxnobis' #'crossnobis'
+metric = 'tess-cross-runprewxnobis-TRAINING-GAM' #'crossnobis'
+metric = 'tess-cross-runprewxnobis-GROUPIntervention_TRAINING-GAM' #'crossnobis'
 output_lh = '/data/lv0/MotorSkill/fmriprep/analysis/surf/lh.%s.map'%metric
 output_rh = '/data/lv0/MotorSkill/fmriprep/analysis/surf/rh.%s.map'%metric
 results_file = '/data/lv0/MotorSkill/fmriprep/analysis/surf/%s.csv'%metric

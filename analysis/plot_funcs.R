@@ -34,15 +34,17 @@ get_coefs = function(model, par){
 
 clean_measure_names = function(x, keep_first = F){
   
+  x = gsub('unbiased_', '', x)
+  x = gsub('grouped_', '', x)
   if (keep_first)
-  sapply(x, function(z) {
+  y = sapply(x, function(z) {
     z = gsub('acc_', '', z)
     str_to_title(paste(strsplit(as.character(z), '_')[[1]], collapse = ' '))})
   else
-    sapply(x, function(z) {
+  y = sapply(x, function(z) {
       z = gsub('acc_', '', z)
       str_to_title(paste(strsplit(as.character(z), '_')[[1]][-1], collapse = ' '))})
-  
+  return(y)
   }
 
 label_map = function(x){
@@ -68,7 +70,7 @@ markoutliersIQR = function(x){
 sem = function(x)
   sd(x, na.rm = T) / sqrt(length(x))
 
-plot_activation_data = function(X, title, regressout = F, YMIN = 0, YMAX = 4) {
+plot_activation_data = function(X, title, regressout = F, YMIN = 0, YMAX = 4, add_legend = F) {
   X = X %>% mutate(WAVE = as.numeric(substring(SUBJECT, 4, 4)), y = y/100)# %>% filter (WAVE> 1) to percent signal change
 
   if(F){
@@ -127,7 +129,7 @@ plot_activation_data = function(X, title, regressout = F, YMIN = 0, YMAX = 4) {
       col = CONDITION,
       linetype = GROUP,
       y = y.mean
-    )) +
+    ), size = 1.5) +
     geom_point(data = X.sem, aes(
       x = TP,
       group = GROUP_CONDITION,
@@ -147,14 +149,16 @@ plot_activation_data = function(X, title, regressout = F, YMIN = 0, YMAX = 4) {
 #    facet_grid(. ~ GROUP) +
     xlab('Test session') +
     ylab('% signal change') + 
-    scale_colour_manual(values = myPalette) + theme_lh + 
+    scale_colour_manual(values = myPalette2) + theme_lh + 
     ggtitle(title) + ylim(YMIN, YMAX) +
-    theme(legend.position = "bottom", 
-          legend.title = element_blank(), 
-          plot.title = element_text(hjust = 0.5),
-          axis.text=element_text(size=18),
-          axis.title=element_text(size=20, face="bold", family = "Arial"))
+    theme(legend.title = element_blank(), 
+          plot.title = element_text(hjust = 0.5, size=24, face="bold", family = "Arial"),
+          axis.text=element_text(size=22, family = "Arial"),
+          legend.text=element_text(size=24, family = "Arial"),
+          axis.title=element_text(size=24, face="bold", family = "Arial"))
     
+    if (add_legend) myplot = myplot + theme(legend.position = c(0.8, 0.8))
+    else myplot = myplot + theme(legend.position = "none")
     if (YMIN < 0 ) myplot = myplot + geom_hline(yintercept = 0, size = 0.2)  
     
   return(myplot)
@@ -454,7 +458,7 @@ create_surf_rois = function(DATADIR,
       }
       
       X$y = rowMeans(imaging.mat)
-      myplots[[j]] = plot_function(X, title)
+      myplots[[j]] = plot_function(X, title, add_legend = j == 1)
       j = j + 1
     }
   }

@@ -18,19 +18,40 @@ WIDTH = 30; HEIGHT = 24; DPI = 1000
 # Variability analysis
 ########################
 # some selected figures
-for (suffix0 in c('mask-cross-runprew', 'mask-cross-runprew-perm')) {
+for (suffix0 in c('mask-cross-runprew')) { #
+# do_variability_analysis('clf', suffix0, '-all', ylimit = c(0.45, 0.70), add_legend = suffix0 == 'mask-cross-runprew-perm')    
+# do_variability_analysis('clf', suffix0, '-different', ylimit = c(0.45, 0.65))    
+# do_variability_analysis('alpha', suffix0, '-all', par = c('GROUPIntervention'), add_legend = T, analysis_type = 'groupxtraining')  
+# do_variability_analysis('alpha', suffix0, '-all', par = c('MEASUREUntrained'), add_legend = T)  
+  
+# do_variability_analysis('xcorrelation_grouped', suffix0, '-different', add_legend = T)
+  do_variability_analysis('xnobis_grouped', suffix0, '-different', add_legend = T)  
+#  do_variability_analysis('xproduct_grouped', suffix0, '-same', add_legend = T)  
+# do_variability_analysis('xcorrelation_grouped', suffix0, '-different', add_legend = T)  
+ 
+ #  do_variability_analysis('xproduct_unbiased', suffix0, '-different', add_legend = T)  
+  #do_variability_analysis('xcorrelation_unbiased', suffix0, '-different', add_legend = T)  
+ stophere
+ 
+ do_variability_analysis('alpha', suffix0, '-all', par = c('GROUPIntervention:MEASUREUntrained'), add_legend = T, analysis_type = 'groupxmeasure')  
+ do_variability_analysis('alpha', suffix0, '-all', par = c('MEASUREUntrained'), add_legend = T, analysis_type = 'groupxmeasure')  
+ 
   if (T){
- do_variability_analysis('xcorrelation', suffix0, '-same', par = c('GROUPIntervention'), analysis_type = 'groupxtraining')
- do_variability_analysis('xcorrelation', suffix0, '-same', par = c('MEASUREUntrained Same'))
- do_variability_analysis('xcorrelation', suffix0, '-same', par = c('GROUPIntervention:MEASUREUntrained Same'))
- do_variability_analysis('xcorrelation', suffix0, '-different', par = c('GROUPIntervention'), analysis_type = 'groupxtraining')
- do_variability_analysis('xcorrelation', suffix0, '-different', par = c('MEASUREUntrained Different'))
- do_variability_analysis('xcorrelation', suffix0, '-different', par = c('GROUPIntervention:MEASUREUntrained Different'))
-  }
+ do_variability_analysis('xcorrelation', suffix0, '-same', par = c('GROUPIntervention'), analysis_type = 'groupxmeasure')
+ do_variability_analysis('xcorrelation', suffix0, '-same', par = c('MEASUREUntrained Same'), analysis_type = 'groupxmeasure')
+ do_variability_analysis('xcorrelation', suffix0, '-same', par = c('GROUPIntervention:MEASUREUntrained Same'), ylimit = c(0.05, 0.13), add_legend = T, analysis_type = 'groupxmeasure')
+ do_variability_analysis('xcorrelation', suffix0, '-different', par = c('GROUPIntervention'), analysis_type = 'groupxmeasure')
+ do_variability_analysis('xcorrelation', suffix0, '-different', par = c('MEASUREUntrained Different'), analysis_type = 'groupxmeasure')
+ do_variability_analysis('xcorrelation', suffix0, '-different', par = c('GROUPIntervention:MEASUREUntrained Different'), ylimit = c(0.05, 0.13), add_legend = T, analysis_type = 'groupxmeasure')
   
  do_variability_analysis('xcorrelation', suffix0, '-untrained', par_diff = '(Intercept)', 
-                          ylimit_diff = c(-2e-3, 5e-3))
+                          ylimit_diff = c(-2e-3, 5e-3), add_legend = T)
   
+ do_variability_analysis('xnobis', suffix0, '-same', 
+                         par = c('GROUPIntervention'),
+                         odd = c('Trained Same'), 
+                         analysis_type = 'groupxtraining')
+ 
  do_variability_analysis('xnobis', suffix0, '-same', 
                          par = c('TRAINING'),
                          odd = c('Trained Same'), 
@@ -39,26 +60,32 @@ for (suffix0 in c('mask-cross-runprew', 'mask-cross-runprew-perm')) {
  do_variability_analysis('xnobis', suffix0, '-same', 
                         par = c('GROUPIntervention:TRAINING'), 
                         odd = c('Trained Same'), 
-                        analysis_type = 'groupxtraining')
+                        analysis_type = 'groupxtraining',
+                        ylimit = c(-0.01, 0.13), add_legend = T)
 
   do_variability_analysis('xnobis', suffix0, '-different', par = c('TRAINING'), 
                           odd = c('Trained Different', 'Untrained Different'), 
                           analysis_type = 'training')
+  
+  do_variability_analysis('xnobis', suffix0, '-different', par = c('GROUPIntervention'), 
+                          odd = c('Trained Different', 'Untrained Different'),
+                          analysis_type = 'groupxtraining', add_legend = T)
+  
   do_variability_analysis('xnobis', suffix0, '-different', par = c('GROUPIntervention:TRAINING'), 
                           odd = c('Trained Different', 'Untrained Different'),
-                          analysis_type = 'groupxtraining')
-#  do_variability_analysis('xnobis', suffix0, '-different', par = c('GROUPIntervention'), 
-#                          odd = c('Trained Different', 'Untrained Different'),
-#                          analysis_type = 'groupxtraining'))
+                          analysis_type = 'groupxtraining',
+                          ylimit = c(-0.01, 0.13), add_legend = T)
 
-  do_variability_analysis('xnobis', suffix0, '-untrained', par_diff = '(Intercept)', 
-                          ylimit_diff = c(-.08, .04))
+  do_variability_analysis('xnobis', suffix0, '-different', par = c('GROUPIntervention'), 
+                          odd = c('Trained Different', 'Untrained Different'),
+                          analysis_type = 'groupxtraining', add_legend = T)
   
-#  do_variability_analysis('xnobis', suffix0, '-different', par = c('MEASUREUntrained Different'), odd = 'Trained Different')
-#  do_variability_analysis('xnobis', suffix0, '-different', par = c('GROUPIntervention:MEASUREUntrained Different'), odd = 'Trained Different')
-#  do_variability_analysis('xnobis', suffix0, '-different', par = c('MEASURETrained Untrained'), odd = 'Untrained Different')
-#  do_variability_analysis('xnobis', suffix0, '-different', par = c('GROUPIntervention:MEASURETrained Untrained'), odd = 'Untrained Different')
-}
+  do_variability_analysis('xnobis', suffix0, '-untrained', par_diff = '(Intercept)', 
+                          ylimit_diff = c(-.08, .04), add_legend = T)
+  }
+ 
+  }
+
 
 
 stophere

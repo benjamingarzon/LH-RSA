@@ -10,7 +10,7 @@ base_suffix=mask-cross
 
 WD='/data/lv0/MotorSkill/'
 num_cores=10
-n_sample=100
+n_sample=10
 
 # cross-validated
 python surface_roi_analysis.py --WD=$WD \
@@ -22,7 +22,8 @@ python surface_roi_analysis.py --WD=$WD \
     --labels_file=$labels_file \
     --labels_dir=$labels_dir \
     --effects_name=effects.nii.gz \
-    --n_sample=$n_sample 
+    --n_sample=$n_sample &
+exit 1
     
 python surface_roi_analysis.py --WD=$WD \
     --overwrite_scores \

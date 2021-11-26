@@ -50,7 +50,7 @@ TESTNAME = 'Best'
 
 MAXTHR = 1
 THR = 0.975
-if (F) {
+if (T) {
 # asymptotic
 
 MASK_NAME = 'mask_prereg.nii.gz'
@@ -59,7 +59,7 @@ TESTNAME = 'Omni_p_fdr'
 myplots.surf.groupxconditionxtraining = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, MAXTHR, 
                                                          plot_function = plot_activation_data, annot = annot)
 
-  
+stophere
 # asymptotic
 MASK_NAME = 'mask_prereg.nii.gz'
 TESTDIR = 'tests/asymptotic_prereg_groupxtraining'

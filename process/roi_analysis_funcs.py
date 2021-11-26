@@ -34,8 +34,13 @@ from collections import defaultdict, ChainMap
 from joblib import Parallel, delayed
 import time
 
-distance_names = ['xnobis', 'xnobiscosine', 'xnobisprod', 'xnobisratio',
-                     'xeuclidean', 'xcorrelation', 'xcosine']
+distance_names = ['xnobis_grouped', 
+                  'xcorrelation_grouped', 
+                  'xproduct_grouped']
+                                       #'xnobis', #'xnobiscosine', 'xnobisprod', 'xnobisratio',
+                     #'xeuclidean', 'xcorrelation', 'xcorrelation_unbiased', 
+                     #'xproduct_unbiased', 'xcosine', 
+
 metric_names = ['same', 'different', 'trained_same', \
                 'trained_different', 'untrained_same', \
                 'untrained_different', 'trained_untrained']
@@ -254,6 +259,9 @@ pls_ovo = OneVsOneClassifier(pls)
 
 balanced_scorer = make_scorer(balanced_accuracy_score)
 
+def scalar_prod(u, v):
+    return np.dot(u - np.mean(u), v - np.mean(v))
+
 def partial_dist(X, y, splits, label1, label2, splitp, distance = cosine, 
                  n_sample = None):
     
@@ -288,14 +296,45 @@ def partial_xdist(X, y, splits, label1, label2, splitp, splitn,
     if n_sample is not None:
         if n_sample < len(index_prod):
             index_prod = random.sample(index_prod, k = n_sample)
-                
+
+    if distance == scalar_prod:
+        X = X - X.mean(axis = 1)[:, np.newaxis]
+        
     dists = [distance(X[indexp, :], X[indexn, :]) \
              for indexp, indexn in index_prod ]
 
     if distance == euclidean:
         return np.mean(np.array(dists)**2)/X.shape[1]
-    else:
+    
+    if distance in [cosine, correlation]:
         return np.mean(np.arctanh(1-np.array(dists)))
+
+    if distance == scalar_prod:
+        return np.mean(dists)/X.shape[1]
+    
+def partial_xdist_grouped(X, y, splits, label1, label2, splitp, splitn, 
+                          distance = cosine):
+
+    indices1p = np.where(np.logical_and(y == label1, splits == splitp))[0]
+    indices2n = np.where(np.logical_and(y == label2, splits == splitn))[0]
+
+    if distance == scalar_prod:
+        X = X - X.mean(axis = 1)[:, np.newaxis]
+
+    X_p = np.mean(X[indices1p, :], axis = 0)
+    X_n = np.mean(X[indices2n, :], axis = 0)
+            
+    return(np.dot(X_p, X_n)/X.shape[1] )
+    if distance == euclidean:
+        return distance(X_p, X_n)**2/X.shape[1]
+    
+    if distance in [cosine, correlation]:
+        return np.arctanh(1-distance(X_p, X_n))
+
+    if distance == scalar_prod:
+        return distance(X_p, X_n)/X.shape[1]
+
+
 
 def partial_dist_session(X_1, y_1, splitp, label1, X_2, y_2, splitn, label2, 
                          splits_1, splits_2,
@@ -397,13 +436,25 @@ def partial_xnobis(X, y, splits, label1, label2, splitp, splitn,
             
     return np.nanmean(dists)
 
-  
+def partial_xnobis_grouped(X, y, splits, label1, label2, splitp, splitn):
+
+    indices1p = np.where(np.logical_and(y == label1, splits == splitp))[0]
+    indices1n = np.where(np.logical_and(y == label1, splits == splitn))[0]
+    indices2p = np.where(np.logical_and(y == label2, splits == splitp))[0]
+    indices2n = np.where(np.logical_and(y == label2, splits == splitn))[0]
+
+    X_p = np.mean(X[indices1p, :], axis = 0) - np.mean(X[indices2p, :], axis = 0)
+    X_n = np.mean(X[indices1n, :], axis = 0) - np.mean(X[indices2n, :], axis = 0)
+            
+    return(np.dot(X_p, X_n)/X.shape[1] )
+    
+
 def compute_distance(X, y, df, splits, dist_type = 'xnobis', n_sample = None):
     labels = np.unique(y)
     n_labels = len(labels)
     usplits = np.unique(splits)
 
-    if 'xnobis' in dist_type:
+    if 'xnobis' == dist_type:
 
         dist = np.zeros((n_labels, n_labels, len(usplits), len(usplits)-1))
     
@@ -418,12 +469,30 @@ def compute_distance(X, y, df, splits, dist_type = 'xnobis', n_sample = None):
                                                                   dist_type)
         dist = np.mean(dist, axis = 3) # across training splits 
 
+    if 'xnobis_grouped' == dist_type:
+
+        dist = np.zeros((n_labels, n_labels, len(usplits), len(usplits)-1))
+    
+        for j, splitp in enumerate(usplits):
+            for k, splitn in enumerate(usplits[usplits != splitp]):
+                for i1, label1 in enumerate(labels):
+                    for i2, label2 in enumerate(labels):
+                            dist[i1, i2, j, k] = partial_xnobis_grouped(X, y, splits, 
+                                                                  label1, label2, 
+                                                                  splitp, splitn)
+        
+        dist = np.mean(dist, axis = 3) # across training splits 
+
     distances = {
     'correlation': correlation,
     'cosine': cosine,
     'euclidean': euclidean,
     'xcorrelation': correlation,
     'xcosine': cosine,
+    'xcorrelation_unbiased': scalar_prod,
+    'xproduct_unbiased': scalar_prod,
+    'xcorrelation_grouped': scalar_prod,
+    'xproduct_grouped': scalar_prod,
     'xeuclidean': euclidean
              } 
 
@@ -442,6 +511,37 @@ def compute_distance(X, y, df, splits, dist_type = 'xnobis', n_sample = None):
                                                                   n_sample)
         dist = np.nanmean(dist, axis = 3) # across training splits 
 
+
+    if dist_type in ['xcorrelation_unbiased', 'xproduct_unbiased']:
+
+        dist = np.zeros((n_labels, n_labels, len(usplits), len(usplits)-1))
+    
+        for j, splitp in enumerate(usplits):
+            for k, splitn in enumerate(usplits[usplits != splitp]):
+                for i1, label1 in enumerate(labels):
+                    for i2, label2 in enumerate(labels):
+                            dist[i1, i2, j, k] = partial_xdist(X, y, splits, 
+                                                                  label1, label2, 
+                                                                  splitp, splitn,                                                                  
+                                                                  distances[dist_type],
+                                                                  n_sample)
+        dist = np.nanmean(dist, axis = 3) # across training splits 
+    
+    if dist_type in ['xcorrelation_grouped', 'xproduct_grouped']:
+
+        dist = np.zeros((n_labels, n_labels, len(usplits), len(usplits)-1))
+    
+        for j, splitp in enumerate(usplits):
+            for k, splitn in enumerate(usplits[usplits != splitp]):
+                for i1, label1 in enumerate(labels):
+                    for i2, label2 in enumerate(labels):
+                            dist[i1, i2, j, k] = partial_xdist_grouped(X, y, splits, 
+                                                                  label1, label2, 
+                                                                  splitp, splitn,                                                                  
+                                                                  distances[dist_type])
+        dist = np.nanmean(dist, axis = 3) # across training splits 
+
+
     if dist_type in ['correlation', 'cosine', 'euclidean']:
 
         dist = np.zeros((n_labels, n_labels, len(usplits)))
@@ -457,6 +557,11 @@ def compute_distance(X, y, df, splits, dist_type = 'xnobis', n_sample = None):
                                                            n_sample)
                         
     dist = np.nanmean(dist, axis = 2) # across validation splits
+
+    if dist_type in ['xcorrelation_unbiased', 'xcorrelation_grouped']:
+        for i1, label1 in enumerate(labels):
+            for i2, label2 in enumerate(labels):
+                dist[i1, i2] = dist[i1, i2]/np.sqrt(dist[i1, i1]*dist[i2, i2])
     if False:
         plt.figure()
         plt.imshow(dist, cmap = 'jet')
@@ -495,7 +600,6 @@ def compute_distance(X, y, df, splits, dist_type = 'xnobis', n_sample = None):
         if len(list_untrained_same)> 0 else np.nan
     dist_untrained_different = np.nanmean(list_untrained_different)
     dist_trained_untrained = np.nanmean(list_trained_untrained)
-
          
     return(dist, 
            dist_same, 
@@ -885,7 +989,6 @@ def process(label, subject, session, subjects_dir, analysis_dir, labels_dir,
             
     dist_results_list = [] 
     for dist_type in distance_names:
-
         try:
             dist_list, *dist_results, \
                 labels = compute_distance(effects, targets, df, splits = runs,
@@ -899,8 +1002,8 @@ def process(label, subject, session, subjects_dir, analysis_dir, labels_dir,
 
         dist_results_list.extend(dist_results)
 
-    try: 
-#    if False:
+#    try: 
+    if False:
         # compute the different indices
         XG = second_moment(sequences)
         theta, resnorm = fit_second_moment(effects.copy(), XG)
@@ -912,8 +1015,8 @@ def process(label, subject, session, subjects_dir, analysis_dir, labels_dir,
 
         alpha_trained_PCM = theta_PCM[5]
         alpha_untrained_PCM = theta_PCM[6]
-#    else:
-    except:
+    else:
+#    except:
         alpha_trained, alpha_untrained, alpha_trained_PCM,\
             alpha_untrained_PCM, resnorm, \
             G_hat_trained, G_hat_untrained = [np.nan]*7
