@@ -44,6 +44,7 @@ distance_names = ['xnobis_grouped',
 metric_names = ['same', 'different', 'trained_same', \
                 'trained_different', 'untrained_same', \
                 'untrained_different', 'trained_untrained']
+    
 distance_metrics = [ '%s_%s'%(x, y) for x in distance_names for y in metric_names ]
     
 sys.path.append('/home/xgarzb@GU.GU.SE/Software/')
@@ -1002,8 +1003,8 @@ def process(label, subject, session, subjects_dir, analysis_dir, labels_dir,
 
         dist_results_list.extend(dist_results)
 
-#    try: 
-    if False:
+    try: 
+#    if False:
         # compute the different indices
         XG = second_moment(sequences)
         theta, resnorm = fit_second_moment(effects.copy(), XG)
@@ -1015,8 +1016,8 @@ def process(label, subject, session, subjects_dir, analysis_dir, labels_dir,
 
         alpha_trained_PCM = theta_PCM[5]
         alpha_untrained_PCM = theta_PCM[6]
-    else:
-#    except:
+#    else:
+    except:
         alpha_trained, alpha_untrained, alpha_trained_PCM,\
             alpha_untrained_PCM, resnorm, \
             G_hat_trained, G_hat_untrained = [np.nan]*7

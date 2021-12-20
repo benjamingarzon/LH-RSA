@@ -14,6 +14,7 @@ WIDTH = 16
 HEIGHT.1 = 8 # 1 row
 HEIGHT.1a = 5 # 1 row
 HEIGHT.2 = 18 # 2 rows
+HEIGHT.2a = 16 # 2 rows
 HEIGHT.3 = 22 # 3 rows
 FONT.LABEL.W = list(size = 14, color = "white", face = "bold", family = NULL)
 FONT.LABEL.W2 = list(size = 20, color = "white", face = "bold", family = NULL)
@@ -68,7 +69,7 @@ ggsave(filename = file.path(FIG_DIR, "Fig_ActivationEffectsSupp.png"),
 # Multivariate patterns
 ########################
 # variability 
-alpha_img = readPNG(file.path(FIG_DIR, 'variability/alpha-mask-cross-runprew-perm-all-all.png'))
+alpha_img = readPNG(file.path(FIG_DIR, 'variability/alpha-mask-cross-runprew-all-all.png'))
 
 alpha.plot <- ggplot() + background_image(alpha_img) 
 
@@ -82,48 +83,48 @@ ggsave(filename = file.path(FIG_DIR, "Fig_Alpha.png"),
 
 
 # same vs diff
-samediff_imgA = readPNG(file.path(FIG_DIR, 'variability/xnobis-mask-cross-runprew-untrained-difference.png'))
-samediff_imgB = readPNG(file.path(FIG_DIR, 'variability/xcorrelation-mask-cross-runprew-untrained-difference.png'))
-samediff_imgC = readPNG(file.path(FIG_DIR, 'variability/xnobis-mask-cross-runprew-perm-untrained-difference.png'))
-samediff_imgD = readPNG(file.path(FIG_DIR, 'variability/xcorrelation-mask-cross-runprew-perm-untrained-difference.png'))
+#samediff_imgA = readPNG(file.path(FIG_DIR, 'variability/xnobis-mask-cross-runprew-untrained-difference.png'))
+# samediff_imgB = readPNG(file.path(FIG_DIR, 'variability/xcorrelation-mask-cross-runprew-untrained-difference.png'))
+# samediff_imgC = readPNG(file.path(FIG_DIR, 'variability/xnobis-mask-cross-runprew-perm-untrained-difference.png'))
+# samediff_imgD = readPNG(file.path(FIG_DIR, 'variability/xcorrelation-mask-cross-runprew-perm-untrained-difference.png'))
+# 
+# samediff_A <- ggplot() + background_image(samediff_imgA) 
+# samediff_B <- ggplot() + background_image(samediff_imgB) 
+# samediff_C <- ggplot() + background_image(samediff_imgC) 
+# samediff_D <- ggplot() + background_image(samediff_imgD) 
+# 
+# samediff.plotsupp = ggarrange(samediff_A, samediff_B,
+#                               labels = c("A", "B"), 
+#                          ncol = 1, nrow = 2, font.label = FONT.LABEL.B2)
 
-samediff_A <- ggplot() + background_image(samediff_imgA) 
-samediff_B <- ggplot() + background_image(samediff_imgB) 
-samediff_C <- ggplot() + background_image(samediff_imgC) 
-samediff_D <- ggplot() + background_image(samediff_imgD) 
-
-samediff.plotsupp = ggarrange(samediff_A, samediff_B,
-                              labels = c("A", "B"), 
-                         ncol = 1, nrow = 2, font.label = FONT.LABEL.B2)
-
-ggsave(filename = file.path(FIG_DIR, "Fig_UntrainedSameDiffSupp.png"), 
-       plot = samediff.plotsupp,
-       dpi = DPI, 
-       width = WIDTH, 
-       height = HEIGHT.2)
+# ggsave(filename = file.path(FIG_DIR, "Fig_UntrainedSameDiffSupp.png"), 
+#        plot = samediff.plotsupp,
+#        dpi = DPI, 
+#        width = WIDTH, 
+#        height = HEIGHT.2)
 
 # distances
 distances_imgA = readPNG(file.path(FIG_DIR, 'MultivarROIs.png'))
-distances_imgB = readPNG(file.path(FIG_DIR, 'variability/xnobis-mask-cross-runprew-same-all.png'))
-distances_imgC = readPNG(file.path(FIG_DIR, 'variability/xnobis-mask-cross-runprew-different-all.png'))
-distances_imgD = readPNG(file.path(FIG_DIR, 'variability/xcorrelation-mask-cross-runprew-same-all.png'))
-distances_imgE = readPNG(file.path(FIG_DIR, 'variability/xcorrelation-mask-cross-runprew-different-all.png'))
+distances_imgB = readPNG(file.path(FIG_DIR, 'variability/xnobis_grouped-mask-cross-runprew-different-all.png'))
+distances_imgC = readPNG(file.path(FIG_DIR, 'variability/xproduct_grouped-mask-cross-runprew-same-all.png'))
+#distances_imgD = readPNG(file.path(FIG_DIR, 'variability/xcorrelation-mask-cross-runprew-same-all.png'))
+#distances_imgE = readPNG(file.path(FIG_DIR, 'variability/xcorrelation-mask-cross-runprew-different-all.png'))
 
 distances_A <- ggplot() + background_image(distances_imgA) 
 distances_B <- ggplot() + background_image(distances_imgB) 
 distances_C <- ggplot() + background_image(distances_imgC) 
-distances_D <- ggplot() + background_image(distances_imgD) 
-distances_E <- ggplot() + background_image(distances_imgE) 
+#distances_D <- ggplot() + background_image(distances_imgD) 
+#distances_E <- ggplot() + background_image(distances_imgE) 
 
 distances_1 = ggarrange(distances_A,
                           labels = c("A"), ncol = 1, nrow = 1, font.label = FONT.LABEL.W2)
 distances_2 = ggarrange(distances_B, distances_C,
-                        labels = c("B", "C"), ncol = 2, nrow = 1, font.label = FONT.LABEL.B2)
-distances_3 = ggarrange(distances_D, distances_E,
-                        labels = c("D", "E"), ncol = 2, nrow = 1, font.label = FONT.LABEL.B2)
+                        labels = c("B", "C"), ncol = 1, nrow = 2, font.label = FONT.LABEL.B2)
+#distances_3 = ggarrange(distances_D, distances_E,
+#                        labels = c("D", "E"), ncol = 2, nrow = 1, font.label = FONT.LABEL.B2)
 
-distances.plot = ggarrange(distances_1, distances_2, distances_3,
-                  ncol = 1, nrow = 3, heights = c(1, 1.8, 1.8))
+distances.plot = ggarrange(distances_1, distances_2, #distances_3,
+                  ncol = 1, nrow = 2, heights = c(.8, 2.2))
 
 ggsave(filename = file.path(FIG_DIR, "Fig_PatternDistances.png"), 
        plot = distances.plot,

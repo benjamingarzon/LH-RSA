@@ -401,11 +401,20 @@ modelcomparisonrun = function(y, X)
     model.l = lmer(y ~ 1 + FD + SYSTEM + CONFIGURATION + GROUP*TRAINING + TRAINING.Q +
                      (1 + TRAINING|SUBJECT), data = X) # + TRAINING.Q
 
-    model.a = lmer(y ~ 1 + FD + SYSTEM  + CONFIGURATION + GROUP*(TRAINING + TRAINING.A) +
+#    model.a = lmer(y ~ 1 + FD + SYSTEM  + CONFIGURATION + GROUP*(TRAINING + TRAINING.A) +
+#                     (1 + TRAINING|SUBJECT), data = X) # + TRAINING.A
+
+#    model.q = lmer(y ~ 1 + FD + SYSTEM + CONFIGURATION + GROUP*(TRAINING + TRAINING.Q) +
+#                     (1 + TRAINING|SUBJECT), data = X) # + TRAINING.Q
+
+    model.a = lmer(y ~ 1 + FD + SYSTEM  + CONFIGURATION + GROUP*TRAINING.A +
                      (1 + TRAINING|SUBJECT), data = X) # + TRAINING.A
     
-    model.q = lmer(y ~ 1 + FD + SYSTEM + CONFIGURATION + GROUP*(TRAINING + TRAINING.Q) +
+    model.q = lmer(y ~ 1 + FD + SYSTEM + CONFIGURATION + GROUP*TRAINING.Q +
                      (1 + TRAINING|SUBJECT), data = X) # + TRAINING.Q
+    
+#    model.q = lmer(y ~ 1 + FD + SYSTEM + CONFIGURATION + GROUP*(TRAINING + TRAINING.Q) +
+#                     (1 + TRAINING|SUBJECT), data = X) # + TRAINING.Q
 
     BIC.val = BIC(model.q, model.a, model.l)
     

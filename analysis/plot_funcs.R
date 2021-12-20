@@ -32,8 +32,13 @@ get_coefs = function(model, par){
   info = summary(model)$coefficients[par, ]
 }
 
-clean_measure_names = function(x, keep_first = F){
+clean_measure_names = function(x, keep_first = F, clean_same = F){
   
+  if (clean_same) {
+    x = gsub('_same', '', x)
+    x = gsub('_different', '', x)
+    
+  }
   x = gsub('unbiased_', '', x)
   x = gsub('grouped_', '', x)
   if (keep_first)
@@ -73,18 +78,18 @@ sem = function(x)
 plot_activation_data = function(X, title, regressout = F, YMIN = 0, YMAX = 4, add_legend = F) {
   X = X %>% mutate(WAVE = as.numeric(substring(SUBJECT, 4, 4)), y = y/100)# %>% filter (WAVE> 1) to percent signal change
 
-  if(F){
-  model = lmer(y ~ 1 + FD + SYSTEM + CONFIGURATION + 
-                 GROUP*CONDITION*(TRAINING + TRAINING.A) +
-                 (1 + TRAINING + TRAINING.A|SUBJECT), data = X)
-
-  print(summary(model.untrained))
+  if(T){
+  model = lmer(y ~ 1 + FD + SYSTEM + CONFIGURATION + GROUP*CONDITION*(TRAINING + TRAINING.A) + 
+                 + (1 + TRAINING|SUBJECT), data = subset(X, WAVE>1))
+    
+  print(summary(model))
+  print(paste("df: ", df.residual(model)))
   }
   
-  model.untrained = lmer(y ~ 1 + FD + SYSTEM + CONFIGURATION + 
-                 GROUP*(TRAINING + TRAINING.A) +
-                 (1 + TRAINING + TRAINING.A|SUBJECT), data = subset(X, WAVE > 1 & CONDITION == 'UntrainedCorrect'))
-  print(summary(model.untrained)$coefficients[c(7, 10, 11), ])
+#  model.untrained = lmer(y ~ 1 + FD + SYSTEM + CONFIGURATION + 
+#                 GROUP*(TRAINING + TRAINING.A) +
+#                 (1 + TRAINING + TRAINING.A|SUBJECT), data = subset(X, WAVE > 1 & CONDITION == 'UntrainedCorrect'))
+#  print(summary(model.untrained)$coefficients[c(7, 10, 11), ])
   
   print(sum(!is.na(X$y)))
   
@@ -124,14 +129,14 @@ plot_activation_data = function(X, title, regressout = F, YMIN = 0, YMAX = 4, ad
     X.sem$CONDITION = gsub('Correct', '', X.sem$CONDITION)
     myplot =  ggplot() + 
     geom_line(data = X.sem, aes(
-      x = TP,
+      x = TP - 1,
       group = GROUP_CONDITION, #GROUP
       col = CONDITION,
       linetype = GROUP,
       y = y.mean
     ), size = 1.5) +
     geom_point(data = X.sem, aes(
-      x = TP,
+      x = TP - 1,
       group = GROUP_CONDITION,
       col = CONDITION,
       linetype = GROUP,
@@ -139,7 +144,7 @@ plot_activation_data = function(X, title, regressout = F, YMIN = 0, YMAX = 4, ad
     )) +
     geom_errorbar(data = X.sem,
                   aes(
-                    x = TP,
+                    x = TP - 1,
                     ymax = y.mean + y.sem,
                     ymin = y.mean - y.sem,
                     group = GROUP_CONDITION,
@@ -149,6 +154,7 @@ plot_activation_data = function(X, title, regressout = F, YMIN = 0, YMAX = 4, ad
 #    facet_grid(. ~ GROUP) +
     xlab('Test session') +
     ylab('% signal change') + 
+    scale_x_continuous(breaks = seq(0, 6)) +
     scale_colour_manual(values = myPalette2) + theme_lh + 
     ggtitle(title) + ylim(YMIN, YMAX) +
     theme(legend.title = element_blank(), 
@@ -451,6 +457,14 @@ create_surf_rois = function(DATADIR,
       )
       
       imaging.mat = results$imaging.mat[, roi_indices, drop = F]
+      
+      stats = results$stats[roi_indices, c("OmniF_tstat", "Omni_p", "Omni_p_fdr")]
+      stats[, c(2, 3)] = 1 - stats[, c(2, 3)]
+      which.minp = which.min(stats[,'Omni_p'])[1]
+      print('------------------')
+      print(paste("statistics", paste(signif(stats[which.minp, ], 3), collapse = ' ')))
+      print('------------------')
+
       if (is.null(results$complete_data)) {
         X = results$data[-results$excluded,] }
       else {

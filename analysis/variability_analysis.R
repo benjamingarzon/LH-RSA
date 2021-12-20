@@ -5,45 +5,49 @@ library(stringr)
 library(lme4)
 library(lmerTest)
 library(mgcv)
-
+STARSIZE = 5
 k.SESS = 7
 k.CONFIG = 7
 smooth = "tp"
-# remove motion outliers...?
+clean_same = F
+contrast = NULL
 # correct for FD. FD vs type of 
 # correct for number of correct trials
 
 do_tests = function(mydata, par, myfile, odd, analysis_type = 'groupxtrainingxmeasure', output_text = F, use_GAM = T){
-
+  
   unlink(myfile)
   mydata = mydata %>% filter(! MEASURE %in% odd)
   labels = sort(unique(mydata$label))
   groups = unique(mydata$GROUP)
+  #  browser()
+  #mydata$MEASURE = relevel(factor(mydata$MEASURE), ref = 'Untrained')
+  
   infos = NULL
   mylines = c(par)
   if (!use_GAM){
-  for (l in labels) {
-    if (analysis_type == 'groupxtrainingxmeasure') 
-      model = lmer(value ~ 1 + FD + SYSTEM + CONFIGURATION + (GROUP*TRAINING*MEASURE) + (1 |subject), data = mydata %>% 
-                     filter(label == l))
-    if (analysis_type == 'groupxtraining') 
+    for (l in labels) {
+      if (analysis_type == 'groupxtrainingxmeasure') 
+        model = lmer(value ~ 1 + FD + SYSTEM + CONFIGURATION + (GROUP*TRAINING*MEASURE) + (1 |subject), data = mydata %>% 
+                       filter(label == l))
+      if (analysis_type == 'groupxtraining') 
         model = lmer(value ~ 1 + FD + SYSTEM + CONFIGURATION + (GROUP*TRAINING) + (1 |subject), data = mydata %>% 
-                     filter(label == l))
-    if (analysis_type == 'training') 
-      model = lmer(value ~ 1 + FD + SYSTEM + CONFIGURATION + TRAINING + (1 |subject), data = mydata %>% 
-                     filter(label == l))
-    if (analysis_type == 'groupxmeasure') 
-      model = lmer(value ~ 1 + FD + SYSTEM + CONFIGURATION + GROUP*MEASURE + (1 |subject), data = mydata %>% 
-                     filter(label == l))
-    if(isSingular(model)) {
-      print(myfile)
-      print(summary(model))
+                       filter(label == l))
+      if (analysis_type == 'training') 
+        model = lmer(value ~ 1 + FD + SYSTEM + CONFIGURATION + TRAINING + (1|subject), data = mydata %>% 
+                       filter(label == l))
+      if (analysis_type == 'groupxmeasure') 
+        model = lmer(value ~ 1 + FD + SYSTEM + CONFIGURATION + GROUP*MEASURE + (1 |subject), data = mydata %>% 
+                       filter(label == l))
+      if(isSingular(model)) {
+        print(myfile)
+        print(summary(model))
+        
+      }
       
+      infos = rbind(infos, summary(model)$coefficients[par, ])
     }
-
-    infos = rbind(infos, summary(model)$coefficients[par, ])
-  }
-  
+    
   } else {
     # use GAM
     for (l in labels) {
@@ -56,11 +60,11 @@ do_tests = function(mydata, par, myfile, odd, analysis_type = 'groupxtrainingxme
                     method = 'REML')
       
       if (analysis_type == 'groupxmeasure') 
-      model = gam(value ~ 1 + FD + SYSTEM + CONFIGURATION + (GROUP*MEASURE) +
-                             s(subject, bs = "re") +
-                             s(TRAINING, by = interaction(GROUP, MEASURE), k = k.SESS, bs = smooth),
-                           data = mydata %>% filter(label == l) %>% mutate(subject = factor(subject)), 
-      method = 'REML')
+        model = gam(value ~ 1 + FD + SYSTEM + CONFIGURATION + (GROUP*MEASURE) +
+                      s(subject, bs = "re") +
+                      s(TRAINING, by = interaction(GROUP, MEASURE), k = k.SESS, bs = smooth),
+                    data = mydata %>% filter(label == l) %>% mutate(subject = factor(subject)), 
+                    method = 'REML')
       #gam.check(model)
       
       if (analysis_type == 'groupxtraining') 
@@ -73,15 +77,17 @@ do_tests = function(mydata, par, myfile, odd, analysis_type = 'groupxtrainingxme
       if (analysis_type == 'training') 
         model = gam(value ~ 1 + FD + SYSTEM + CONFIGURATION + TRAINING +
                       s(subject, bs = "re") +
-                      s(TRAINING, by = interaction(GROUP), k = k.SESS, bs = smooth), 
+                      s(TRAINING, k = k.SESS, bs = smooth), 
                     data = mydata %>% filter(label == l) %>% mutate(subject = factor(subject)), 
                     method = 'REML')
       #print(summary(model))
-      
       mysum = summary(model, freq = T)
+      
       p.table = mysum$p.table
       p.table = cbind(p.table, df = df.residual(model))
       p.table = p.table[, c('Estimate', 'Std. Error', 'df', 't value', 'Pr(>|t|)')]
+      print(par)
+      print(rownames(p.table))
       infos = rbind(infos, p.table[par, ])
     }
     
@@ -137,8 +143,8 @@ do_tests_diff = function(mydata, par_diff, myfile, output_text = F){
       if(isSingular(model)) {
         print(myfile)
         print(summary(model))
-        }
-
+      }
+      
     }
     groupmodel = lmer(value ~ 1 + FD + SYSTEM + CONFIGURATION + (1 |subject), data = mydata %>% filter( GROUP == g))
     info = summary(groupmodel)$coefficients[par_diff, ]
@@ -203,7 +209,6 @@ do_variability_analysis = function(meas, suffix0, suffix1, par = NULL,
   data$GROUP = "Intervention"
   data$GROUP[grep("sub-lue.2", data$subject)] = "Control"
   
-  browser()
   # remove particular  wave
   if (!is.null(remove_wave)) data = data[ -grep(paste0('sub-lue', remove_wave), data$subject), ]
   
@@ -217,6 +222,14 @@ do_variability_analysis = function(meas, suffix0, suffix1, par = NULL,
     data$value = data$alpha_trained - data$alpha_untrained
     ylabel = "Variability index"
     ylabel_diff = "Difference in variability score"
+    
+    if (length(odd) == 1 & odd[1] == 'Trained Different') {
+      formula = 'value ~ 1 + FD + SYSTEM + CONFIGURATION + GROUP*MEASURE + (1 | subject)'
+      contrast = c(0, 0, 0, 0, 0, 0, -1)
+      remove_measure = ""
+    }
+    
+    
   } 
   
   if (meas == 'valid'){
@@ -232,7 +245,21 @@ do_variability_analysis = function(meas, suffix0, suffix1, par = NULL,
     ylabel = "Classification accuracy"
     ylabel_diff = "Difference in classification accuracy"
     legend.position = c(0.12, 0.85)
+    if (length(odd) == 1 & odd == c("Trained Untrained")) {
+      formula = 'value ~ 1 + FD + SYSTEM + CONFIGURATION + GROUP*MEASURE + (1 | subject)'
+      contrast = c(0, 0, 0, 0, 0, 0, 1)
+      remove_measure = "Trained"
+    }
     
+    if (length(odd) == 2) {
+      formula = 'value ~ 1 + FD + SYSTEM + CONFIGURATION'
+      contrast = c(1, 0, 0, 0)
+      remove_measure = c("Trained", "Trained Untrained")
+      data$clf_acc_untrained = data$clf_acc_untrained - 0.5
+      data = subset(data, GROUP == 'Control')
+    }
+    
+    clean_same = T
   } 
   
   if (meas == 'xeuclidean'){
@@ -315,15 +342,23 @@ do_variability_analysis = function(meas, suffix0, suffix1, par = NULL,
     
     ylabel = "Cross-nobis product"
   } 
-
+  
   if (meas == 'xnobis_grouped'){
-    browser()
+    
+    if (length(odd) == 1 & odd[1] == 'Trained Different' & add_legend) {
+      formula = 'value ~ 1 + FD + SYSTEM + CONFIGURATION + GROUP*MEASURE + (1 | subject)'
+      contrast = c(0, 0, 0, 0, 0, 0, 1)
+      remove_measure = "Trained"
+    }
+    
     if (suffix1 == '-different') mymeasures = c("xnobis_grouped_trained_different", "xnobis_grouped_untrained_different", "xnobis_grouped_trained_untrained")
     if (suffix1 == '-different') data$value = data$xnobis_grouped_trained_different - data$xnobis_grouped_untrained_different
-
+    
     ylabel = "Cross-nobis dissimilarity"
     ylabel_diff = "Difference in cross-nobis dissimilarity\n(same - different type)"
     legend.position = 'bottom'
+    clean_same = T
+    
   } 
   
   if (meas == 'xcosine'){
@@ -354,19 +389,19 @@ do_variability_analysis = function(meas, suffix0, suffix1, par = NULL,
     ylabel_diff = "Difference in (z-scored) correlation\n(same - different type)"
     legend.position = 'bottom'
   } 
-
+  
   if (meas == 'xcorrelation_unbiased'){
     if (suffix1 == '-different') mymeasures = c("xcorrelation_unbiased_trained_different", "xcorrelation_unbiased_untrained_different",
                                                 "xcorrelation_unbiased_trained_untrained")
     if (suffix1 == '-different') data$value = data$xcorrelation_unbiased_trained_different - data$xcorrelation_unbiased_untrained_different
-
+    
     ylabel = "Correlation (z-scored)"
     ylabel_diff = "Difference in (z-scored) correlation\n(trained - untrained type)"
     legend.position = 'bottom'
   } 
-
+  
   if (meas == 'xcorrelation_grouped'){
-
+    
     if (suffix1 == '-different') mymeasures = c("xcorrelation_grouped_trained_different", "xcorrelation_grouped_untrained_different",
                                                 "xcorrelation_grouped_trained_untrained")
     if (suffix1 == '-different') data$value = data$xcorrelation_grouped_trained_different - data$xcorrelation_grouped_untrained_different
@@ -395,7 +430,7 @@ do_variability_analysis = function(meas, suffix0, suffix1, par = NULL,
     ylabel_diff = "Difference in scalar product\n(trained - untrained)"
     legend.position = 'bottom'
   } 
-
+  
   
   if (meas == 'xproduct_grouped'){
     if (suffix1 == '-same') mymeasures = c("xproduct_grouped_trained_same", "xproduct_grouped_untrained_same")
@@ -413,9 +448,15 @@ do_variability_analysis = function(meas, suffix0, suffix1, par = NULL,
     
     #  data$value = data$correlation_trained_different - data$correlation_untrained_different 
     if (suffix1 == '-same') {
-      browser()
-        ylabel = "Cross-validated variance"
-        ylabel_diff = "Difference in cross-validated variance estimate \n(trained - untrained)"
+      if (add_legend) {
+        formula = 'value ~ 1 + FD + SYSTEM + CONFIGURATION + GROUP*MEASURE + (1 | subject)'
+        contrast = c(0, 0, 0, 0, 0, 0, -1)
+        remove_measure = "Trained Untrained"
+        
+      }
+      clean_same = T
+      ylabel = "Cross-validated variance"
+      ylabel_diff = "Difference in cross-validated variance estimate \n(trained - untrained)"
     } else {
       ylabel = "Scalar product"
       ylabel_diff = "Difference in scalar product"
@@ -439,12 +480,12 @@ do_variability_analysis = function(meas, suffix0, suffix1, par = NULL,
   #mymeasures = c("crossnobis_trained", "crossnobis_untrained") #c("mean_signal_trained", "mean_signal_untrained") #c("alpha_trained", "alpha_untrained")
   
   # save it 
-#  output.data = data%>%
-#    group_by(label)%>%
-#    summarise(value=mean(value)) %>% arrange(-value) #, value_perm = mean(value_perm)
+  #  output.data = data%>%
+  #    group_by(label)%>%
+  #    summarise(value=mean(value)) %>% arrange(-value) #, value_perm = mean(value_perm)
   
-#  write.table(output.data, file = output_file, sep = ',', col.names = T, row.names = F)
-
+  #  write.table(output.data, file = output_file, sep = ',', col.names = T, row.names = F)
+  
   nrois = 4
   # check data
   plot(sort(table(data$subject))/5/2, las = 2) # how many sessions per subject
@@ -463,8 +504,7 @@ do_variability_analysis = function(meas, suffix0, suffix1, par = NULL,
   data = data %>% filter(!is.infinite(value))  %>% filter(!subject %in% incomplete_subjects, valid_runs >3) 
   
   data = data %>% group_by(subject) %>% 
-    mutate(value=markoutliersIQR(value)) %>% 
-    filter(!is.na(value)) %>% ungroup()
+    mutate(value=markoutliersIQR(value)) #%>% filter(!is.na(value)) %>% ungroup()
   
   data = merge(data, covars.table %>% mutate(subject = paste0('sub-', SUBJECT), session = TP), 
                by = c("subject", "session", "GROUP"))
@@ -473,14 +513,14 @@ do_variability_analysis = function(meas, suffix0, suffix1, par = NULL,
                      summarise(FD = mean (FD)) %>% mutate(subject = paste0('sub-', SUBJECT), session = TP), 
                    by = c("subject", "session"))
   #print(mymeasures)
-  
+  data = data %>% mutate(FD.valid = markoutliersIQR(FD)) %>% filter(!is.na(FD.valid))
   data.melt = reshape2::melt(data, 
                              id.vars = c("subject", "session", "GROUP", "hemi", "label", 
                                          "FD", "SYSTEM", "CONFIGURATION", "TRAINING", "TRAINING.Q", "TRAINING.A"),
                              variable.name = "MEASURE", 
                              value.name = "value") %>% mutate(SUBJECT = subject, value = as.numeric(value)) %>%
     filter(MEASURE %in% mymeasures) 
-
+  
   
   # model the data + as.factor(CONFIGURATION)*as.factor(session)
   #
@@ -495,7 +535,6 @@ do_variability_analysis = function(meas, suffix0, suffix1, par = NULL,
     #   print(summary(model))
     # }
     for (l in unique(data.melt$label)) {
-      print(l)
       model = lmer(value ~ 1 + FD + SYSTEM + as.factor(CONFIGURATION) + GROUP*MEASURE*(TRAINING + TRAINING.Q) + 
                      + (1 + TRAINING + TRAINING.Q|SUBJECT), data = data.melt %>% filter(label == l))
       print(summary(model))
@@ -522,6 +561,7 @@ do_variability_analysis = function(meas, suffix0, suffix1, par = NULL,
                                                     val.sem = sem(value)) %>% mutate(label = uni_label)
   #data.mean = rbind(data.mean, data.uni)
   
+  
   data.mean$ymin = data.mean$val.mean - data.mean$val.sem
   data.mean$ymax = data.mean$val.mean + data.mean$val.sem
   if (is.null(ylimit_diff)){
@@ -529,7 +569,7 @@ do_variability_analysis = function(meas, suffix0, suffix1, par = NULL,
     ylimit_diff = ylimit_diff + diff(ylimit_diff)*c(-.05, .05)
   }
   myplot = ggplot(data.mean , aes(
-    x = session,
+    x = session - 1,
     y = val.mean,
     ymin = ymin, 
     ymax = ymax, 
@@ -543,18 +583,20 @@ do_variability_analysis = function(meas, suffix0, suffix1, par = NULL,
     xlab('Test session') + 
     ylim(ylimit_diff) + 
     geom_hline(yintercept = 0, size = 0.3, linetype = 2) + 
-    theme_lh() + 
     scale_colour_manual(values = myPalette2) +
-    theme(legend.title = element_blank(),
-          panel.grid.major = element_blank(),
-          panel.grid.minor = element_blank(),
-          legend.text=element_text(size=14, face="bold"),
-          legend.box = 'vertical',
-          legend.margin = ggplot2::margin(1, 1, 1, 1, unit = "pt"),
-          axis.text=element_text(size=18),
-          axis.title=element_text(size=20, face="bold"),
-          strip.text.x = element_text(size = 20, face="bold"),
-          strip.background = element_blank())
+    scale_x_continuous(breaks = seq(0, 6)) +
+                         theme_lh() + 
+                         theme(legend.title = element_blank(),
+                               panel.grid.major = element_blank(),
+                               panel.grid.minor = element_blank(),
+                               legend.text=element_text(size=14, face="bold"),
+                               legend.box = 'vertical',
+                               legend.margin = ggplot2::margin(1, 1, 1, 1, unit = "pt"),
+                               axis.text=element_text(size=18),
+                               axis.title=element_text(size=20, face="bold"),
+                               strip.text.x = element_text(size = 20, face="bold"),
+                               strip.background = element_blank())
+  
   
   if (add_legend) myplot = myplot + theme(legend.position = legend.position.diff)
   else myplot = myplot + theme(legend.position = "none")
@@ -563,7 +605,7 @@ do_variability_analysis = function(meas, suffix0, suffix1, par = NULL,
   
   
   # hemi
-  data.melt = data.melt%>% mutate(MEASURE = clean_measure_names(MEASURE))
+  data.melt = data.melt%>% mutate(MEASURE = clean_measure_names(MEASURE, clean_same = clean_same))
   
   data.mean = data.melt%>%
     group_by(session, GROUP, label, MEASURE)%>%summarise(val.mean = mean(value.corr, na.rm = T), 
@@ -577,10 +619,10 @@ do_variability_analysis = function(meas, suffix0, suffix1, par = NULL,
     ylimit = ylimit + diff(ylimit)*c(-.05, .05)
     
   }  
-
+  
   if(length(table(data.mean$MEASURE)) == 2) myPalette = myPalette2
   myplot.all = ggplot(data.mean, aes(
-    x = session,
+    x = session - 1,
     y = val.mean,
     ymin = ymin, 
     ymax = ymax, 
@@ -596,7 +638,9 @@ do_variability_analysis = function(meas, suffix0, suffix1, par = NULL,
     xlab('Test session') + 
     ylim(ylimit) + 
     theme_lh() + 
-    scale_colour_manual(values = myPalette) + 
+    scale_colour_manual(values = myPalette) +  
+    scale_x_continuous(breaks= seq(0, 6)) +
+    theme_lh() + theme(legend.position = c(0.8, 0.8), legend.title=element_blank()) + 
     theme(text = element_text(size = 9),
           strip.background = element_blank(),
           legend.title = element_blank(),
@@ -608,6 +652,25 @@ do_variability_analysis = function(meas, suffix0, suffix1, par = NULL,
           axis.text=element_text(size=18),
           axis.title=element_text(size=20, face="bold"),
           strip.text.x = element_text(size = 20, face="bold"))
+  
+  
+  
+  if (!is.null(contrast)) {
+    
+    data.melt = data.melt %>% filter(! MEASURE %in% remove_measure)
+    stats.timepoints = test_model(data.melt, seq(7), 
+                                  formula, meas, 
+                                  contrast = contrast, print_model = F) %>% mutate(label = Label)
+    
+    #print(stats.timepoints)
+    View(stats.timepoints)
+    stats.timepoints.file = file.path(figs_dir, paste(meas, suffix, 'stats_timepoints.txt', sep = '-'))
+    write.table(stats.timepoints[seq(11)], file = stats.timepoints.file, sep = ',', col.names = T, row.names = F, quote = F)
+    
+    myplot.all = myplot.all + geom_text( data = stats.timepoints, aes(x = Session - 1, 
+                                                                      y = ylimit[2]*0.95, label = Significance), inherit.aes = F, size = STARSIZE) 
+    
+  }  
   
   if (add_legend) myplot.all = myplot.all + theme(legend.position = legend.position)
   else myplot.all = myplot.all + theme(legend.position = "none")
@@ -638,6 +701,78 @@ do_variability_analysis = function(meas, suffix0, suffix1, par = NULL,
   if (!is.null(par_diff)) do_tests_diff(data, par_diff, file.path(figs_dir, paste(meas, suffix, 'tests_diff.txt', sep = '-'))) 
   
 }
+
+test_model = function(data, test_sessions, formula, name, contrast, print_model = F, method = "fdr", family = NULL){
+  stats = NULL
+  singular = NULL
+  hasconverged = NULL
+  #  browser()
+  data$MEASURE = relevel(factor(data$MEASURE), ref = 'Untrained')
+  #  strict_tol <- lmerControl(optCtrl=list(method="nlminb"), optimizer = "optimx")
+  labels = unique(data$label)
+  for (mylabel in labels){
+    
+    for (sess in test_sessions){
+      
+      mydata = subset(data, session == sess & label == mylabel)
+      if (length(unique(mydata$SYSTEM)) == 1)
+      {
+        contrast.1 = contrast[-3]
+        formula.1 = gsub('SYSTEM \\+ ', '', formula)
+      } else {
+        contrast.1 = contrast
+        formula.1 = formula
+      }
+      if(length(grep("\\|", formula))==1) model = lmer( formula.1, data = mydata)
+      else model = lm( formula.1, data = mydata)
+      #      browser()
+      #print(
+      #  ggplot(subset(data, sess_num == sess), aes(x = seq_train, y = log(meanMT), col = seq_train, group = seq_train)) + geom_boxplot() + facet_grid(CONFIGURATION.SIMPLE ~  group)
+      #)
+      if (print_model) print(summary(model))
+      if(length(grep("\\|", formula))==1) {
+        singular = c(singular, isSingular(model))
+        hasconverged = c(hasconverged, model@optinfo$conv$opt)
+      } else {
+        singular = F
+        hasconverged = T
+      }
+      g = glht(model, linfct = rbind(contrast.1), alternative = "greater")
+      gg = summary(model)$coefficients[abs(contrast.1) == 1, ]
+      pvalue = unlist(summary(g)$test[ 'pvalues'])
+      
+      if (!is.null(family)){
+        gg = c(gg[1:2], NA, gg[3:4])
+      }
+      gg[5] = pvalue
+      stats = rbind(stats, c(mylabel, sprintf("%d#", sess-1), sprintf("%d#", (sess-1)*6), gg))  
+    }
+    print("==========================")
+    
+    if (nlevels(as.factor(data$GROUP)) == 1){
+      model.ROI = lmer('value ~ 1 + FD + SYSTEM + CONFIGURATION + (1|subject)', data = subset(data, label == mylabel))
+      print(summary(model.ROI))
+      print("==========================")
+    }
+    
+  }
+  stats = as.data.frame(stats)
+  colnames(stats) = c('Label', 'MRI session', 'Behavioral session', 'Estimate', 'Std. Error', 'df', 't', 'p(uncorrected)')
+  
+  stats$`p(corrected)` = p.adjust(stats$p, method = method)
+  stats = stats %>% group_by(Label) %>% mutate(`p(corrected_label)` = p.adjust(`p(uncorrected)`, method = method))
+  stats.format = as.data.frame(apply(stats, c(1,2), ff))
+  stats.format$Significance = ifelse(stats$`p(uncorrected)` < 0.05, '*', ' ')
+  #  stats.format$Significance[ stats$`p(uncorrected)` < 0.05 ] =  '*'
+  stats.format$Significance[ stats$`p(corrected_label)` < 0.05 ] = '**'
+  stats.format$Significance[ stats$`p(corrected)` < 0.05 ] = '***'
+  stats.format$Name = name
+  stats.format$Session = test_sessions  
+  stats.format$Singular = singular  
+  stats.format$converged = hasconverged  
+  return(stats.format)
+}
+
 
 if (F) {
   WIDTH = 30; HEIGHT = 24; DPI = 1000

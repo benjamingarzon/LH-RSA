@@ -167,11 +167,6 @@ def do_analysis(WD, PERMUTATE, overwrite_extract, overwrite_scores, output_data,
             data = results_all)
     
     plt.figure()    
-    ax = sns.boxplot(x = 'session', 
-            y = 'xnobis_trained_untrained', 
-            hue = 'hemi', 
-            data = results_all)    #ax.set_ylim([-1, 1])
-    ax.set_ylim([-.1, .3])
     results_all.groupby(['session', 'label']).max().clf_acc.max()
     
 
