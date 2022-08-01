@@ -42,11 +42,11 @@ testasymptoticrun = function(y, X, WAVES = seq(5))
   model = lmer(
     y ~ 1 + FD + SYSTEM  + CONFIGURATION + GROUP * CONDITION * TRAINING.A + poly(TRAINING, 3, raw = T) +
       (1 + TRAINING | SUBJECT),
-    data = X
+    data = X, contrasts=list(GROUP=contr.sum, CONDITION=contr.sum)
   )
   
   tryCatch({
-    an = Anova(model)
+    an = Anova(model, type = "III")
     pvalues = unlist(an[, "Pr(>Chisq)"])
     stats = unlist(an[, "Chisq"])
     val = c(stats, pvalues)
@@ -102,11 +102,11 @@ testquadraticrun = function(y, X, WAVES = seq(5))
   model = lmer(
     y ~ 1 + FD + SYSTEM  + CONFIGURATION + GROUP * CONDITION * TRAINING.Q + poly(TRAINING, 3, raw = T) +
       (1 + TRAINING | SUBJECT),
-    data = X
+    data = X, contrasts=list(GROUP=contr.sum, CONDITION=contr.sum)
   )
   
   tryCatch({
-    an = Anova(model)
+    an = Anova(model, type = "III")
     pvalues = unlist(an[, "Pr(>Chisq)"])
     stats = unlist(an[, "Chisq"])
     val = c(stats, pvalues)
@@ -152,10 +152,10 @@ testcubicrun = function(y, X, WAVES = seq(5))
   X$TRAINING = scale((X$TP - 1)*6, center = F, scale = T)
   
   model = lmer(y ~ 1 + FD + SYSTEM + CONFIGURATION + GROUP * CONDITION * poly(TRAINING, 3, raw = T) + 
-      (1 + TRAINING | SUBJECT), data = X)
+      (1 + TRAINING | SUBJECT), data = X, contrasts=list(GROUP=contr.sum, CONDITION=contr.sum))
   
   tryCatch({
-    an = Anova(model)
+    an = Anova(model, type = "III")
     pvalues = unlist(an[, "Pr(>Chisq)"])
     stats = unlist(an[, "Chisq"])
     val = c(stats, pvalues)
