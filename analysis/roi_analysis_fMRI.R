@@ -40,7 +40,7 @@ aparc=list('lh'='/data/lv0/MotorSkill/labels/subject/fsaverage6/label/lh.aparc.a
 DATADIR = file.path(WD, 'surf/')
 NCOLMAX = 4
 
-MAXTHR = 3
+MAXTHR = 5
 THR = 1
 MASK_NAME = 'mask_prereg.nii.gz'
 TESTDIR = 'tests/comparison_prereg'
@@ -48,10 +48,55 @@ TESTNAME = 'Best'
 #myplots.surf.comparison_prereg = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, MAXTHR, 
 #                                                  plot_function = plot_activation_data)
 
+
 MAXTHR = 1
 THR = 0.975
-if (T) {
+
+MASK_NAME = 'mask_prereg.nii.gz'
+
+# cubic
+TESTDIR = 'tests/cubic_prereg'
+STAT_NAMES = paste0('CONDITION_x_TRAINING', c("_chisq", "_p", "_p_fdr"))
+TESTNAME = STAT_NAMES[3]
+
+myplots.surf.conditionxtraining = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, MAXTHR, 
+                                                           plot_function = plot_activation_data, annot = annot, stat_names = STAT_NAMES)
+
+STAT_NAMES = paste0('GROUP_x_TRAINING', c("_chisq", "_p", "_p_fdr"))
+TESTNAME = STAT_NAMES[3]
+myplots.surf.groupxtraining = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, MAXTHR, 
+                                                   plot_function = plot_activation_data, annot = annot, stat_names = STAT_NAMES)
+
+STAT_NAMES = paste0('GROUP_x_CONDITION', c("_chisq", "_p", "_p_fdr"))
+TESTNAME = STAT_NAMES[3]
+myplots.surf.groupxtraining = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, MAXTHR, 
+                                               plot_function = plot_activation_data, annot = annot, stat_names = STAT_NAMES)
+
+
 # asymptotic
+TESTDIR = 'tests/asymptotic_prereg'
+STAT_NAMES = paste0('CONDITION_x_TRAINING.A', c("_chisq", "_p", "_p_fdr"))
+TESTNAME = STAT_NAMES[3]
+
+myplots.surf.conditionxtraining = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, MAXTHR, 
+                                                   plot_function = plot_activation_data, annot = annot, stat_names = STAT_NAMES)
+
+STAT_NAMES = paste0('GROUP_x_TRAINING.A', c("_chisq", "_p", "_p_fdr"))
+TESTNAME = STAT_NAMES[3]
+myplots.surf.groupxtraining = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, MAXTHR, 
+                                               plot_function = plot_activation_data, annot = annot, stat_names = STAT_NAMES)
+
+STAT_NAMES = paste0('GROUP_x_CONDITION.A', c("_chisq", "_p", "_p_fdr"))
+TESTNAME = STAT_NAMES[3]
+myplots.surf.groupxtraining = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, MAXTHR, 
+                                               plot_function = plot_activation_data, annot = annot, stat_names = STAT_NAMES)
+
+
+
+stophere  
+# asymptotic
+
+stat_names = c("OmniF_tstat", "Omni_p", "Omni_p_fdr")
 
 MASK_NAME = 'mask_prereg.nii.gz'
 TESTDIR = 'tests/asymptotic_prereg_groupxconditionxtraining'
@@ -73,7 +118,7 @@ TESTNAME = 'Omni_p_fdr'
 myplots.surf.groupxtraining = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, MAXTHR, 
                                                plot_function = plot_activation_data, annot = annot)
 
-}
+
 
 MASK_NAME = 'mask_whole.nii.gz'
 TESTDIR = 'tests/asymptotic_whole_prereg'

@@ -28,9 +28,10 @@ do_tests = function(mydata, par, myfile, odd, analysis_type = 'groupxtrainingxme
   if (!use_GAM){
     for (l in labels) {
       if (analysis_type == 'groupxtrainingxmeasure') 
+
         model = lmer(value ~ 1 + FD + SYSTEM + CONFIGURATION + (GROUP*TRAINING*MEASURE) + (1 |subject), data = mydata %>% 
                        filter(label == l))
-      if (analysis_type == 'groupxtraining') 
+        if (analysis_type == 'groupxtraining') 
         model = lmer(value ~ 1 + FD + SYSTEM + CONFIGURATION + (GROUP*TRAINING) + (1 |subject), data = mydata %>% 
                        filter(label == l))
       if (analysis_type == 'training') 
@@ -40,6 +41,7 @@ do_tests = function(mydata, par, myfile, odd, analysis_type = 'groupxtrainingxme
         model = lmer(value ~ 1 + FD + SYSTEM + CONFIGURATION + GROUP*MEASURE + (1 |subject), data = mydata %>% 
                        filter(label == l))
       if(isSingular(model)) {
+        browser()
         print(myfile)
         print(summary(model))
         
@@ -656,7 +658,6 @@ do_variability_analysis = function(meas, suffix0, suffix1, par = NULL,
   
   
   if (!is.null(contrast)) {
-    
     data.melt = data.melt %>% filter(! MEASURE %in% remove_measure)
     stats.timepoints = test_model(data.melt, seq(7), 
                                   formula, meas, 
@@ -694,7 +695,6 @@ do_variability_analysis = function(meas, suffix0, suffix1, par = NULL,
     dpi = DPI,
     units = 'cm'
   )
-  
   if (!is.null(par)) do_tests(data.melt, par, file.path(figs_dir, paste(meas, suffix, gsub(" ", "", par), 'tests.txt', sep = '-')), odd = odd,
                               analysis_type = analysis_type)
   

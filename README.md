@@ -21,6 +21,7 @@ process/multivariate_analyses.sh
 
 ### T1 calculation
   -> process/T1values/MP2RAGE_B1corr/estimateT1.m
+  
 ### PCM and MVPA calculation
   -> process/setup_GLM.sh
   -> process/prepare_queryengine.py
@@ -45,6 +46,8 @@ analysis/high_level_analysis.R
 analysis/myfmritests.R
 analysis/variability_analysis.R
 analysis/session_variability_analysis.R
-
+analysis/neural_patterns_analysis.R
 analysis/roi_analysis_fMRI.R
+
+# Plotting 
 

@@ -7,7 +7,7 @@ setwd("~/Software/LeftHand/analysis")
 source('./plot_funcs.R')
 source('./load_covariates.R')
 source('./variability_analysis.R')
-source('./session_variability_analysis.R')
+#source('./session_variability_analysis.R')
 
 ########################
 # Figure options
@@ -19,6 +19,7 @@ WIDTH = 30; HEIGHT = 24; DPI = 1000
 ########################
 # some selected figures
 for (suffix0 in c('mask-cross-runprew', 'mask-cross-runprew-perm')) { #
+  if (F){
  #do_variability_analysis('clf', suffix0, '-all', ylimit = c(0.45, 0.70), add_legend = suffix0 == 'mask-cross-runprew-perm')    
  do_variability_analysis('clf', suffix0, '-all', ylimit = c(0.45, 0.70), 
                          odd = c('Trained Different'))    
@@ -29,7 +30,7 @@ for (suffix0 in c('mask-cross-runprew', 'mask-cross-runprew-perm')) { #
  
  do_variability_analysis('alpha', suffix0, '-all', odd = c('Trained Different'), add_legend = T)     
 # do_variability_analysis('alpha', suffix0, '-all', par = c('MEASUREUntrained'), add_legend = T)  
-
+  }
   do_variability_analysis('xnobis_grouped', suffix0, '-different', par = c('TRAINING'),
                           odd = c('Trained Different', 'Untrained Different'),
                           analysis_type = 'groupxtraining')

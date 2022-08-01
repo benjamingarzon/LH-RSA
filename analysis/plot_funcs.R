@@ -8,6 +8,8 @@ library(dplyr)
 library(multcomp)
 library(freesurfer)
 library(stringr)
+library(lcmm)
+library(car)
 
 DPI = 500 # default
 
@@ -79,18 +81,19 @@ plot_activation_data = function(X, title, regressout = F, YMIN = 0, YMAX = 4, ad
   X = X %>% mutate(WAVE = as.numeric(substring(SUBJECT, 4, 4)), y = y/100)# %>% filter (WAVE> 1) to percent signal change
 
   if(T){
-  model = lmer(y ~ 1 + FD + SYSTEM + CONFIGURATION + GROUP*CONDITION*(TRAINING + TRAINING.A) + 
+  #model = lmer(y ~ 1 + FD + SYSTEM + CONFIGURATION + GROUP*CONDITION*(TRAINING + TRAINING.A) + 
+  #               + (1 + TRAINING|SUBJECT), data = subset(X, WAVE>1))
+  X$TRAINING = (X$TP - 1)*6
+  model = lmer(y ~ 1 + FD + SYSTEM + CONFIGURATION + GROUP*CONDITION*poly(TRAINING, 3, raw = F) + 
                  + (1 + TRAINING|SUBJECT), data = subset(X, WAVE>1))
-    
-  print(summary(model))
+  
+  #browser()
+  #print(summary(model))
+  print(Anova(model))
   print(paste("df: ", df.residual(model)))
   }
   
-#  model.untrained = lmer(y ~ 1 + FD + SYSTEM + CONFIGURATION + 
-#                 GROUP*(TRAINING + TRAINING.A) +
-#                 (1 + TRAINING + TRAINING.A|SUBJECT), data = subset(X, WAVE > 1 & CONDITION == 'UntrainedCorrect'))
-#  print(summary(model.untrained)$coefficients[c(7, 10, 11), ])
-  
+
   print(sum(!is.na(X$y)))
   
   # regress out movement and system
@@ -322,6 +325,8 @@ create_vol_rois = function(DATADIR,
   if (sum(roimask) == 0)
     return(NULL)
   
+  if (!is.null(plot_activation_data)) return(list(ROI_FILE = ROI_FILE))
+  
   for (myroi in seq(dim(roimask)[4])) {
     title = paste('ROI', myroi, sep = '-')
     print(
@@ -373,7 +378,7 @@ create_surf_rois = function(DATADIR,
                             MAXTHR, 
                             PRECOMP_ROI = NULL,
                             wDEPTH = F, 
-                            plot_function = plot_data, annot = NULL, maxplots = 16) {
+                            plot_function = plot_data, annot = NULL, maxplots = 16, stat_names = NULL) {
   tests = NULL
   rois = NULL
   myplots = NULL
@@ -458,13 +463,15 @@ create_surf_rois = function(DATADIR,
       
       imaging.mat = results$imaging.mat[, roi_indices, drop = F]
       
-      stats = results$stats[roi_indices, c("OmniF_tstat", "Omni_p", "Omni_p_fdr")]
+      if (!is.null(stat_names)){
+      stats = results$stats[roi_indices, stat_names]
       stats[, c(2, 3)] = 1 - stats[, c(2, 3)]
-      which.minp = which.min(stats[,'Omni_p'])[1]
+      which.minp = which.min(stats[, stat_names[2]])[1]
       print('------------------')
       print(paste("statistics", paste(signif(stats[which.minp, ], 3), collapse = ' ')))
       print('------------------')
-
+      }
+      
       if (is.null(results$complete_data)) {
         X = results$data[-results$excluded,] }
       else {

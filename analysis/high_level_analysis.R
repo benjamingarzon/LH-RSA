@@ -2,6 +2,7 @@ rm(list = ls())
 library(pracma)
 library(ggplot2)
 library(dplyr)
+library(car)
 
 source('~/Software/ImageLMMR/ImageLMMR.R')
 setwd("~/Software/LeftHand/analysis")
@@ -34,7 +35,7 @@ mask_roi = 'mask.nii.gz'
 # Set up analyses
 ########################
 collect_data = F
-NPROCS = 5
+NPROCS = 8
 
 analysis_type = 'surfL'  #volume, surfR/L 
 
@@ -186,6 +187,79 @@ if (collect_data) {
 
 
 # check results: freeview -f /usr/local/freesurfer/7.1.1-1/subjects/fsaverage6/surf/lh.inflated:overlay=INTERCEPT_coef.func.gii
+results.comparison_prereg = doit(file.path(DATADIR, analysis_type),
+                                 image.list,
+                                 modelcomparisonrun_prereg,
+                                 'tests/comparison_prereg',
+                                 MASK = mask_roi,
+                                 IMAGES_NAME = 'image_list.txt',
+                                 IMAGING_NAME = 'images.nii.gz',
+                                 conditions = condition.list, 
+                                 motion = motion,
+                                 to_gifti = mysurf)
+
+results.cubic_prereg = doit(file.path(DATADIR, analysis_type),
+                            image.list,
+                            testcubicrun_prereg,
+                            'tests/cubic_prereg',
+                            MASK = mask_roi,
+                            IMAGES_NAME = 'image_list.txt',
+                            IMAGING_NAME = 'images.nii.gz',
+                            conditions = condition.list,
+                            motion = motion,
+                            to_gifti = mysurf)
+
+results.asymptotic_prereg = doit(file.path(DATADIR, analysis_type),
+                             image.list,
+                            testasymptoticrun_prereg,
+                            'tests/asymptotic_prereg',
+                            MASK = mask_roi,
+                            IMAGES_NAME = 'image_list.txt',
+                            IMAGING_NAME = 'images.nii.gz',
+                            conditions = condition.list,
+                            motion = motion,
+                            to_gifti = mysurf)
+
+results.quadratic_prereg = doit(file.path(DATADIR, analysis_type),
+                                 image.list,
+                                 testquadraticrun_prereg,
+                                 'tests/quadratic_prereg',
+                                 MASK = mask_roi,
+                                 IMAGES_NAME = 'image_list.txt',
+                                 IMAGING_NAME = 'images.nii.gz',
+                                 conditions = condition.list,
+                                 motion = motion,
+                                 to_gifti = mysurf)
+
+
+
+results.cubic_whole_prereg = doit(file.path(DATADIR, analysis_type),
+                                  image.list,
+                                  testcubicrun_prereg,
+                                  'tests/cubic_whole_prereg',
+                                  MASK = mask_whole,
+                                  IMAGES_NAME = 'image_list.txt',
+                                  IMAGING_NAME = 'images.nii.gz',
+                                  conditions = condition.list,
+                                  motion = motion,
+                                  to_gifti = mysurf)
+
+results.comparison_whole_prereg = doit(file.path(DATADIR, analysis_type),
+                                       image.list,
+                                       modelcomparisonrun_prereg,
+                                       'tests/comparison_whole_prereg_cond',
+                                       MASK = mask_whole,
+                                       IMAGES_NAME = 'image_list.txt',
+                                       IMAGING_NAME = 'images.nii.gz',
+                                       conditions = condition.list, 
+                                       motion = motion,
+                                       to_gifti = mysurf)
+
+
+stophere
+
+
+
 
 
 results.asymptotic_prereg_groupxtraining = doit(file.path(DATADIR, analysis_type),
@@ -433,3 +507,10 @@ results.linear.prereg_half = doit(file.path(DATADIR, analysis_type),
 #ln -s /data/lv0/MotorSkill/fmriprep/analysis/higherlevel/$mydir/surfL/tests/$name /data/lv0/MotorSkill/fmriprep/analysis/higherlevel/$mydir/surf/tests/${name}.lh
 #ln -s /data/lv0/MotorSkill/fmriprep/analysis/higherlevel/$mydir/surfR/tests/$name /data/lv0/MotorSkill/fmriprep/analysis/higherlevel/$mydir/surf/tests/${name}.rh
 #done
+
+
+# mydir=Trained_Untrained
+# for name in comparison_prereg_ext comparison_whole_prereg_ext cubic_prereg  cubic_whole_prereg; do 
+# ln -s /data/lv0/MotorSkill/fmriprep/analysis/higherlevel/$mydir/surfL/tests/$name /data/lv0/MotorSkill/fmriprep/analysis/higherlevel/$mydir/surf/tests/${name}.lh
+# ln -s /data/lv0/MotorSkill/fmriprep/analysis/higherlevel/$mydir/surfR/tests/$name /data/lv0/MotorSkill/fmriprep/analysis/higherlevel/$mydir/surf/tests/${name}.rh
+# done
