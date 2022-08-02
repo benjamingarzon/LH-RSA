@@ -37,7 +37,7 @@ mask_roi = 'mask.nii.gz'
 collect_data = F
 NPROCS = 15
 
-analysis_type = 'surfR'  #volume, surfR/L 
+analysis_type = 'surfL'  #volume, surfR/L 
 
 analysis_name = 'Trained_Untrained'
 conditions = c(1, 2)

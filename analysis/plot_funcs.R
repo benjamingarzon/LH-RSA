@@ -84,8 +84,8 @@ plot_activation_data = function(X, title, regressout = F, YMIN = 0, YMAX = 4, ad
   #model = lmer(y ~ 1 + FD + SYSTEM + CONFIGURATION + GROUP*CONDITION*(TRAINING + TRAINING.A) + 
   #               + (1 + TRAINING|SUBJECT), data = subset(X, WAVE>1))
   X$TRAINING = (X$TP - 1)*6
-
-  model = lmer(y ~ 1 + FD + SYSTEM + CONFIGURATION + GROUP*CONDITION*poly(TRAINING, 3, raw = F) + 
+  browser()
+  model = lmer(y ~ 1 + FD + SYSTEM + CONFIGURATION + GROUP*CONDITION*poly(TRAINING, 3, raw = T) + 
                  + (1 + TRAINING|SUBJECT), data = subset(X, WAVE>1), contrasts=list(GROUP=contr.sum, CONDITION=contr.sum))
   print(Anova(model, type = "III"))
   print(paste("df: ", df.residual(model)))

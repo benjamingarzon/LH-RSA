@@ -45,8 +45,8 @@ THR = 1
 MASK_NAME = 'mask_prereg.nii.gz'
 TESTDIR = 'tests/comparison_prereg'
 TESTNAME = 'Best'
-myplots.surf.comparison_prereg = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, MAXTHR, 
-                                                  plot_function = plot_activation_data)
+#myplots.surf.comparison_prereg = create_surf_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, MAXTHR, 
+#                                                  plot_function = plot_activation_data)
 
 
 MAXTHR = 1

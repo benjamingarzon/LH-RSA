@@ -8,6 +8,7 @@ export_funcs = c('testquadraticrun',
 testasymptoticrun = function(y, X, WAVES = seq(5))
 {
   var.names = c(
+    "INTERCEPT",
     "FD",
     "SYSTEMMTx8",
     "CONFIGURATION",
@@ -70,6 +71,7 @@ testasymptoticrun = function(y, X, WAVES = seq(5))
 testquadraticrun = function(y, X, WAVES = seq(5))
 {
   var.names = c(
+    "INTERCEPT",
     "FD",
     "SYSTEMMTx8",
     "CONFIGURATION",
@@ -130,6 +132,7 @@ testquadraticrun = function(y, X, WAVES = seq(5))
 testcubicrun = function(y, X, WAVES = seq(5))
 {
   var.names = c(
+    "INTERCEPT",
     "FD",
     "SYSTEMMTx8",
     "CONFIGURATION",
