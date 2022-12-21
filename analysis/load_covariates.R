@@ -111,6 +111,8 @@ covars.table$TRAINING.A = training.asymptotic[covars.table$TP]
 covars.table$TRAINING_x_GROUP = covars.table$TRAINING*covars.table$GROUP.NUM 
 covars.table$TRAINING.Q_x_GROUP = covars.table$TRAINING.Q*covars.table$GROUP.NUM 
 
+covars.table$WAVE = as.numeric(substring(covars.table$SUBJECT, 4, 4))
+
 # add motion parameters
 covars.table = merge(covars.table, motion, by = c("SUBJECT", "TP"))
 

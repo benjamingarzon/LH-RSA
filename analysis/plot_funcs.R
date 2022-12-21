@@ -182,6 +182,7 @@ create_vol_rois = function(DATADIR,
 
   # plot data
   load(file.path(DATADIR, TESTDIR, 'results.rda'))
+  browser()
   mask <- fast_readnii(MASK_FILE)
   roimask <- readNIfTI(ROI_FILE)
   if (sum(roimask) == 0)

@@ -74,17 +74,30 @@ source("./do_change_simulations.R")
 img.GMV = ggplot() + background_image(readPNG(file.path(FIGS_DIR, 'PowerGMV.png')))
 img.thickness.isotropic = ggplot() + background_image(readPNG(file.path(FIGS_DIR, 'PowerThicknessIsotropic.png')))
 
-img.GMV.ROI = ggplot() + background_image(readPNG(file.path(FIGS_DIR, 'PowerGMV-ROI.png')))
-img.thickness.isotropic.ROI = ggplot() + background_image(readPNG(file.path(FIGS_DIR, 'PowerThicknessIsotropic-ROI.png')))
+#img.GMV.ROI = ggplot() + background_image(readPNG(file.path(FIGS_DIR, 'PowerGMV-ROI.png')))
+#img.thickness.isotropic.ROI = ggplot() + background_image(readPNG(file.path(FIGS_DIR, 'PowerThicknessIsotropic-ROI.png')))
+
+img.GMV.ROI.1 = ggplot() + background_image(readPNG(file.path(FIGS_DIR, 'PowerGMV-ROI-0.33.png')))
+img.thickness.isotropic.ROI.1 = ggplot() + background_image(readPNG(file.path(FIGS_DIR, 'PowerThicknessIsotropic-ROI-0.33.png')))
+
+img.GMV.ROI.2 = ggplot() + background_image(readPNG(file.path(FIGS_DIR, 'PowerGMV-ROI-0.66.png')))
+img.thickness.isotropic.ROI.2 = ggplot() + background_image(readPNG(file.path(FIGS_DIR, 'PowerThicknessIsotropic-ROI-0.66.png')))
+
+img.GMV.ROI.3 = ggplot() + background_image(readPNG(file.path(FIGS_DIR, 'PowerGMV-ROI-1.png')))
+img.thickness.isotropic.ROI.3 = ggplot() + background_image(readPNG(file.path(FIGS_DIR, 'PowerThicknessIsotropic-ROI-1.png')))
 
 plot.final = ggarrange(
   img.thickness.isotropic, 
   img.GMV, 
-  img.thickness.isotropic.ROI, 
-  img.GMV.ROI, 
-  labels = c("A", "B", "C", "D"), 
-  ncol = 2, nrow = 2, font.label = list(size = FONT.SIZE))
+  img.thickness.isotropic.ROI.1, 
+  img.GMV.ROI.1, 
+  img.thickness.isotropic.ROI.2, 
+  img.GMV.ROI.2, 
+  img.thickness.isotropic.ROI.3, 
+  img.GMV.ROI.3, 
+  labels = c("A", "B", "C", "D", "E", "F", "G", "H"), 
+  ncol = 2, nrow = 4, font.label = list(size = FONT.SIZE))
 
-ggsave(file.path(FIGS_DIR, 'Power.png'), plot = plot.final, dpi = DPI, width = 16, height = 13, units = 'cm')
+ggsave(file.path(FIGS_DIR, 'Power.png'), plot = plot.final, dpi = DPI, width = 16, height = 26, units = 'cm')
   
 

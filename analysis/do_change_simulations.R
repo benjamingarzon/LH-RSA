@@ -108,7 +108,6 @@ sample_subjects = function(data.sum, N, NTPS, maxval, model_type, isROI) {
 }
 
 fit_model = function(var, data.sim, model_type){
-
   if (model_type == 'Linear'){ 
     myformula = paste(var, '1 + GROUP*TP.1 + (1|SUBJECT)', sep =  '~')
     model = lmer(as.formula(myformula), data = data.sim)

@@ -19,7 +19,7 @@ source('./mytests.R')
 source('./structural_analysis_funcs.R')
 
 SUBJECTS_DIR = '~/Data/LeftHand/Lund1/freesurfer/'
-NPROCS = 30
+NPROCS = 20
 
 source('./load_covariates.R')
 
@@ -77,7 +77,7 @@ doit(
   NPERMS = NPERMS,
   shuffle_by = shuffle_by
 )
-  
+
 doit(
     DATADIR,
     reliability,
@@ -89,7 +89,8 @@ doit(
     NPERMS = NPERMS,
     shuffle_by = shuffle_by
   )
-  
+
+}
 #results.quadratic.cat =
 doit(
   DATADIR,
@@ -116,6 +117,19 @@ doit(
   shuffle_by = shuffle_by
 )
 
+#results.asymptotic.cat =
+doit(
+  DATADIR,
+  testasymptotic,
+  'tests/asymptotic',
+  MASK = vbm.mask,
+  IMAGES_LIST = 'image_list.txt',
+  IMAGING_NAME = vbm.data,
+  upsample = upsample,
+  NPERMS = NPERMS,
+  shuffle_by = shuffle_by
+)
+
 #results.comparison.cat =
 doit(
   DATADIR,
@@ -128,7 +142,7 @@ doit(
   NPERMS = NPERMS,
   shuffle_by = shuffle_by
 )
-}
+
 
 #####################
 # thickness
@@ -192,6 +206,7 @@ doit(
   NPERMS = NPERMS,
   shuffle_by = shuffle_by
 )
+}
 
 #results.thickness.quadratic.rh =
 doit(
@@ -249,6 +264,36 @@ doit(
   shuffle_by = shuffle_by
 )
 
+
+#results.thickness.asymptotic.rh =
+doit(
+  DATADIR,
+  testasymptotic,
+  'tests/thickness/asymptotic.rh',
+  MASK = lh.mask,
+  IMAGES_LIST = 'rh.thickness.txt',
+  IMAGING_NAME = 'rh.thickness.nii.gz',
+  to_gifti = rh.gii,
+  alpha = alphavertex,
+  NPERMS = NPERMS,
+  shuffle_by = shuffle_by
+)
+
+#results.thickness.asymptotic.lh =
+doit(
+  DATADIR,
+  testasymptotic,
+  'tests/thickness/asymptotic.lh',
+  MASK = lh.mask,
+  IMAGES_LIST = 'lh.thickness.txt',
+  IMAGING_NAME = 'lh.thickness.nii.gz',
+  to_gifti = lh.gii,
+  alpha = alphavertex,
+  NPERMS = NPERMS,
+  shuffle_by = shuffle_by
+)
+
+
 #results.thickness.comparison.rh =
 doit(
   DATADIR,
@@ -277,7 +322,7 @@ doit(
   shuffle_by = shuffle_by
 )
 
-}
+stophere
 
 #####################
 # T1 values

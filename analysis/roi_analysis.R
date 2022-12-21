@@ -28,13 +28,13 @@ THR=0.95
 REDRAW = T
 
 TESTDIR = 'tests/linear'
-TESTNAME = 'GROUP_x_TRAINING+_p'
-#myplots.VBM = create_vol_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, GMV_LABEL, redraw = REDRAW)
+TESTNAME = 'GROUP_x_TRAINING_p_fdr'
+myplots.VBM = create_vol_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, GMV_LABEL, redraw = REDRAW)
 
 
 TESTDIR = 'tests/linear'
 TESTNAME = 'GROUP+_p'
-#myplots.VBM = create_vol_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, GMV_LABEL, redraw = REDRAW)
+myplots.VBM = create_vol_rois(DATADIR, TESTDIR, TESTNAME, DISTANCE, radius, MASK_NAME, THR, GMV_LABEL, redraw = REDRAW)
 
 
 #################################################################################
