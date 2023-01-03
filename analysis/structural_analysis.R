@@ -90,7 +90,6 @@ doit(
     shuffle_by = shuffle_by
   )
 
-}
 #results.quadratic.cat =
 doit(
   DATADIR,
@@ -143,6 +142,7 @@ doit(
   shuffle_by = shuffle_by
 )
 
+}
 
 #####################
 # thickness
@@ -206,7 +206,6 @@ doit(
   NPERMS = NPERMS,
   shuffle_by = shuffle_by
 )
-}
 
 #results.thickness.quadratic.rh =
 doit(
@@ -322,14 +321,14 @@ doit(
   shuffle_by = shuffle_by
 )
 
-stophere
-
+}
 #####################
 # T1 values
 #####################
-#asymptotic
-# right
 
+
+#asymptotic
+#right
 doit(
   DATADIR,
   testasymptotic_depth,
@@ -348,7 +347,7 @@ doit(
 doit(
   DATADIR,
   testasymptotic_depth,
-  'tests/T1/asymptotic',
+  'tests/T1/asymptotic.lh',
   MASK = lh.mask,
   IMAGES_LIST = 'lh.T1.txt',
   IMAGING_NAME = 'lh.T1.nii.gz',
@@ -358,12 +357,11 @@ doit(
   shuffle_by = shuffle_by
 )
 
-if (F) {
 #results.T1.quadratic.rh = 
 doit(
   DATADIR,
-  testquadratic_depth,
-  'tests/T1/quadratic.rh',
+  testcubic_depth,
+  'tests/T1/cubic.rh',
   MASK = rh.mask,
   IMAGES_LIST = 'rh.T1.txt',
   IMAGING_NAME = 'rh.T1.nii.gz',
@@ -377,8 +375,8 @@ doit(
 #results.T1.quadratic.lh = 
 doit(
   DATADIR,
-  testquadratic_depth,
-  'tests/T1/quadratic.lh',
+  testcubic_depth,
+  'tests/T1/cubic.lh',
   MASK = lh.mask,
   IMAGES_LIST = 'lh.T1.txt',
   IMAGING_NAME = 'lh.T1.nii.gz',
@@ -387,6 +385,44 @@ doit(
   NPERMS = NPERMS,
   shuffle_by = shuffle_by
 )
+
+stophere
+
+
+if (F) {
+
+  #model comparison
+  #right
+  #results.T1.modelcomparison.rh = 
+  doit(
+    DATADIR,
+    modelcomparison_depth,
+    'tests/T1/comparison.rh',
+    MASK = rh.mask,
+    IMAGES_LIST = 'rh.T1.txt',
+    IMAGING_NAME = 'rh.T1.nii.gz',
+    to_gifti = rh.gii,
+    alpha = alphavertex,
+    NPERMS = NPERMS,
+    shuffle_by = shuffle_by
+  )
+  
+  #left
+  #results.T1.modelcomparison.lh = 
+  doit(
+    DATADIR,
+    modelcomparison_depth,
+    'tests/T1/comparison.lh',
+    MASK = lh.mask,
+    IMAGES_LIST = 'lh.T1.txt',
+    IMAGING_NAME = 'lh.T1.nii.gz',
+    to_gifti = lh.gii,
+    alpha = alphavertex,
+    NPERMS = NPERMS,
+    shuffle_by = shuffle_by
+  )
+  
+  
 
 # linear
 #right
@@ -419,37 +455,6 @@ doit(
   shuffle_by = shuffle_by
 )
 
-}
-#model comparison
-#right
-#results.T1.modelcomparison.rh = 
-doit(
-  DATADIR,
-  modelcomparison_depth,
-  'tests/T1/comparison.rh',
-  MASK = rh.mask,
-  IMAGES_LIST = 'rh.T1.txt',
-  IMAGING_NAME = 'rh.T1.nii.gz',
-  to_gifti = rh.gii,
-  alpha = alphavertex,
-  NPERMS = NPERMS,
-  shuffle_by = shuffle_by
-)
-
-#left
-#results.T1.modelcomparison.lh = 
-doit(
-  DATADIR,
-  modelcomparison_depth,
-  'tests/T1/comparison.lh',
-  MASK = lh.mask,
-  IMAGES_LIST = 'lh.T1.txt',
-  IMAGING_NAME = 'lh.T1.nii.gz',
-  to_gifti = lh.gii,
-  alpha = alphavertex,
-  NPERMS = NPERMS,
-  shuffle_by = shuffle_by
-)
 
 #reliability
 #right
@@ -511,3 +516,6 @@ doit(
   NPERMS = NPERMS,
   shuffle_by = shuffle_by
 )
+
+}
+
